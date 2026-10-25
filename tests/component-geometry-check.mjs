@@ -7,7 +7,7 @@ import vm from 'node:vm';
 const source=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-assert.match(html,/<script src="assets\/part-geometry\.js\?v=0\.15"><\/script>\s*<script src="assets\/app\.js\?v=0\.15"><\/script>/);
+assert.match(html,/<script src="assets\/part-geometry\.js\?v=0\.16"><\/script>\s*<script src="assets\/app\.js\?v=0\.16"><\/script>/);
 assert.match(app,/p\.type==='tray'&&drawParts\?\.renderTray/);
 assert.match(app,/p\.type==='radiator'&&drawParts\?\.renderRadiator/);
 
@@ -77,10 +77,41 @@ assert.ok(Math.abs(window.WalnutLoopPartGeometry.rearPanelAlignment(resized).rig
   (resized.pos[0]+130+8))<.01);
 const darkRear=trayFaces.filter(e=>e.fill==='#1b2731');
 assert.ok(darkRear.length>=70,'Rear panel should surround fan, I/O and seven PCI cutouts');
-const fanX=panel.fanX,fanY=panelBottom+92;
+const fanX=panel.fanX,fanY=panelBottom+119;
 const centerCovered=darkRear.some(e=>e.points.length===4&&e.points.every(p=>
   Math.hypot(p[0]-fanX,p[1]-fanY)<10));
 assert.equal(centerCovered,false,'Rear fan opening should remain open');
+// Validate actual cut-through areas, not just decorative outlines.
+assert.ok(fanX>panel.center,'120 mm fan belongs on the right');
+assert.ok(panel.split>panel.left&&panel.split<panel.right);
+const sheet=darkRear.map(e=>e.points);
+function containsPoint(vertices,x,y){
+ let inside=false;
+ for(let i=0,j=vertices.length-1;i<vertices.length;j=i++){
+  const a=vertices[i],b=vertices[j];
+  if((a[1]>y)!==(b[1]>y) &&
+     x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])
+    inside=!inside;
+ }
+ return inside;
+}
+const covered=(x,y)=>sheet.some(poly=>containsPoint(poly,x,y));
+assert.equal(covered(fanX,fanY),false,'Fan center is an open hole');
+assert.equal(covered(fanX,panelBottom+30),false,'I/O under the fan must be open');
+assert.equal(covered(fanX,panelBottom+58),true,'Metal must separate fan and I/O');
+assert.equal(covered(fanX,panelBottom+5),true,'Metal must remain below I/O');
+assert.equal(covered(panel.right-4,panelBottom+88),true,'Right outer frame must stay solid');
+for(let i=0;i<7;i++){
+ const slotCenter=panel.left+19+i*21;
+ assert.ok(slotCenter<panel.split,'PCI slot must remain in left section');
+ assert.equal(covered(slotCenter,panelBottom+50),false,'PCI slot '+(i+1)+' must be open');
+}
+assert.equal(covered(panel.left+6,panelBottom+155),true,'Upper-left PCI surround remains metal');
+// Moving the tray must move the fan, I/O and PCI holes together.
+const shiftedPanel=window.WalnutLoopPartGeometry.rearPanelAlignment({
+ ...tray,pos:[tray.pos[0]+30,tray.pos[1],tray.pos[2]]
+});
+assert.ok(Math.abs(shiftedPanel.fanX-fanX-30)<.01);
 geoEvents.length=0;
 
 const radiator={id:'rad1',type:'radiator',pos:[100,273,198.6],
