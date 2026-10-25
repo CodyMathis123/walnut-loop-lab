@@ -7,7 +7,7 @@ import vm from 'node:vm';
 const source=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-assert.match(html,/<script src="assets\/part-geometry\.js\?v=0\.14"><\/script>\s*<script src="assets\/app\.js\?v=0\.14"><\/script>/);
+assert.match(html,/<script src="assets\/part-geometry\.js\?v=0\.15"><\/script>\s*<script src="assets\/app\.js\?v=0\.15"><\/script>/);
 assert.match(app,/p\.type==='tray'&&drawParts\?\.renderTray/);
 assert.match(app,/p\.type==='radiator'&&drawParts\?\.renderRadiator/);
 
@@ -35,7 +35,7 @@ function assertFinite() {
    e.kind==='box'?[e.pos,e.size]:e.points)
   for(const n of pt)assert.ok(Number.isFinite(n),'Non-finite geometry value');
 }
-const tray={id:'tray',type:'tray',pos:[76,489.775,-70],size:[276.86,1.65,323.85]};
+const tray={id:'tray',type:'tray',pos:[8.57,489.775,-69.525],size:[276.86,1.65,323.85]};
 window.WalnutLoopPartGeometry.renderTray(tray,geometry);
 assertFinite();
 const trayBodies=geoEvents.filter(e=>e.kind==='box');
@@ -60,11 +60,24 @@ assert.ok(!trayBodies.some(e=>e.size[0]===276.86&&e.size[2]===323.85),
 // Panel alignment within the rear 13 × 8.25 inch window (above 19.25-in support).
 const panelBottom=tray.pos[1]+tray.size[1]/2,panelTop=panelBottom+183;
 assert.ok(panelBottom>=488.95&&panelTop<=698.5);
-const panelLeft=tray.pos[0]-76-155,panelRight=tray.pos[0]-76+155;
+const panel=window.WalnutLoopPartGeometry.rearPanelAlignment(tray);
+const {left:panelLeft,right:panelRight,center:panelCenter}=panel;
 assert.ok(panelLeft>=-165.1&&panelRight<=165.1);
+assert.ok(Math.abs(panelCenter)<.01,'Rear bracket must be centered in 13-inch window');
+assert.ok(Math.abs(window.WalnutLoopPartGeometry.trayXForRearPanelCenter(0,tray.size[0])-tray.pos[0])<.01);
+const trayLeft=tray.pos[0]-tray.size[0]/2,trayRight=tray.pos[0]+tray.size[0]/2;
+assert.ok(Math.abs(panelRight-trayRight-8)<.01,'Bracket must extend 8 mm beyond the tray right');
+assert.ok(Math.abs(trayLeft-panelLeft-25.14)<.01,'Bracket left overhang must be about 25 mm');
+const moved={...tray,pos:[tray.pos[0]+45,tray.pos[1],tray.pos[2]]};
+const movedPanel=window.WalnutLoopPartGeometry.rearPanelAlignment(moved);
+assert.ok(Math.abs(movedPanel.left-panelLeft-45)<.01);
+assert.ok(Math.abs(movedPanel.right-panelRight-45)<.01);
+const resized={...tray,size:[260,tray.size[1],tray.size[2]]};
+assert.ok(Math.abs(window.WalnutLoopPartGeometry.rearPanelAlignment(resized).right-
+  (resized.pos[0]+130+8))<.01);
 const darkRear=trayFaces.filter(e=>e.fill==='#1b2731');
 assert.ok(darkRear.length>=70,'Rear panel should surround fan, I/O and seven PCI cutouts');
-const fanX=-86,fanY=panelBottom+92;
+const fanX=panel.fanX,fanY=panelBottom+92;
 const centerCovered=darkRear.some(e=>e.points.length===4&&e.points.every(p=>
   Math.hypot(p[0]-fanX,p[1]-fanY)<10));
 assert.equal(centerCovered,false,'Rear fan opening should remain open');
