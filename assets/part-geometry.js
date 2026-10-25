@@ -180,14 +180,83 @@
    for(const dz of [-halfD+7,halfD-7])
     stroke(circle3([x+sx*(halfW+.8),y+fy+51,z+dz],2.7,'x',12),
       '#8797a2',1,.75);
-  // G1/4-style port collars sit on top end tank, using editable port offsets.
+  // TFC X-Changer-style G1/4 female ports face INWARD through the large
+  // vertical surface of the end tank, not through its top cap.
   for(const port of part.ports||[]){
-   const [px,py,pz]=add(part.pos,port.off),yy=Math.min(py,y+halfH)+1.2;
-   polygon(circle3([px,yy,pz],10.2,'y',24).slice(0,-1),'#6e7d88');
-   polygon(circle3([px,yy+.75,pz],6.7,'y',24).slice(0,-1),'#0b151d');
-   stroke(circle3([px,yy+1.15,pz],10.2,'y',24),'#bbc8d2',1.1,.95);
+   const [px,py,pz]=add(part.pos,port.off);
+   const inward=Math.sign(port.off[2])||1;
+   const outer=[px,py,pz],lip=[px,py,pz+inward*.8];
+   polygon(circle3(outer,9.5,'z',24).slice(0,-1),'#778995');
+   polygon(circle3(lip,6.3,'z',24).slice(0,-1),'#0b151d');
+   stroke(circle3(lip,9.5,'z',24),'#bac9d1',1.1,.95);
+   stroke(circle3(lip,6.3,'z',24),'#758a97',.9,.85);
   }
  }
+ function renderMotherboard(part,geo){
+  const {box,polygon,stroke,circle3}=geo;
+  const [x,y,z]=part.pos,[w,t,d]=part.size;
+  const top=y+t/2, rear=z-d/2,front=z+d/2,left=x-w/2,right=x+w/2;
+  const board=['#183332','#102724','#0e2220','#28504a','#30584d','#0c201f'];
+  const metal=['#5d6973','#485560','#3d4954','#8494a1','#6d7b87','#35414b'];
+  const chip=['#2c3039','#1c232d','#141b25','#41464c','#323b44','#131c25'];
+  const place=(dx,dz,wid,height,deep,colors=chip,off=0)=>
+   box({pos:[x+dx,top+off+height/2,z+dz],size:[wid,height,deep]},colors);
+  // Scale-correct 170 x 170 mm matte-green PCB with gold mounting holes.
+  box(part,board);
+  for(const sx of [-1,1])for(const sz of [-1,1]){
+   const hole=[x+sx*(w/2-6),top+.8,z+sz*(d/2-6)];
+   stroke(circle3(hole,3.4,'y',16),'#bcae75',1.3,.9);
+  }
+  // Rear I/O housing (negative Z); connectors all face the rear bracket.
+  place(0,-d/2+11,w-14,21,21,metal);
+  for(const xx of [-61,-40,-20,3,25,49]){
+   place(xx,-d/2+3,12,6,8,chip,6);
+   stroke([[x+xx-4,top+11,rear-.25],[x+xx+4,top+11,rear-.25]],'#96a6b0',1.25);
+  }
+  // VRM heatsink runs at the back-right, near the AM4 socket.
+  place(62,-40,20,18,62,metal);
+  for(let i=0;i<5;i++)place(56+i*3,-40,1.6,20,53,chip);
+  // Two DDR4 DIMM sockets toward the front (+Z) after 90-degree rotation.
+  for(const zz of [49,64]){
+   place(2,zz,120,7,8,chip);
+   for(const xx of [-53,53])place(xx,zz,6,9,10,metal);
+   stroke([[x-48,top+8,z+zz],[x+48,top+8,z+zz]],'#748d8c',1.1,.9);
+  }
+  // Full PCIe x16 slot on the left/outer edge of the horizontal motherboard.
+  place(-72,0,10,12,120,chip);
+  stroke([[x-72,top+13,z-47],[x-72,top+13,z+47]],'#d7d4b7',1.4,.85);
+  // M.2/heatsink and small active X570 chipset-fan enclosure left/front.
+  place(-39,34,49,10,45,metal);
+  const fanCenter=[x-40,top+10,z+30];
+  stroke(circle3(fanCenter,18,'y',28),'#8c9ba3',1.5);
+  stroke(circle3(fanCenter,6,'y',28),'#38464c',1.1);
+  for(let k=0;k<6;k++){
+   const a=k*Math.PI/3,b=a+.45;
+   stroke([[fanCenter[0]+7*Math.cos(a),fanCenter[1],fanCenter[2]+7*Math.sin(a)],
+           [fanCenter[0]+16*Math.cos(b),fanCenter[1],fanCenter[2]+16*Math.sin(b)]],
+           '#758891',1.5);
+  }
+  // AM4 socket at measured-from-reference approximate coordinate. 
+  // Socket is intentionally BELOW the CPU water block.
+  const offset=part.socketOffset||[18,0,-6];
+  const cx=x+offset[0],cz=z+offset[2];
+  box({pos:[cx,top+3.4,cz],size:[42,6.8,44]},
+      ['#777a72','#555f5c','#424b49','#94988d','#8e968f','#374440']);
+  stroke([[cx-24,top+7.5,cz-24],[cx+24,top+7.5,cz-24],
+          [cx+24,top+7.5,cz+24],[cx-24,top+7.5,cz+24],
+          [cx-24,top+7.5,cz-24]],'#bbc4b3',1.6);
+  // AM4 block retaining clamp positions, consistent with socket orientation.
+  for(const dx of [-27,27])for(const dz of [-28,28])
+   stroke(circle3([cx+dx,top+3,cz+dz],2.6,'y',12),'#b8ae91',.95);
+  // Gold pad/edge traces and SATA/header indicators near right edge.
+  for(let i=0;i<8;i++){
+   const yy=z-30+i*8;
+   stroke([[right-19,top+.7,yy],[right-5,top+.7,yy]],'#b4a466',.7,.85);
+  }
+  place(w/2-9,22,12,12,33,chip);
+  place(-13,77,20,9,10,chip);
+ }
+
  function renderReservoir(p,geo){
   const {box,polygon,stroke,circle3}=geo;
   const horizontal=p.orientation==='horizontal';
@@ -228,5 +297,5 @@
   }
  }
 
- window.WalnutLoopPartGeometry={renderTray,renderRadiator,renderReservoir,rearPanelAlignment,trayXForRearPanelCenter};
+ window.WalnutLoopPartGeometry={renderTray,renderRadiator,renderMotherboard,renderReservoir,rearPanelAlignment,trayXForRearPanelCenter};
 })();
