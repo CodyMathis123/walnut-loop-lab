@@ -103,7 +103,7 @@ function flushScene(){
  }
 }
 function renderedParts(){
- return project.display.caseOnly?[]:project.parts.filter(p=>p.visible!==false&&(p.type==='radiator'||project.display.internals));
+ return project.display.caseOnly?[]:project.parts.filter(p=>p.visible!==false&&(p.type==='radiator'||p.type==='tray'||project.display.internals));
 }
 function showInternals(enabled){
  project.display.internals=enabled;
