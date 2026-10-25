@@ -9,7 +9,7 @@ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 assert.match(html,/id="loopMode"/);
 assert.match(html,/id="reservoirOrientation"/);
 assert.match(html,/id="radiatorLoop"/);
-assert.match(html,/src="assets\/app\.js\?v=0\.18"/);
+assert.match(html,/src="assets\/app\.js\?v=0\.19"/);
 
 function harness(agent){
  const elements=new Map(),ctx={
@@ -54,6 +54,16 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.deepEqual(Array.from(group('gpu').map(r=>r.slot)).sort(),['front-left','rear-left']);
  assert.deepEqual(Array.from(group('cpu').map(r=>r.slot)).sort(),['front-right','rear-right']);
  assert.equal(p.parts.filter(x=>x.type==='res').length,2);
+ for(const id of ['res','res2']){
+  const reservoir=api.cpart(id);
+  assert.equal(reservoir.ports.length,3);
+  assert.deepEqual(Array.from(reservoir.ports.map(v=>v.id)),['in','out','top']);
+  assert.equal(reservoir.ports.find(v=>v.id==='in').off[1],-119);
+  assert.equal(reservoir.ports.find(v=>v.id==='out').off[1],-119);
+  assert.equal(reservoir.ports.find(v=>v.id==='top').off[1],119);
+  assert.notEqual(reservoir.ports[0].off[0],reservoir.ports[1].off[0]);
+ }
+
  assert.equal(p.parts.filter(x=>x.type==='pump').length,2);
  assert.equal(p.parts.filter(x=>x.type==='drain').length,2);
  for(const id of ['res','pump','drain','res2','pump2','drain2']){
@@ -82,13 +92,23 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  allow(true);
  assert.equal(api.applyLoopMode('single'),true);
  assert.equal(p.routes.length,0,'Mode change clears old cross-loop route topology');
- assert.ok(['res2','pump2','drain2'].every(id=>api.cpart(id).visible===false));
- assert.equal(api.cpart('res').visible!==false,true);
+ assert.equal(p.singleHardwareSide,'right');
+ assert.ok(['res','pump','drain'].every(id=>api.cpart(id).visible===false));
+ assert.ok(['res2','pump2','drain2'].every(id=>api.cpart(id).visible!==false));
  api.sampleRoutes();
  assert.equal(p.routes.length,9);
  assert.ok(p.routes.some(r=>r.to==='cpu.in'));
  assert.ok(p.routes.some(r=>r.to==='gpu.in'));
  assert.ok(p.routes.every(r=>r.loop==='shared'));
+ assert.ok(p.routes.some(r=>r.from==='res2.out'&&r.to==='pump2.in'));
+ assert.ok(p.routes.every(r=>!r.from.startsWith('res.')&&!r.to.startsWith('res.')));
+ assert.equal(api.applyLoopMode('single',{side:'left'}),true);
+ assert.equal(p.singleHardwareSide,'left');
+ assert.ok(['res2','pump2','drain2'].every(id=>api.cpart(id).visible===false));
+ assert.ok(['res','pump','drain'].every(id=>api.cpart(id).visible!==false));
+ api.sampleRoutes();
+ assert.equal(p.routes.length,9);
+ assert.ok(p.routes.some(r=>r.from==='res.out'&&r.to==='pump.in'));
  assert.equal(api.applyLoopMode('dual'),true);
  assert.ok(['res2','pump2','drain2'].every(id=>api.cpart(id).visible!==false));
  assert.equal(p.routes.length,0);
@@ -100,7 +120,8 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.equal(res.orientation,'horizontal');
  assert.deepEqual(Array.from(res.size),[72,72,238]);
  assert.ok(Math.abs(res.pos[1]-res.size[1]/2-bottom)<1e-9);
- assert.deepEqual(Array.from(res.ports.find(q=>q.id==='out').off),[0,0,119]);
+ assert.deepEqual(Array.from(res.ports.find(q=>q.id==='out').off),[17,0,119]);
+ assert.deepEqual(Array.from(res.ports.find(q=>q.id==='top').off),[0,0,-119]);
  assert.equal(storage.data,null,'Prototyping changes are not automatically persisted');
  node('reservoirOrientation').onchange({target:{value:'vertical'}});
  assert.equal(res.orientation,'vertical');
@@ -113,7 +134,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.equal(api.cpart('res2').orientation,'horizontal');
  // Explicit imports are complete snapshots of this version, without migration.
  const current=api.initial();
- assert.equal(current.format,'walnut-loop-v18');
+ assert.equal(current.format,'walnut-loop-v19');
  current.parts.find(x=>x.id==='drain').pos=[-160,75,90];
  const restored=api.normalizeImport(current);
  assert.deepEqual(Array.from(restored.parts.find(x=>x.id==='drain').pos),[-160,75,90]);
