@@ -82,7 +82,7 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  assert.equal(model.project.display.caseOnly,false);
  assert.equal(model.project.display.internals,false);
  assert.equal(model.attachedFans(model.cpart('rad1')).length,6);
- assert.ok(store.data,'Project not persisted');
+ assert.equal(store.data,null,'Greenfield drafts should not be saved in localStorage');
  assert.equal(typeof ui('internalsBtn').onclick,'function');
  // Show provisional hardware only when explicitly enabled.
  assert.equal(model.project.display.internals,false);
@@ -105,24 +105,14 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  ui('fourRadiatorsBtn').onclick();
  assert.equal(model.project.parts.filter(p=>p.type==='radiator'&&p.visible!==false).length,4);
  assert.equal(model.project.parts.filter(p=>p.type==='radiator').reduce((n,p)=>n+model.attachedFans(p).length,0),24);
- // Old JSON projects gain defaults but retain the support-height correction.
- const old=model.initial();
- old.parts=old.parts.filter(p=>p.id!=='rad4');
- old.parts.forEach(p=>{delete p.fans});
- delete old.fanOnly;
- delete old.mountVersion;
- old.case.windowHeight=215.9;
- old.parts.find(p=>p.id==='tray').pos[0]=76; // Previous stock offset.
- const updated=model.normalizeImport(old);
- assert.ok(Math.abs(updated.parts.find(p=>p.id==='tray').pos[0]-8.57)<.01);
- const manuallyMoved=model.initial();
- manuallyMoved.parts.find(p=>p.id==='tray').pos[0]=44;
- assert.equal(model.normalizeImport(manuallyMoved).parts.find(p=>p.id==='tray').pos[0],44);
- assert.equal(updated.case.windowHeight,209.55);
- assert.equal(updated.parts.find(p=>p.id==='rad1').fans.panel,3);
- assert.equal(updated.fanOnly['rear-right'],0);
- assert.equal(updated.parts.filter(p=>p.type==='radiator').length,4);
- assert.ok(updated.parts.some(p=>p.id==='rad4'));
+ // Only snapshots from the current prototype format are accepted.
+ const snapshot={...model.initial(),format:'walnut-loop-v18'};
+ snapshot.parts.find(p=>p.id==='tray').pos[0]=44;
+ const imported=model.normalizeImport(snapshot);
+ assert.equal(imported.parts.find(p=>p.id==='tray').pos[0],44);
+ assert.equal(imported.parts.find(p=>p.id==='mobo').size[0],170);
+ const unsupported={...model.initial(),format:'walnut-loop-v17'};
+ assert.throws(()=>model.normalizeImport(unsupported),/current-format/);
  model.draw();
 }
 assert.equal(html.includes('Measurements captured'),false);
