@@ -111,6 +111,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  old.parts=old.parts.filter(q=>q.id!=='mobo');
  const oldTray=old.parts.find(q=>q.id==='tray');
  oldTray.pos[1]=c.divider+oldTray.size[1]/2;
+ const oldTrayY=oldTray.pos[1];
  old.parts.find(q=>q.id==='cpu').pos=[93,525,-110];
  for(const rad of old.parts.filter(q=>q.type==='radiator'))
   for(const port of rad.ports)port.off[1]=rad.size[1]/2;
@@ -118,7 +119,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  const freshBoard=upgraded.parts.find(q=>q.id==='mobo');
  assert.ok(freshBoard);
  assert.ok(Math.abs(upgraded.parts.find(q=>q.id==='tray').pos[1]-
-    oldTray.pos[1]-3)<.001);
+    oldTrayY-3)<.001);
  const relocatedCpu=upgraded.parts.find(q=>q.id==='cpu');
  assert.equal(relocatedCpu.mountedTo,'mobo');
  assert.ok(Math.abs(relocatedCpu.pos[0]-freshBoard.pos[0]-18)<.001);
