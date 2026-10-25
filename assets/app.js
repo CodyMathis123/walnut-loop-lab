@@ -714,7 +714,7 @@ function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.
  for(const rad of vals.parts.filter(part=>part.type==='radiator')){
   for(const port of rad.ports||[]){
    if(Math.abs(port.off[1]-rad.size[1]/2)<.15 &&
-      Math.abs(Math.abs(port.off[2])-(rad.size[2]/2+1))<1.1)
+      Math.abs(Math.abs(port.off[2])-(rad.size[2]/2+1))<4.1)
     port.off[1]=rad.size[1]/2-9;
   }
  }
