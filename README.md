@@ -2,7 +2,7 @@
 
 A standalone, browser-based 3D-style planner for a custom walnut PC water-cooling case.
 
-**Status:** v0.15 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+**Status:** v0.16 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
 
 ## Features
 
@@ -32,6 +32,12 @@ Official references: [installation](https://threejs.org/manual/pages/installatio
 The fallback viewer uses **one shared depth-sorted face queue** for the wood panels, their through-cut apertures, the center divider, fans, radiator bodies and optional internal hardware. The solid front/rear panels are subdivided into opaque face tiles bordering each opening, improving depth sorting relative to inset fans. This avoids the previous behavior in which entire component groups were painted over a finished shell, regardless of their actual front/back positions. It is still a painter's-algorithm preview, not a true 3D engine with a depth buffer, collision detection, or boolean subtraction between arbitrary intersecting components.
 
 The **Cooling view** focuses on radiators and fan assemblies. **Other parts** shows the provisional motherboard tray, CPU/GPU, pump, reservoir and drain. Existing projects retain their component positions and saved configurations; the new viewport filter defaults to cooling-only for older projects so those provisional internals no longer clutter the preview. Port markers are off in new projects but preserve their saved setting in older projects.
+
+## v0.16 — corrected rear I/O / fan / PCI orientation
+
+Facing the installed rear panel from above, the 120 mm fan is on the **right**, above a separate motherboard I/O rectangle. The seven PCI expansion slots are on the **left**. The prior model had the fan and PCI/I/O locations reversed and also filled over the desired lower I/O region. The geometry now separates the lower I/O sheet from the upper fan sheet, providing actual cut-through openings in the WebGL/Canvas models.
+
+The complete 310 mm rear panel remains anchored to the tray's edge with the same registered position as v0.15. The tray, radiator placements and CPU-backplate cutout are unchanged.
 
 ## Rear panel alignment (v0.15)
 
