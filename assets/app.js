@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), r2=n=>Math.round(n*100)/100;
 const add=(a,b)=>a.map((x,i)=>x+b[i]),sub=(a,b)=>a.map((x,i)=>x-b[i]),scale=(a,s)=>a.map(x=>x*s),len=a=>Math.hypot(...a),dist=(a,b)=>len(sub(a,b)),mix=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
 const initial=()=>({
-  case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:130,fanOpeningHeight:370,fanThickness:25.4},
+  case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:215.9,fanThickness:25.4},
   parts:[
     {id:'rad1',name:'Front panel, right radiator',type:'radiator',slot:'front-right',pos:[146,273.55,180],size:[135,380,64],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Front-right fan cutout in the front panel. The radiator is mounted inward of the fan. Port height and horizontal offsets follow supplied measurements.'},
     {id:'rad2',name:'Front panel, left radiator',type:'radiator',slot:'front-left',pos:[-146,273.55,180],size:[135,380,64],ports:[{id:'in',name:'Near side',off:[-31.75,190,-33]},{id:'out',name:'Far side',off:[31.75,190,-33]}],note:'Front-left fan cutout in the front panel. Radiator stack depth can be calibrated later.'},
@@ -86,10 +86,9 @@ const FAN_SLOTS=[
  {id:'rear-right',short:'B·R',name:'Back panel · right',side:1,end:-1}
 ];
 function bayGeometry(slot){
- const c=project.case,t=c.wood,mainW=c.width-2*c.doors;
- const centX=slot.side*mainW/4;
+ const c=project.case,t=c.wood,mainW=c.width-2*c.doors; const centX=slot.side*(mainW/2-c.fanOpeningSide-c.fanOpeningWidth/2);
  const radX=slot.side*(mainW/2-(c.portFrontA+c.portFrontB)/2);
- const cy=c.portY-190;
+ const cy=c.fanOpeningBottom+c.fanOpeningHeight/2;
  const panelInside=slot.end*(c.depth/2-t);
  return {centX,radX,cy,panelInside,fanZ:panelInside-slot.end*(c.fanThickness||25.4)/2};
 }
@@ -109,17 +108,18 @@ function renderFanOpenings(){
     stroke([add(cent,[Math.cos(a)*45,Math.sin(a)*45,0]),add(cent,[Math.cos(a+Math.PI)*45,Math.sin(a+Math.PI)*45,0])],'#658598',.8,.65);
    }
   }
-  if(project.display.labels)labelAt([b.centX,b.cy+(c.fanOpeningHeight||370)/2+13,z],slot.short+' cutout','#dbe7ef');
+  if(project.display.labels)labelAt([b.centX,b.cy+(c.fanOpeningHeight||362)/2+13,z],slot.short+' cutout','#dbe7ef');
  }
 }
 // Primitive mesh for the wood and steel case, depth-sorted by face so that both
 // front/back panels genuinely occlude the internal structure where they are solid.
 function renderCabinetShell(){
  const c=project.case,t=c.wood,h=c.height,d=c.depth,mainW=c.width-2*c.doors,halfW=mainW/2;
- const rw=c.railWidth||50.8,rt=c.railThickness||t,q=c.divider;
- const cY=c.portY-190, holeW=c.fanOpeningWidth||130,holeH=c.fanOpeningHeight||370;
- const bottom=clamp(cY-holeH/2,rt+8,h-holeH-10),top=bottom+holeH;
- const hx=Math.min(mainW/4,mainW/2-holeW/2-1),near=hx-holeW/2,far=hx+holeW/2;
+ const rw=c.railWidth||50.8,rt=c.railThickness||t,q=c.divider; const holeW=c.fanOpeningWidth,holeH=c.fanOpeningHeight;
+ const bottom=clamp(c.fanOpeningBottom,0,Math.max(0,h-holeH)),top=bottom+holeH;
+ const hx=mainW/2-c.fanOpeningSide-holeW/2;
+ const winW=Math.max(0,mainW-2*c.windowSide),winTop=h-c.windowTop;
+ const winBottom=winTop-c.windowHeight,hasWindow=winW>0&&winTop>winBottom;
  const woodShades=['#613b24','#9f6d44','#6e442a','#a77850','#bd885a','#70452b'];
  const trimShades=['#71462a','#ae784d','#795033','#b5865e','#c38c5b','#75482d'];
  const items=[];
@@ -131,14 +131,15 @@ function renderCabinetShell(){
  if(project.display.wood){
   // Exactly two SINGLE-SHEET panels. Each broad face is a Boolean
   // rectangle MINUS two apertures; the edge/tunnel faces represent thickness.
-  const outerRect=(z)=>[[-halfW,0,z],[halfW,0,z],[halfW,h,z],[-halfW,h,z]];
-  const holeRect=(xc,z)=>[[xc-holeW/2,bottom,z],[xc+holeW/2,bottom,z],
-                          [xc+holeW/2,top,z],[xc-holeW/2,top,z]];
-  function wall(aa,bb,cc,dd){const pts=[aa,bb,cc,dd];items.push({kind:'face',pts,fill:'#805031',depth:depth(pts.reduce((a,p)=>add(a,p),[0,0,0]).map(v=>v/4))})}
+  const outerRect=(z)=>[[-halfW,0,z],[halfW,0,z],[halfW,h,z],[-halfW,h,z]];   const holeRect=(xc,z)=>[[xc-holeW/2,bottom,z],[xc+holeW/2,bottom,z],
+                           [xc+holeW/2,top,z],[xc-holeW/2,top,z]];
+   const windowRect=z=>[[-winW/2,winBottom,z],[winW/2,winBottom,z],
+                         [winW/2,winTop,z],[-winW/2,winTop,z]];
+   function wall(aa,bb,cc,dd){const pts=[aa,bb,cc,dd];items.push({kind:'face',pts,fill:'#805031',depth:depth(pts.reduce((a,p)=>add(a,p),[0,0,0]).map(v=>v/4))})}
   for(const end of [-1,1]){
    const zInner=end*(d/2-t),zOuter=end*d/2;
-   for(const z of [zInner,zOuter]){
-    const outer=outerRect(z),holes=[holeRect(-hx,z),holeRect(hx,z)];
+   for(const z of [zInner,zOuter]){     const outer=outerRect(z),holes=[holeRect(-hx,z),holeRect(hx,z)];
+     if(hasWindow)holes.push(windowRect(z));
     const dp=depth([0,h/2,z]);
     const outward=(z===zOuter),fill=outward?'#9f7049':'#825a3e';
     items.push({kind:'panel',pts:outer,holes,fill,depth:dp});
@@ -147,17 +148,24 @@ function renderCabinetShell(){
                       [[-halfW,0],[halfW,0]],[[-halfW,h],[halfW,h]]]){
     const [[x0,y0],[x1,y1]]=pair;
     wall([x0,y0,zInner],[x1,y1,zInner],[x1,y1,zOuter],[x0,y0,zOuter]);
-   }
-   for(const xc of [-hx,hx]){
-    const x0=xc-holeW/2,x1=xc+holeW/2;
-    for(const pair of [[[x0,bottom],[x0,top]],[[x1,bottom],[x1,top]],
-                       [[x0,bottom],[x1,bottom]],[[x0,top],[x1,top]]]){
-     const [[a,b],[e,f]]=pair;
-     wall([a,b,zInner],[e,f,zInner],[e,f,zOuter],[a,b,zOuter]);
+   }    for(const xc of [-hx,hx]){
+     const x0=xc-holeW/2,x1=xc+holeW/2;
+     for(const pair of [[[x0,bottom],[x0,top]],[[x1,bottom],[x1,top]],
+                        [[x0,bottom],[x1,bottom]],[[x0,top],[x1,top]]]){
+      const [[a,b],[e,f]]=pair;
+      wall([a,b,zInner],[e,f,zInner],[e,f,zOuter],[a,b,zOuter]);
+     }
+    }
+    if(hasWindow){
+     const x0=-winW/2,x1=winW/2;
+     for(const pair of [[[x0,winBottom],[x0,winTop]],[[x1,winBottom],[x1,winTop]],
+                        [[x0,winBottom],[x1,winBottom]],[[x0,winTop],[x1,winTop]]]){
+      const [[a,b],[e,f]]=pair;
+      wall([a,b,zInner],[e,f,zInner],[e,f,zOuter],[a,b,zOuter]);
+     }
     }
    }
-  }
-  // SIX supports, ALL of them along the front-to-back Z axis:
+   // SIX supports, ALL of them along the front-to-back Z axis:
   // x = left/center/right at bottom; x=center at divider; x=left/right at top.
   // Cross-section = 2" along X x 3/4" along vertical Y.
   const sideX=halfW-rw/2, length=d-2*t, z=0;
@@ -200,7 +208,7 @@ function renderCabinetShell(){
  }
  if(project.display.dimensions)drawDimensions();
  if(project.display.labels){
-  labelAt([halfW*.43,h+24,0],'Front / back: solid ¾-inch panels','#f1c796');
+  labelAt([halfW*.43,h+24,0],'Front / rear: three cut-through openings per panel','#f1c796');
  }
 }
 function drawDoorOutlines(){
@@ -243,7 +251,7 @@ function draw(){if(!ctx)return;let rect=$('viewport').getBoundingClientRect();W=
  $('viewStatus').textContent=(isSvgMode?'SVG':'Canvas')+' active · Drag to orbit · '+project.routes.length+' runs';$('staticPreview').style.display='none';}
 function refreshPortSelect(){let ks=portKeys(),a=$('fromPort').value,b=$('toPort').value;for(let id of ['fromPort','toPort']){$(id).innerHTML='';for(let k of ks){let op=document.createElement('option');op.value=k;op.textContent=portLabel(k);$(id).appendChild(op)}}$('fromPort').value=ks.includes(a)?a:'res.out';$('toPort').value=ks.includes(b)?b:'pump.in'}
 function refreshCase(){let fields=[['width','Outside width'],['height','Outside height'],['depth','Outside depth']];$('caseFields').innerHTML=fields.map(([id,name])=>`<div class="field"><label>${name} (mm)</label><input id="case_${id}" type="number" min="200" max="1400" step=".1" value="${project.case[id]}"></div>`).join('');
- let more=[['doors','Each side door (mm)'],['openW','Top opening width (mm)'],['openD','Top opening depth (mm)'],['railWidth','Support rail width (mm)'],['railThickness','Support rail thick. (mm)'],['lowerRailTop','Lower support top (mm)'],['portY','Radiator port height (mm)'],['portFrontA','Port 1 from side edge (mm)'],['portFrontB','Port 2 from side edge (mm)'],['fanOpeningWidth','Fan cutout width (mm)'],['fanOpeningHeight','Fan cutout height (mm)'],['fanThickness','Fan bank thickness (mm)'],['steelZ','Steel divider X shift (mm)']];
+ let more=[['doors','Each side door (mm)'],['openW','Top opening width (mm)'],['openD','Top opening depth (mm)'],['railWidth','Support rail width (mm)'],['railThickness','Support rail thick. (mm)'],['lowerRailTop','Lower support top (mm)'],['portY','Radiator port height (mm)'],['portFrontA','Port 1 from side edge (mm)'],['portFrontB','Port 2 from side edge (mm)'],['fanOpeningWidth','Fan cutout width (mm)'],['fanOpeningHeight','Fan cutout height (mm)'],['fanOpeningBottom','Fan cutout bottom inset (mm)'],['fanOpeningSide','Fan cutout side inset (mm)'],['windowSide','Window side inset (mm)'],['windowTop','Window top inset (mm)'],['windowHeight','Window height (mm)'],['fanThickness','Fan bank thickness (mm)'],['steelZ','Steel divider X shift (mm)']];
  $('caseMeasuredFields').innerHTML=more.map(([id,name])=>`<div class="field"><label>${name}</label><input id="case_${id}" type="number" step=".1" value="${project.case[id]}"></div>`).join('');
  for(let [id] of fields.concat(more))$('case_'+id).addEventListener('change',e=>{let n=Number(e.target.value);if(Number.isFinite(n)&& (id==='steelZ'||n>0)){project.case[id]=n;persist();draw()}});
  $('wallThickness').value=project.case.wood;$('dividerHeight').value=project.case.divider;
@@ -258,8 +266,13 @@ function estimate(){let tubes=0,straight=0,elbow=0,softLen=0,hardLen=0;let lengt
 function refreshEstimate(){let a=estimate();$('totalLength').textContent=((a.softLen+a.hardLen)/1000).toFixed(2)+' m';$('fittingCount').textContent=a.straight;$('elbowCount').textContent=a.elbow;let money=n=>'$'+n.toFixed(2);$('estimateRows').innerHTML=[['Port compressions',a.straight+' × '+money(project.prices.fit),a.c1],['Integrated 90° connectors',a.elbow+' × '+money(project.prices.elbow),a.c2],['Soft tubing',a.sf.toFixed(2)+' m',a.c3],['Hard tubing',a.hf.toFixed(2)+' m',a.c4],['Other / adapters','allowance',project.prices.other]].map(([n,detail,v])=>`<tr><td>${n}<small style="display:block;color:#8493a4">${detail}</small></td><td>${money(v)}</td></tr>`).join('');$('costTotal').textContent=money(a.total)}
 function persist(){try{localStorage.setItem('walnutLoopLab05',JSON.stringify(project))}catch(e){}}
 function updateAll(){refreshCase();refreshPortSelect();refreshComponent();refreshRouteList();refreshEstimate();for(let id of ['fit','elbow','soft','hard','waste','other'])$(id==='fit'?'fitPrice':id==='elbow'?'elbowPrice':id==='soft'?'softPrice':id==='hard'?'hardPrice':id==='waste'?'wastePct':'otherCost').value=project.prices[id];$('tubeOD').value=project.tubeOD;$('bendRadius').value=project.bendRadius;for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports']])$(id).classList.toggle('active',project.display[k]);draw()}
-function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}
-function normalizeImport(p){let start=initial();let vals={...start,...p,case:{...start.case,...p.case},display:{...start.display,...p.display},prices:{...start.prices,...p.prices}};let slots={rad1:'front-right',rad2:'front-left',rad3:'unmounted'};vals.parts=vals.parts.map(a=>a.type==='radiator'&&!a.slot?{...a,slot:slots[a.id]||'unmounted'}:a);return vals}
+function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}function normalizeImport(p){let start=initial();let vals={...start,...p,case:{...start.case,...p.case},display:{...start.display,...p.display},prices:{...start.prices,...p.prices}};let slots={rad1:'front-right',rad2:'front-left',rad3:'unmounted'};vals.parts=vals.parts.map(a=>a.type==='radiator'&&!a.slot?{...a,slot:slots[a.id]||'unmounted'}:a);
+ // Upgrade unchanged old defaults while retaining custom saved dimensions.
+ if(p.case&&!Object.prototype.hasOwnProperty.call(p.case,'fanOpeningBottom')){
+  if(p.case.fanOpeningWidth===130)vals.case.fanOpeningWidth=122;
+  if(p.case.fanOpeningHeight===370)vals.case.fanOpeningHeight=362;
+ }
+ return vals}
 function validateImport(p){if(!p||!p.case||!Array.isArray(p.parts)||!Array.isArray(p.routes)||!p.prices||!p.display)return false;if(!p.parts.every(x=>typeof x.id==='string'&&Array.isArray(x.pos)&&x.pos.length===3&&Array.isArray(x.size)&&x.size.length===3&&Array.isArray(x.ports)))return false;return true}
 function syncMeasuredRadiators(){
  const c=project.case,mainW=c.width-2*c.doors;
@@ -288,7 +301,7 @@ function setRadiatorSlot(id,slot){let p=cpart(id);if(!p||p.type!=='radiator')ret
 function addRoute(from,to,style,axis){if(!portPos(from)||!portPos(to)||from===to){toast('Select two different, valid ports.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);project.routes.push({id,from,to,style,axis});selectedRoute=id;changeModel();toast('Route added. Select it in the list to change style.');}
 function sampleRoutes(){if(project.routes.length&&!confirm('Replace existing tubing routes with a full-loop example?'))return;project.routes=[];let radiatorList=project.parts.filter(p=>p.type==='radiator'&&p.visible!==false).map(p=>p.id);let links=[['res.out','pump.in'],['pump.out','drain.in'],['drain.out',radiatorList[0]+'.in']];for(let i=0;i<radiatorList.length-1;i++)links.push([radiatorList[i]+'.out',radiatorList[i+1]+'.in']);links.push([radiatorList.at(-1)+'.out','cpu.in'],['cpu.out','gpu.in'],['gpu.out','res.in']);links.forEach(([from,to],i)=>project.routes.push({id:'example'+i,from,to,style:i<3?'soft':'bend',axis:i%2===0?'xzy':'zyx'}));selectedRoute=null;changeModel();toast('Loaded '+links.length+' example tubing runs. Layout is provisional.');}
 function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoom;view.target=[0,345,0];view.pan=[0,0];for(let id of ['isoBtn','frontBtn','sideBtn','topBtn'])$(id).classList.remove('active');draw()}
-function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();try{const v=JSON.parse(localStorage.getItem('walnutLoopLab05'));if(validateImport(v))project=normalizeImport(v)}catch(e){};
+function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();try{const v=JSON.parse(localStorage.getItem('walnutLoopLab05'));if(validateImport(v)){project=normalizeImport(v);persist()}}catch(e){};
  $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v5'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
  $('componentSelect').onchange=e=>{selection=e.target.value;refreshComponent()};$('mountSlot').onchange=e=>setRadiatorSlot(selection,e.target.value);$('componentVisible').onchange=e=>{let part=cpart(selection);if(!part)return;part.visible=e.target.checked;project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;changeModel()};$('wallThickness').onchange=e=>{project.case.wood=clamp(Number(e.target.value),1,80);changeModel()};$('syncRads').onclick=()=>{syncMeasuredRadiators();persist();refreshComponent();changeModel();toast('Aligned installed radiators to front/back panel cutouts.');};$('dividerHeight').onchange=e=>{project.case.divider=clamp(Number(e.target.value),50,project.case.height-50);changeModel()};$('centerComponent').onclick=()=>{let p=cpart(selection);if(p)view.target=p.pos.slice();draw()};
  for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports']])$(id).onclick=()=>{project.display[k]=!project.display[k];$(id).classList.toggle('active',project.display[k]);changeModel()};

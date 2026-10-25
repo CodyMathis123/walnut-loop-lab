@@ -1,34 +1,29 @@
 # Cabinet geometry and measurements
 
-Measurements supplied for the physical walnut PC case, October 2026. Approximate values retain ~ notation.
+Updated October 25, 2026. Approximate measurements are indicated.
 
-## Confirmed construction
-- Exterior: **21.5 inches wide × 20 inches deep × 29 inches high**, including **two 3/4-inch side doors** (one on each side).
-- Front and rear: each **one continuous 3/4-inch walnut panel**, ~20 inches wide × 29 inches tall. Each panel has **two cut-through fan openings**. **Four openings total**, aligned opposite each other from front to rear.
-- Openings: a little larger than three 120 mm fans arranged vertically (nominal fan group 120 × 360 mm). Exact clear sizes, position, and corner radii remain provisional.
-- Six horizontal supports run **front to back**, each **2 inches wide (across case) × 3/4 inch high (vertical)**. Not a set of rails across the front face.
-  - Three at the bottom: left, center, right.
-  - One at the center-support elevation, which supports the motherboard tray.
-  - Two at the top, along the left and right outside edges.
-- A vertical metal divider runs **front-to-back** between the side-by-side lower chambers. It is captured in the walnut center rails at top and bottom.
-- The motherboard tray rests on the center support at approximately **19.25 inches above the floor**.
-- Distance from the top of the bottom separator to top of upper separator: **18.5 inches**.
-- Clear top opening: **16 × 18.5 inches**.
-- Radiator port heights: approximately **18.25 inches above floor**; horizontal offsets approximately **3 and 5.5 inches from the exterior side edge**.
-- Left and right sides of divider each approximately 10 inches to outside edge.
-- Motherboard tray: Mountain Mods horizontal ATX tray, working footprint ~10.9 × 12.75 inches.
+## Structure
+- Case: **21½″ W × 20″ D × 29″ H**, including two **¾″ side doors**.
+- Front and rear each comprise one continuous **¾″ thick, 20″-wide walnut end panel** with **two lower fan openings and one upper window**.
+- Six depthwise rails, each **2″ wide × ¾″ high**: bottom left/center/right, one center at upper support, and two upper edge rails. A steel divider runs front-to-back in the lower cabinet.
+- Motherboard tray support is about **19¼″** from base; measured vertical lower chamber span **18½″**, and top opening **16″ × 18½″**.
 
-## Water cooling components
-- Three older 360 mm radiators, on the fan assemblies.
-- Laing DDC pump with XSPC top, FrozenQ double helix reservoir.
-- CPU and GPU blocks, with planned RX 9070 XT Reaper full-cover block.
-- Drain T and ball valve.
+## Cutouts in each end panel
+The working model interprets horizontal offsets relative to the **20″-wide end panel** (excluding side doors). Verify the reference edges before using dimensions to fabricate.
 
-## To measure next
-- Precise fan-opening size and position, corner geometry and fastener pattern.
-- Top/front window and back motherboard tray apertures.
-- Mounting positions of each radiator, fans, pump, reservoir, and both block ports.
-- Radiator/fan stack thickness, actual G1/4 centers, drain access, and case clearances.
+| Opening | Size | Placement |
+| --- | --- | --- |
+| Left lower fan bank | ~**122 × 362 mm** | **3¼″ (82.55 mm)** above panel base; **1¾″ (44.45 mm)** from left end-panel edge |
+| Right lower fan bank | ~**122 × 362 mm** | **3¼″ (82.55 mm)** above panel base; **1¾″ (44.45 mm)** from right end-panel edge |
+| Upper window / rear motherboard opening | **13″ (330.2 mm)** wide × **8½″ (215.9 mm)** high | **3½″ (88.9 mm)** in from each side; **1½″ (38.1 mm)** below top |
 
-## Coordinates
-Planner internals use millimeters (25.4 mm/inch). X = left/right, Y = upward from floor, Z = front/back. The visible render is a *planning aid*, not a fabrication drawing.
+- Front and rear openings are modeled identically, as real cuts through ¾″-thick panels with edge faces.
+- Fan opening top is about **17½″**, window bottom **19″** above panel base; approximately **1½″** of walnut between them.
+- A nominal three-fan 120 × 360 mm assembly is nearly flush in a 122 × 362 mm cutout (~1 mm clearance on each side before tolerance).
+- Radiator ports separately measured at approximately **18¼″** above base, and about **3″ and 5½″** in from the outside side edge. These do not dictate fan-cutout centerlines.
+
+## Open measurements
+Check exact cutout sizes, corner radii and fan bolt pattern; whether horizontal offsets refer to end-panel or outside case edges; fan/radiator depth, motherboard tray mounting, reservoir and pump positions, and block port centers.
+
+## Model convention
+X = horizontal; Y = height from floor; Z = front/back. Millimeters throughout. This is a conceptual routing/fit viewer, **not a certified cutting drawing**.
