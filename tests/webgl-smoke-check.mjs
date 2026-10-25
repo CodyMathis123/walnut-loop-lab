@@ -10,7 +10,7 @@ const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 
 assert.match(html,/type="importmap"/);
 assert.match(html,/three@0\.186\.1\/build\/three\.module\.js/);
-assert.match(html,/type="module" src="assets\/renderer-webgl\.js\?v=0\.14"/);
+assert.match(html,/type="module" src="assets\/renderer-webgl\.js\?v=0\.15"/);
 assert.match(html,/id="webglBtn"/);
 assert.match(app,/window\.WalnutLoopWebGL\.render\(sceneQueue,view/);
 assert.match(app,/window\.WalnutLoopRenderBridge=/);
