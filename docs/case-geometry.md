@@ -70,3 +70,18 @@ The default GPU rendering path now uses **Three.js 0.186.1** and the WebGL depth
 - Known limitations: 2D dimensions/labels remain overlays, tubing route lines are not full volumetric tube meshes, and there is no physical collision detection. Optional translucent components can still require specialized transparency handling.
 
 Verification commands: `node tests/smoke-check.mjs`, `node tests/webgl-smoke-check.mjs`.
+
+## v0.13 — component profiles
+
+**Manufacturer sources:**
+
+- [120MOTRAY-BW modular ATX 120 mm assembly](https://www.mountainmods.com/MountainMods-Modular-Removable-Motherboard-Tray-Assembly%28ATX%29-120-Black-Wrinkle)
+- [ATXTOAB anodized black tray](https://www.mountainmods.com/atx_tray_anodized_black)
+- [Manufacturer photo of full assembly](https://www.mountainmods.com/image/cache/catalog/120MOTRAY-BW-8-800x800.png)
+- [Manufacturer photo of tray-only sheet](https://www.mountainmods.com/image/cache/catalog/ATXAB-800x800.png)
+
+The bottom tray has confirmed dimensions **276.86 × 323.85 mm** and modeled nominal **1.65 mm** sheet thickness. The large CPU access hole, folded edges, attachment feet and stand-offs are rendered, but the detailed offsets are schematic. The 120 mm fan and seven PCI slot openings are represented as actual unfilled holes in the rear panel, not dark painted rectangles. The separate rear panel is rotated horizontally to fit the physical case's **13 × 8.25 inch rear window**; its current bounding profile is **310 mm wide × 183 mm high**, with top below window top and bottom near the middle support. Manufacturer did not state this back-panel size; the profile is approximate. The entire tray assembly moves with the existing 'tray' part's coordinates and remains compatible with saved JSON.
+
+All four 360 mm radiators have corrected **60 mm nominal thickness** (previous 64 mm placeholder), unchanged nominal **135 × 380 mm** face dimensions until measured, and finned front and rear cores, mounting rails, metal end tanks, and circular G1/4-style port features at the existing editable port offsets. Saved 64 mm stock radiator dimensions upgrade to 60 mm, preserving non-default manually moved centers. Custom sizes are retained. The motherboard tray is always visible in cooling view; toggle **Other parts** to add the rest of the upper chamber.
+
+The component mesh source is `assets/part-geometry.js`; it uses the same `box`, `polygon`, `stroke`, and `circle3` primitives as the rest of the app, so Canvas, SVG and GPU renderer share geometry. Geometry checks: `node tests/component-geometry-check.mjs`.
