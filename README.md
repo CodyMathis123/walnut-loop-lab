@@ -2,7 +2,7 @@
 
 A standalone, browser-based 3D-style planner for a custom walnut PC water-cooling case.
 
-**Status:** v0.12 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+**Status:** v0.13 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
 
 ## Features
 
@@ -15,7 +15,7 @@ A standalone, browser-based 3D-style planner for a custom walnut PC water-coolin
 - Save and restore configurations as JSON; export the current view
 - Local browser persistence and a static fallback drawing for browsers that block scripts
 
-## Editor layout and rendering (v0.12)
+## Editor layout and rendering (v0.13)
 
 The interactive page now prioritizes **Components** and **Fan-only openings**. Case dimensions, tubing routes, and tubing estimates remain available in collapsed sections rather than showing all reference notes on every page load. Measurement history, assumptions, and unverified dimensions belong here and in `docs/case-geometry.md`, not in the everyday editor UI.
 
@@ -32,6 +32,19 @@ Official references: [installation](https://threejs.org/manual/pages/installatio
 The fallback viewer uses **one shared depth-sorted face queue** for the wood panels, their through-cut apertures, the center divider, fans, radiator bodies and optional internal hardware. The solid front/rear panels are subdivided into opaque face tiles bordering each opening, improving depth sorting relative to inset fans. This avoids the previous behavior in which entire component groups were painted over a finished shell, regardless of their actual front/back positions. It is still a painter's-algorithm preview, not a true 3D engine with a depth buffer, collision detection, or boolean subtraction between arbitrary intersecting components.
 
 The **Cooling view** focuses on radiators and fan assemblies. **Other parts** shows the provisional motherboard tray, CPU/GPU, pump, reservoir and drain. Existing projects retain their component positions and saved configurations; the new viewport filter defaults to cooling-only for older projects so those provisional internals no longer clutter the preview. Port markers are off in new projects but preserve their saved setting in older projects.
+
+## Component geometry — Mountain Mods tray and radiators (v0.13)
+
+The tray is the real **Mountain Mods Modular Removable ATX Tray Assembly, 120 mm black wrinkle (120MOTRAY-BW)** with the **ATX anodized-black tray (ATXTOAB)** underneath. The base tray is 10.9 × 12.75 in (276.86 × 323.85 mm). The nominal metal thickness is 1.65 mm. A detailed geometry builder (`assets/part-geometry.js`) now produces:
+
+- A thin metal plate with an actual CPU backplate access opening, shallow folded flanges, mounting ears, and stand-offs (approximate ATX pattern).
+- A vertical rear assembly with a **real 120 mm circular fan aperture**, an ATX I/O opening, and **seven separate PCI slot openings**. The panel is oriented horizontally across the 13-inch-wide rear walnut window, fitting its 8.25-inch height.
+- Four **60 mm thick** 360-radiator bodies with hollow-looking fin cores, two end tanks, mounting rails, screw details, and water-port collars. Fan counts/locations remain unchanged and editable.
+- The tray is visible in the default cooling view. **Other parts** adds the CPU, GPU, reservoir, pump and drain. Saved component IDs, tube routes and explicit coordinates remain compatible.
+
+**Precisions:** Product specification supports tray size and nominal material thickness; the rear panel's exact outer profile, hole coordinates, fold details and placement in this custom case are *visually estimated from Mountain Mods references*, not manufacturer machining plans. The radiator cross section and fin pitches are similarly illustrative; the 60 mm radiator thickness is user-supplied.
+
+References: [Mountain Mods 120MOTRAY-BW assembly](https://www.mountainmods.com/MountainMods-Modular-Removable-Motherboard-Tray-Assembly%28ATX%29-120-Black-Wrinkle), [ATXTOAB tray](https://www.mountainmods.com/atx_tray_anodized_black).
 
 ## Cooling assembly workflow
 
@@ -70,6 +83,7 @@ To run the JavaScript/HTML smoke test with Node.js:
 ```sh
 node tests/smoke-check.mjs
 node tests/webgl-smoke-check.mjs
+node tests/component-geometry-check.mjs
 ```
 
 GitHub Pages publishes from the `Production` branch and repository root:
@@ -81,12 +95,14 @@ For iOS, visit the Pages site instead of using a local file preview, which may b
 ## Repository structure
 
 - `index.html` — controls and layout
-- `assets/app.js` — modeling, renderer, components, routing, saving
+- `assets/app.js` — editor, world geometry dispatch, routes, saved projects
+- `assets/part-geometry.js` — detailed sheet-metal tray and finned radiator mesh builders
 - `assets/style.css` — layout and responsive controls
 - `assets/case-preview.svg` — static fallback
 - `docs/case-geometry.md` — dimensional reference
 - `tests/smoke-check.mjs` — DOM wiring and cooling configuration regression checks
 - `tests/webgl-smoke-check.mjs` — GPU geometry/caching/depth settings tests with a mocked Three.js
+- `tests/component-geometry-check.mjs` — tray aperture, radiator structure and dimensions
 
 ## Accuracy and safety
 
