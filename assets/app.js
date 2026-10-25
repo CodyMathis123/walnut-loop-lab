@@ -13,8 +13,9 @@ const initial=()=>({
     {id:'res',name:'FrozenQ reservoir (draft)',type:'res',pos:[-12,300,55],size:[72,238,72],ports:[{id:'in',name:'Top return',off:[0,119,0]},{id:'out',name:'Bottom supply',off:[0,-119,0]}],note:'Centered in the lower cavity to match the photo broadly; dimensions and ports unmeasured.'},
     {id:'pump',name:'Laing DDC / XSPC top (draft)',type:'pump',pos:[-12,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'Pump location, inlet and outlet orientation are provisional. Maintain a reliable flooded pump inlet.'},
     {id:'drain',name:'Drain T + valve (draft)',type:'drain',pos:[55,80,75],size:[55,26,36],ports:[{id:'in',name:'In',off:[-28,0,0]},{id:'out',name:'Out',off:[28,0,0]}],note:'Low inline drain is shown provisionally; change location and orientation as needed.'}
-  ], routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:true,fans:false,doors:false,caseOnly:false,dimensions:false},fanOnly:{'front-left':3,'front-right':0,'rear-left':3,'rear-right':0},tubeOD:16,bendRadius:35});
+  ], routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:false,fans:false,doors:false,caseOnly:false,internals:false,dimensions:false},fanOnly:{'front-left':3,'front-right':0,'rear-left':3,'rear-right':0},tubeOD:16,bendRadius:35});
 let project=initial(); let selection='rad1',selectedRoute=null,portClicks=0;
+let sceneQueue=null;
 let view={yaw:.58,pitch:.24,zoom:.90,target:[0,355,0],pan:[0,0]};let canvas=$('scene'),nativeCtx=canvas.getContext('2d'),ctx=nativeCtx,isSvgMode=false;let hitPorts=[],hitParts=[],isDragging=false,dragMoved=false,last=[0,0],dpr=1,W=100,H=100;
 
 // Minimal standards-based SVG adapter for the drawing commands used by this planner.
@@ -67,8 +68,45 @@ function portKeys(){return project.parts.filter(p=>p.visible!==false).flatMap(p=
 function toast(msg){const el=$('toast');el.textContent=msg;el.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>el.style.display='none',2700)}
 function screen(p){let v=sub(p,view.target),cy=Math.cos(view.yaw),sy=Math.sin(view.yaw),cp=Math.cos(view.pitch),sp=Math.sin(view.pitch);let x=v[0]*cy-v[2]*sy,z=v[0]*sy+v[2]*cy,y=v[1]*cp-z*sp,d=v[1]*sp+z*cp;let sf=Math.min(W/800,H/880)*view.zoom;return {x:W*.5+x*sf+view.pan[0],y:H*.52-y*sf+view.pan[1],d,sf}}
 function depth(p){return screen(p).d}
-function polygon(pts,fill,stroke='#0000',line=1){ctx.beginPath();pts.forEach((p,i)=>{const v=screen(p);i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y)});ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke!=='#0000'){ctx.lineWidth=line;ctx.strokeStyle=stroke;ctx.stroke()}}
-function stroke(points,color,width=3,alpha=1,dashes=null){ctx.beginPath();points.forEach((p,i)=>{const v=screen(p);i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y)});ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash(dashes||[]);ctx.stroke();ctx.globalAlpha=1;ctx.setLineDash([])}
+function sceneDepth(pts){
+ return depth(pts.reduce((a,p)=>add(a,p),[0,0,0]).map(v=>v/Math.max(1,pts.length)));
+}
+function polygon(pts,fill,edge='#0000',line=1){
+ if(sceneQueue){sceneQueue.push({kind:'face',pts,fill,edge,line,depth:sceneDepth(pts)});return}
+ ctx.beginPath();pts.forEach((p,i)=>{const v=screen(p);i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y)});
+ ctx.closePath();ctx.fillStyle=fill;ctx.fill();
+ if(edge!=='#0000'){ctx.lineWidth=line;ctx.strokeStyle=edge;ctx.stroke()}
+}
+function stroke(pts,color,width=3,alpha=1,dashes=null){
+ if(sceneQueue){sceneQueue.push({kind:'line',pts,color,lw:width,alpha,dashes,depth:sceneDepth(pts)});return}
+ ctx.beginPath();pts.forEach((p,i)=>{const v=screen(p);i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y)});
+ ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=width;
+ ctx.lineCap='round';ctx.lineJoin='round';ctx.setLineDash(dashes||[]);
+ ctx.stroke();ctx.globalAlpha=1;ctx.setLineDash([]);
+}
+function flushScene(){
+ const layers=sceneQueue||[];
+ sceneQueue=null;
+ layers.sort((a,b)=>a.depth-b.depth);
+ for(const it of layers){
+  if(it.kind==='panel'){
+   ctx.beginPath();
+   const trace=verts=>verts.forEach((p,i)=>{const v=screen(p);i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y)});
+   trace(it.pts);ctx.closePath();
+   for(const hole of it.holes){trace(hole);ctx.closePath()}
+   ctx.fillStyle=it.fill;ctx.fill('evenodd');
+   ctx.strokeStyle='#b78254';ctx.lineWidth=.85;ctx.stroke();
+  }else if(it.kind==='face')polygon(it.pts,it.fill,it.edge||'#0000',it.line||0);
+  else if(it.kind==='line')stroke(it.pts,it.color,it.lw,it.alpha??1,it.dashes);
+ }
+}
+function renderedParts(){
+ return project.display.caseOnly?[]:project.parts.filter(p=>p.visible!==false&&(p.type==='radiator'||project.display.internals));
+}
+function showInternals(enabled){
+ project.display.internals=enabled;
+ $('internalsBtn').classList.toggle('active',enabled);
+}
 function boxFaces(p){let [sx,sy,sz]=p.size.map(n=>n/2),[x,y,z]=p.pos;let corners=[[-sx,-sy,-sz],[sx,-sy,-sz],[sx,sy,-sz],[-sx,sy,-sz],[-sx,-sy,sz],[sx,-sy,sz],[sx,sy,sz],[-sx,sy,sz]].map(o=>add([x,y,z],o));let faceIdx=[[0,1,2,3],[4,5,6,7],[0,4,7,3],[1,5,6,2],[3,2,6,7],[0,1,5,4]];return faceIdx.map((f,i)=>({pts:f.map(j=>corners[j]),shade:i,dep:depth(f.reduce((v,j)=>add(v,corners[j]),[0,0,0]).map(n=>n/4))})).sort((a,b)=>a.dep-b.dep)}
 function box(p,colors){boxFaces(p).forEach(f=>polygon(f.pts,colors[f.shade%colors.length]||colors[0],'#111a2380',.75))}
 function circle3(center,r,axis='x',n=40){let pts=[];for(let i=0;i<=n;i++){let a=2*Math.PI*i/n;pts.push(axis==='x'?add(center,[0,Math.cos(a)*r,Math.sin(a)*r]):axis==='y'?add(center,[Math.cos(a)*r,0,Math.sin(a)*r]):add(center,[Math.cos(a)*r,Math.sin(a)*r,0]))}return pts}
@@ -135,13 +173,20 @@ function repositionRadiatorDepth(r){
 function showCoolingModel(){
  project.display.caseOnly=false;
  $('caseOnlyBtn').classList.remove('active');
+ showInternals(false);
 }
 function renderPart(p){let ps=p.size,sel=p.id===selection;let colors=p.type==='radiator'?['#232d38','#151f28','#172029','#273240','#1d2935','#202b36']:p.type==='tray'?['#171f29','#1d2835','#161e29','#232e3e','#283849','#111921']:p.type==='gpu'?['#30353e','#212933','#2c3641','#383f49','#41464c','#18232d']:p.type==='cpu'?['#b09a7d','#b4a080','#9a7e61','#d2b68a','#e4bc83','#7d6a52']:p.type==='pump'?['#30363b','#252e37','#1b242f','#3e4c57','#485463','#1a2530']:p.type==='res'?['#45536a88','#283748aa','#253349aa','#465d7288','#354c6088','#2e3e5488']:['#384552','#283541','#273541','#434e57','#4a5761','#253541'];box(p,colors);
  if(p.type==='res'){let top=add(p.pos,[0,ps[1]/2,0]);let low=add(p.pos,[0,-ps[1]/2,0]);stroke([low,top],'#70a7bc',4,.75);stroke(circle3(top,ps[0]*.35,'y'),'#b9c3cc',1.8);stroke(circle3(low,ps[0]*.35,'y'),'#b9c3cc',1.8)}
  if(p.type==='tray'){let q=add(p.pos,[-50,p.size[1]/2+8,-8]);polygon([add(q,[-52,0,-100]),add(q,[86,0,-100]),add(q,[86,0,75]),add(q,[-52,0,75])],'#22312c','#617468',1)}
  if(p.type==='drain'){let q=add(p.pos,[0,0,0]);stroke([q,add(q,[0,-65,0])],'#b3a38c',6);stroke(circle3(add(q,[0,-55,0]),11,'y'),'#c39464',3)}
- if(sel){let q=screen(p.pos);ctx.beginPath();ctx.strokeStyle='#f9d29e';ctx.lineWidth=1.5;ctx.setLineDash([4,4]);ctx.ellipse(q.x,q.y,Math.max(16,p.size[0]*q.sf*.53),Math.max(16,p.size[1]*q.sf*.53),0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([])}
- hitParts.push({id:p.id,...screen(p.pos)});
+ if(sel&&p.type==='radiator'){
+  const facing=FAN_SLOTS.find(slot=>slot.id===p.slot)?.end||1;
+  const z=p.pos[2]+facing*(p.size[2]/2+1);
+  const [x,y]=p.pos,[w,h]=p.size;
+  stroke([[x-w/2,y-h/2,z],[x+w/2,y-h/2,z],[x+w/2,y+h/2,z],
+          [x-w/2,y+h/2,z],[x-w/2,y-h/2,z]],'#f1c995',1.2,.75,[5,5]);
+ }
+  hitParts.push({id:p.id,...screen(p.pos)});
  }
 const FAN_SLOTS=[
  {id:'front-left',short:'F·L',name:'Front panel · left',side:-1,end:1},
@@ -256,24 +301,9 @@ function renderCabinetShell(){
    line([[x,y0,z0],[x,y0,z1],[x,y1,z1],[x,y1,z0],[x,y0,z0]],'#637b86',1.4);
   }
  }
- items.sort((a,b)=>a.depth-b.depth);
- for(const it of items){
-  if(it.kind==='face'){polygon(it.pts,it.fill,'#0000',0);continue}
-  if(it.kind==='panel'){
-   ctx.beginPath();
-   const trace=verts=>verts.forEach((p,i)=>{const v=screen(p);i?ctx.lineTo(v.x,v.y):ctx.moveTo(v.x,v.y)});
-   trace(it.pts);ctx.closePath();
-   for(const hole of it.holes){trace(hole);ctx.closePath()}
-   ctx.fillStyle=it.fill;ctx.fill('evenodd');
-   ctx.strokeStyle='#c48b59';ctx.lineWidth=1.1;ctx.stroke();
-   continue;
-  }
-  stroke(it.pts,it.color,it.lw,.82);
- }
- if(project.display.dimensions)drawDimensions();
- if(project.display.labels){
-  labelAt([halfW*.43,h+24,0],'Front / rear: three cut-through openings per panel','#f1c796');
- }
+ // Queue front and back panels, exposed cutout edges, structural supports and divider.
+ for(const it of items)sceneQueue.push(it);
+
 }
 function drawDoorOutlines(){
  const c=project.case,mainW=c.width-2*c.doors,halfW=mainW/2,t=c.doors;
@@ -309,21 +339,23 @@ function labelAt(p,text,color='#dbe6eb',shift=0){let v=screen(p);ctx.font='600 1
 function draw(){if(!ctx)return;let rect=$('viewport').getBoundingClientRect();W=Math.max(1,rect.width);H=Math.max(1,rect.height);const dd=Math.min(devicePixelRatio||1,2);if(canvas.width!==Math.round(W*dd)||canvas.height!==Math.round(H*dd)){canvas.width=Math.round(W*dd);canvas.height=Math.round(H*dd);canvas.style.width=W+'px';canvas.style.height=H+'px'}dpr=dd;ctx.setTransform(dd,0,0,dd,0,0);ctx.clearRect(0,0,W,H);hitPorts=[];hitParts=[];
  // subdued floor grid aids scale
  for(let u=-300;u<=300;u+=100){stroke([[u,0,-310],[u,0,310]],'#6b839b',.8,.19);stroke([[-330,0,u],[330,0,u]],'#6b839b',.8,.19)}
- const parts=project.display.caseOnly?[]:project.parts.filter(p=>p.visible!==false);
+ const parts=renderedParts();
  const fans=project.display.caseOnly?[]:[
   ...parts.filter(p=>p.type==='radiator').flatMap(attachedFans),...freeBayFans()
  ];
- // Sort fan frames and radiator bodies together to preserve depth when orbiting.
- const hardware=[
-  ...parts.map(item=>({kind:'part',item,pos:item.pos})),
-  ...fans.map(item=>({kind:'fan',item,pos:item.pos}))
- ].sort((a,b)=>depth(a.pos)-depth(b.pos));
+ // One sorting pass for actual front/rear shell faces, radiators, fans, and rotor artwork.
+ sceneQueue=[];
  drawCase();
- for(const h of hardware){if(h.kind==='fan')renderPhysicalFan(h.item);else renderPart(h.item)}
- if(!project.display.caseOnly)project.routes.forEach(renderTube);
- if(project.display.ports&&!project.display.caseOnly)for(let p of project.parts.filter(p=>p.visible!==false))for(let port of p.ports){let k=key(p,port.id),pos=portPos(k),v=screen(pos);let highlighted=($('fromPort').value===k||$('toPort').value===k);ctx.beginPath();ctx.arc(v.x,v.y,highlighted?6.7:4.8,0,Math.PI*2);ctx.fillStyle=highlighted?'#fff0b2':'#f4c99f';ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle='#5f3826';ctx.stroke();hitPorts.push({k,x:v.x,y:v.y,d:v.d})}
- if(project.display.labels&&!project.display.caseOnly){let arr=project.parts.filter(p=>p.type!=='tray'&&p.visible!==false);arr.forEach(p=>labelAt(add(p.pos,[0,p.size[1]/2+10,0]),p.name,p.id===selection?'#fbd3a1':'#d0dce8'));}
- $('viewStatus').textContent=(isSvgMode?'SVG':'Canvas')+' active · Drag to orbit · '+project.routes.length+' runs';$('staticPreview').style.display='none';}
+ parts.forEach(renderPart);
+ fans.forEach(renderPhysicalFan);
+ const visibleIds=new Set(parts.map(p=>p.id));
+ if(!project.display.caseOnly)for(const route of project.routes)
+  if(visibleIds.has(route.from.split('.')[0])&&visibleIds.has(route.to.split('.')[0]))renderTube(route);
+ flushScene();
+ if(project.display.dimensions)drawDimensions();
+ if(project.display.ports&&!project.display.caseOnly)for(let p of parts)for(let port of p.ports){let k=key(p,port.id),pos=portPos(k),v=screen(pos);let highlighted=($('fromPort').value===k||$('toPort').value===k);ctx.beginPath();ctx.arc(v.x,v.y,highlighted?6.7:4.8,0,Math.PI*2);ctx.fillStyle=highlighted?'#fff0b2':'#f4c99f';ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle='#5f3826';ctx.stroke();hitPorts.push({k,x:v.x,y:v.y,d:v.d})}
+ if(project.display.labels&&!project.display.caseOnly){let arr=parts.filter(p=>p.type!=='tray');arr.forEach(p=>labelAt(add(p.pos,[0,p.size[1]/2+10,0]),p.name,p.id===selection?'#fbd3a1':'#d0dce8'));}
+ $('viewStatus').textContent=(isSvgMode?'SVG':'Canvas')+' · Drag to orbit · '+fans.length+' fans';$('staticPreview').style.display='none';}
 function refreshPortSelect(){let ks=portKeys(),a=$('fromPort').value,b=$('toPort').value;for(let id of ['fromPort','toPort']){$(id).innerHTML='';for(let k of ks){let op=document.createElement('option');op.value=k;op.textContent=portLabel(k);$(id).appendChild(op)}}$('fromPort').value=ks.includes(a)?a:'res.out';$('toPort').value=ks.includes(b)?b:'pump.in'}
 function refreshCase(){let fields=[['width','Outside width'],['height','Outside height'],['depth','Outside depth']];$('caseFields').innerHTML=fields.map(([id,name])=>`<div class="field"><label>${name} (mm)</label><input id="case_${id}" type="number" min="200" max="1400" step=".1" value="${project.case[id]}"></div>`).join('');
  let more=[['doors','Each side door (mm)'],['openW','Top opening width (mm)'],['openD','Top opening depth (mm)'],['railWidth','Support rail width (mm)'],['railThickness','Support rail thick. (mm)'],['lowerRailTop','Lower support top (mm)'],['portY','Radiator port height (mm)'],['portFrontA','Port 1 from side edge (mm)'],['portFrontB','Port 2 from side edge (mm)'],['fanOpeningWidth','Fan cutout width (mm)'],['fanOpeningHeight','Fan cutout height (mm)'],['fanOpeningBottom','Fan cutout bottom inset (mm)'],['fanOpeningSide','Fan cutout side inset (mm)'],['windowSide','Window side inset (mm)'],['windowTop','Window top inset (mm)'],['windowHeight','Window height (mm)'],['fanThickness','Fan bank thickness (mm)'],['steelZ','Steel divider X shift (mm)']];
@@ -367,7 +399,7 @@ function refreshRouteList(){let root=$('routeList');if(!project.routes.length){r
 function estimate(){let tubes=0,straight=0,elbow=0,softLen=0,hardLen=0;let lengths=[];for(let rt of project.routes){let g=routeGeom(rt);tubes++;straight+=2;elbow+=g.elbows;if(rt.style==='soft')softLen+=g.length;else hardLen+=g.length;lengths.push(g.length)}let w=1+project.prices.waste/100;let sf=softLen*w/1000,hf=hardLen*w/1000,c1=straight*project.prices.fit,c2=elbow*project.prices.elbow,c3=sf*project.prices.soft,c4=hf*project.prices.hard,total=c1+c2+c3+c4+project.prices.other;return{total,straight,elbow,softLen,hardLen,sf,hf,c1,c2,c3,c4,lengths}}
 function refreshEstimate(){let a=estimate();$('totalLength').textContent=((a.softLen+a.hardLen)/1000).toFixed(2)+' m';$('fittingCount').textContent=a.straight;$('elbowCount').textContent=a.elbow;let money=n=>'$'+n.toFixed(2);$('estimateRows').innerHTML=[['Port compressions',a.straight+' × '+money(project.prices.fit),a.c1],['Integrated 90° connectors',a.elbow+' × '+money(project.prices.elbow),a.c2],['Soft tubing',a.sf.toFixed(2)+' m',a.c3],['Hard tubing',a.hf.toFixed(2)+' m',a.c4],['Other / adapters','allowance',project.prices.other]].map(([n,detail,v])=>`<tr><td>${n}<small style="display:block;color:#8493a4">${detail}</small></td><td>${money(v)}</td></tr>`).join('');$('costTotal').textContent=money(a.total)}
 function persist(){try{localStorage.setItem('walnutLoopLab05',JSON.stringify(project))}catch(e){}}
-function updateAll(){refreshCase();refreshPortSelect();refreshComponent();refreshRouteList();refreshEstimate();for(let id of ['fit','elbow','soft','hard','waste','other'])$(id==='fit'?'fitPrice':id==='elbow'?'elbowPrice':id==='soft'?'softPrice':id==='hard'?'hardPrice':id==='waste'?'wastePct':'otherCost').value=project.prices[id];$('tubeOD').value=project.tubeOD;$('bendRadius').value=project.bendRadius;for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports']])$(id).classList.toggle('active',project.display[k]);draw()}
+function updateAll(){refreshCase();refreshPortSelect();refreshComponent();refreshRouteList();refreshEstimate();for(let id of ['fit','elbow','soft','hard','waste','other'])$(id==='fit'?'fitPrice':id==='elbow'?'elbowPrice':id==='soft'?'softPrice':id==='hard'?'hardPrice':id==='waste'?'wastePct':'otherCost').value=project.prices[id];$('tubeOD').value=project.tubeOD;$('bendRadius').value=project.bendRadius;for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).classList.toggle('active',project.display[k]);draw()}
 function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}function normalizeImport(p){let start=initial();let vals={...start,...p,case:{...start.case,...p.case},display:{...start.display,...p.display},prices:{...start.prices,...p.prices},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0,...p.fanOnly}};let slots={rad1:'front-right',rad2:'front-left',rad3:'unmounted'};vals.parts=vals.parts.map(a=>{
   if(a.type!=='radiator')return a;
   const previousNames={rad1:'Front panel, right radiator',rad2:'Front panel, left radiator',rad3:'Third radiator (unassigned)'};
@@ -415,7 +447,7 @@ function sampleRoutes(){if(project.routes.length&&!confirm('Replace existing tub
 function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoom;view.target=[0,345,0];view.pan=[0,0];for(let id of ['isoBtn','frontBtn','sideBtn','topBtn'])$(id).classList.remove('active');draw()}
 function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();try{const v=JSON.parse(localStorage.getItem('walnutLoopLab05'));if(validateImport(v)){project=normalizeImport(v);persist()}}catch(e){};
  $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v5'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
- $('componentSelect').onchange=e=>{selection=e.target.value;refreshComponent()};$('mountSlot').onchange=e=>setRadiatorSlot(selection,e.target.value);
+ $('componentSelect').onchange=e=>{selection=e.target.value;const p=cpart(selection);if(p&&p.type!=='radiator'){project.display.caseOnly=false;showInternals(true)}persist();refreshComponent()};$('mountSlot').onchange=e=>setRadiatorSlot(selection,e.target.value);
  for(const [id,face] of [['panelFanCount','panel'],['innerFanCount','inner']]){
   $(id).onchange=e=>{
    const rad=cpart(selection);if(!rad||rad.type!=='radiator')return;
@@ -426,7 +458,7 @@ function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!n
   };
  }
  $('showCoolingBtn').onclick=()=>{showCoolingModel();changeModel();toast('Cooling assemblies visible. Select a radiator to edit fans.');};$('componentVisible').onchange=e=>{let part=cpart(selection);if(!part)return;part.visible=e.target.checked;project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;changeModel()};$('wallThickness').onchange=e=>{project.case.wood=clamp(Number(e.target.value),1,80);changeModel()};$('syncRads').onclick=()=>{syncMeasuredRadiators();showCoolingModel();persist();refreshComponent();changeModel();toast('Aligned installed radiators to front/back panel cutouts.');};$('dividerHeight').onchange=e=>{project.case.divider=clamp(Number(e.target.value),50,project.case.height-50);changeModel()};$('centerComponent').onclick=()=>{let p=cpart(selection);if(p)view.target=p.pos.slice();draw()};
- for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports']])$(id).onclick=()=>{project.display[k]=!project.display[k];$(id).classList.toggle('active',project.display[k]);changeModel()};
+ for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).onclick=()=>{project.display[k]=!project.display[k];$(id).classList.toggle('active',project.display[k]);changeModel()};
  $('addRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,$('styleSelect').value,$('axisOrder').value);$('populateRoutes').onclick=sampleRoutes;
  $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.style=e.target.value;changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;changeModel()};
  $('tubeOD').onchange=e=>{project.tubeOD=clamp(Number(e.target.value)||16,8,25);changeModel()};$('bendRadius').onchange=e=>{project.bendRadius=clamp(Number(e.target.value)||35,8,150);changeModel()};
