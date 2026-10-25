@@ -2,7 +2,7 @@
 
 A standalone, browser-based 3D-style planner for a custom walnut PC water-cooling case.
 
-**Status:** v0.11 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+**Status:** v0.12 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
 
 ## Features
 
@@ -15,11 +15,21 @@ A standalone, browser-based 3D-style planner for a custom walnut PC water-coolin
 - Save and restore configurations as JSON; export the current view
 - Local browser persistence and a static fallback drawing for browsers that block scripts
 
-## Editor layout and rendering (v0.11)
+## Editor layout and rendering (v0.12)
 
 The interactive page now prioritizes **Components** and **Fan-only openings**. Case dimensions, tubing routes, and tubing estimates remain available in collapsed sections rather than showing all reference notes on every page load. Measurement history, assumptions, and unverified dimensions belong here and in `docs/case-geometry.md`, not in the everyday editor UI.
 
-The viewer uses **one shared depth-sorted face queue** for the wood panels, their through-cut apertures, the center divider, fans, radiator bodies and optional internal hardware. The solid front/rear panels are subdivided into opaque face tiles bordering each opening, improving depth sorting relative to inset fans. This avoids the previous behavior in which entire component groups were painted over a finished shell, regardless of their actual front/back positions. It is still a painter's-algorithm preview, not a true 3D engine with a depth buffer, collision detection, or boolean subtraction between arbitrary intersecting components.
+**Rendering architecture:** The viewer now defaults to [Three.js 0.186.1](https://threejs.org/) and a real WebGL per-pixel depth buffer. The custom Canvas/SVG painter renderer remains available as a fallback. The library is loaded from a version-pinned jsDelivr ES-module URL using a browser import map; no build step is necessary. If loading the library or starting WebGL fails, the original viewer remains interactive.
+
+The GPU backend receives the *same world-space geometry* as the existing editor, avoiding any duplication of cabinet measurements, component placement, or saved project formats. Faces are batched by material into buffers, using depth testing and opaque depth writing. GPU meshes are cached while orbiting and rebuilt only after model changes. The WebGL display preserves the editor's existing camera math and gesture controls, and can export PNG.
+
+Use the **3D: WebGL** control to enable/disable hardware depth rendering. Canvas/SVG remains available using the fallback control.
+
+Official references: [installation](https://threejs.org/manual/pages/installation.html), [WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer), and [material depth testing](https://threejs.org/docs/pages/Material.html).
+
+### Legacy renderer
+
+The fallback viewer uses **one shared depth-sorted face queue** for the wood panels, their through-cut apertures, the center divider, fans, radiator bodies and optional internal hardware. The solid front/rear panels are subdivided into opaque face tiles bordering each opening, improving depth sorting relative to inset fans. This avoids the previous behavior in which entire component groups were painted over a finished shell, regardless of their actual front/back positions. It is still a painter's-algorithm preview, not a true 3D engine with a depth buffer, collision detection, or boolean subtraction between arbitrary intersecting components.
 
 The **Cooling view** focuses on radiators and fan assemblies. **Other parts** shows the provisional motherboard tray, CPU/GPU, pump, reservoir and drain. Existing projects retain their component positions and saved configurations; the new viewport filter defaults to cooling-only for older projects so those provisional internals no longer clutter the preview. Port markers are off in new projects but preserve their saved setting in older projects.
 
@@ -59,6 +69,7 @@ To run the JavaScript/HTML smoke test with Node.js:
 
 ```sh
 node tests/smoke-check.mjs
+node tests/webgl-smoke-check.mjs
 ```
 
 GitHub Pages publishes from the `Production` branch and repository root:
@@ -75,6 +86,7 @@ For iOS, visit the Pages site instead of using a local file preview, which may b
 - `assets/case-preview.svg` — static fallback
 - `docs/case-geometry.md` — dimensional reference
 - `tests/smoke-check.mjs` — DOM wiring and cooling configuration regression checks
+- `tests/webgl-smoke-check.mjs` — GPU geometry/caching/depth settings tests with a mocked Three.js
 
 ## Accuracy and safety
 
