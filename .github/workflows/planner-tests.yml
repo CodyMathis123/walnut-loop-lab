@@ -17,3 +17,5 @@ jobs:
         run: node tests/smoke-check.mjs
       - name: GPU scene and depth-buffer bridge checks
         run: node tests/webgl-smoke-check.mjs
+      - name: Sheet-metal tray and 60 mm radiator geometry
+        run: node tests/component-geometry-check.mjs
