@@ -40,3 +40,9 @@ button,input,select{font:inherit}button{cursor:pointer;color:var(--text);backgro
 .sidebar .section{padding:16px 18px}
 .section h2{margin:0 0 12px}
 .viewtools{max-width:calc(100% - 30px)}
+
+/* Three.js is composed below the transparent gesture/annotation canvas. */
+#webglCanvas{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none;display:none}
+.viewport.webgl-active #webglCanvas{display:block}
+.viewport.webgl-active #sceneSvg{display:none}
+#webglBtn:disabled{opacity:.65}
