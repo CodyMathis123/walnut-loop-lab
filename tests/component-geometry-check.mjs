@@ -7,7 +7,7 @@ import vm from 'node:vm';
 const source=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-assert.match(html,/<script src="assets\/part-geometry\.js\?v=0\.13"><\/script>\s*<script src="assets\/app\.js\?v=0\.13"><\/script>/);
+assert.match(html,/<script src="assets\/part-geometry\.js\?v=0\.14"><\/script>\s*<script src="assets\/app\.js\?v=0\.14"><\/script>/);
 assert.match(app,/p\.type==='tray'&&drawParts\?\.renderTray/);
 assert.match(app,/p\.type==='radiator'&&drawParts\?\.renderRadiator/);
 
@@ -42,6 +42,19 @@ const trayBodies=geoEvents.filter(e=>e.kind==='box');
 const trayFaces=geoEvents.filter(e=>e.kind==='face');
 assert.ok(trayBodies.length>=18,'Expected tray strips, flanges, mounting ears and standoffs');
 assert.ok(trayFaces.length>=70,'Rear I/O and circular aperture should use solid strips');
+// Corrected factory-style rear/right access hole and future ITX-only standoffs.
+assert.equal(trayBodies.filter(e=>e.size[0]===7&&e.size[1]===7&&e.size[2]===7).length,4);
+assert.ok(tray.pos[0] + 46 + 120/2 < tray.pos[0] + tray.size[0]/2);
+assert.ok(tray.pos[2] - 96 - 100/2 > tray.pos[2] - tray.size[2]/2);
+const firstPlate=trayBodies[0].size[0];
+geoEvents.length=0;
+window.WalnutLoopPartGeometry.renderTray({...tray,cutout:{x:20,z:-85,width:105,depth:90}},geometry);
+assert.notEqual(geoEvents.filter(e=>e.kind==='box')[0].size[0],firstPlate,
+  'Changing tray opening measurements must rebuild the metal strips');
+geoEvents.length=0;
+window.WalnutLoopPartGeometry.renderTray(tray,geometry);
+assertFinite();
+
 assert.ok(!trayBodies.some(e=>e.size[0]===276.86&&e.size[2]===323.85),
  'Tray must include an actual CPU service opening, not an opaque slab');
 // Panel alignment within the rear 13 × 8.25 inch window (above 19.25-in support).
