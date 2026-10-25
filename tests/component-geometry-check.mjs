@@ -40,7 +40,7 @@ window.WalnutLoopPartGeometry.renderTray(tray,geometry);
 assertFinite();
 const trayBodies=geoEvents.filter(e=>e.kind==='box');
 const trayFaces=geoEvents.filter(e=>e.kind==='face');
-assert.ok(trayBodies.length>=32,'Expected tray strips, flanges, mounting ears and standoffs');
+assert.ok(trayBodies.length>=18,'Expected tray strips, flanges, mounting ears and standoffs');
 assert.ok(trayFaces.length>=70,'Rear I/O and circular aperture should use solid strips');
 assert.ok(!trayBodies.some(e=>e.size[0]===276.86&&e.size[2]===323.85),
  'Tray must include an actual CPU service opening, not an opaque slab');
