@@ -48,3 +48,11 @@ X = horizontal; Y = height from floor; Z = front/back. Millimeters throughout. T
 - The steel divider is rendered as an opaque dark panel; the cutout panels use even-odd polygon holes.
 - This improves visible occlusion but is *not a geometric collision solver*. Intersecting mesh faces, hard tubing, and fit tolerances are approximate.
 - The normal editor keeps component and fan controls immediately visible. Geometry, route and cost settings are available inside expandable sections; explanatory history stays in repository documentation.
+
+## v0.11 — fan cutouts and all-four radiator preset
+
+- The four cutouts are occupied in the fresh sample by **four 360 mm radiator assemblies**, each with **three front/panel-side and three rear/inside fans** (24 fans total). This is a configurable mockup, not a statement about the number of physical radiators on hand.
+- The **outside face of each panel-facing fan** sits at the 20″ end-panel's outside surface. A 120 × 120 mm fan occupies the approximate 122 × 362 mm cutout (three fans tall); its 25.4 mm thickness passes through the 19.05 mm walnut and projects **6.35 mm inward**. A radiator rests behind this bank; additional fans attach to its other face.
+- Removing or hiding a radiator clears its opening. A user can substitute 0–3 standalone fans in an empty opening; attached counts remain editable per radiator from 0 to 3 on each side.
+- **Preset: 4 radiators · 3+3 fans** fills all four slots on request without resetting unrelated motherboard/pump settings. Existing saved radiator assignments and hand-positioned coordinates are otherwise retained. Projects from before the mounting-depth correction are adjusted only when their old Z coordinates still match auto-positioned defaults.
+- Opaque front/rear panel faces are subdivided into strips beside and between cutouts so the depth sorter does not try to render an entire cabinet side at a single mean depth. Fan frames are now modeled as four rails with an open center, not one solid 120 × 120 mm plane. This improves the transparency artifacts, but is still **not a true WebGL depth buffer or collision solver**.
