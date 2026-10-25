@@ -14,8 +14,9 @@
  function rearPanelAlignment(part){
   const [x]=part.pos,[w]=part.size;
   const right=x+w/2+rearRightOverhang,left=right-rearPanelWidth;
-  const center=(left+right)/2,split=left+rearFanSectionWidth;
-  return {left,right,center,split,fanX:(left+split)/2,width:rearPanelWidth};
+  const center=(left+right)/2,split=right-rearFanSectionWidth;
+  // Left = PCI expansion slots. Right = fan above motherboard I/O.
+  return {left,right,center,split,fanX:(split+right)/2,width:rearPanelWidth};
  }
  function trayXForRearPanelCenter(center,trayWidth){
   return center+rearPanelWidth/2-rearRightOverhang-trayWidth/2;
@@ -65,54 +66,69 @@
    stroke(circle3([x+xx,top+.7,z+zz],2.2,'y',12),'#8c9ca8',1,.8);
   }
 
-  // The manufacturer rear panel has a 120 fan hole + I/O shield + PCI slots.
-  // The whole rear panel is rotated to put the wide dimension horizontally
-  // beneath the walnut rear window (13 in wide, 8.25 in tall).
+
+  // Facing the case from above (same as the reference photo):
+  // PCI slots LEFT, fan TOP RIGHT, motherboard I/O BELOW the fan.
+  // The two right-hand apertures must be carved out of separate parts
+  // of the sheet. Otherwise radial fill polygons would mask the I/O hole.
   const zBack=z+B+2.5;
   const {left:panelL,right:panelR,center:panelCenter,split,fanX}=rearPanelAlignment(part);
-  const y0=top,y1=top+183,fanY=y0+92,fanRadius=55;
-  // Geometrically cover the rectangular fan sheet outside its circular hole.
-  // At each ray the outer endpoint is the intersection with panel bounds.
-  let angles=[];
+  const y0=top,y1=top+183;
+  const fanY=y0+119,fanRadius=55;
+  const fanRegionBottom=y0+56; // fan's low edge is y0+64
+  const io={x0:split+20,x1:panelR-20,y0:y0+10,y1:y0+49};
+  const pciSlots=Array.from({length:7},(_,i)=>{
+   const xx=panelL+14+21*i;
+   return {x0:xx,x1:xx+10,y0:y0+22,y1:y0+104};
+  });
+  const cutouts=[io,...pciSlots];
+
+  // Fan's sheet region extends only above the I/O opening, keeping its
+  // circular 110 mm through-hole genuinely open.
+  const angles=[];
   for(let i=0;i<64;i++)angles.push(i*2*Math.PI/64);
-  for(const [xx,yy] of [[panelL,y0],[split,y0],[split,y1],[panelL,y1]]){
-   let a=Math.atan2(yy-fanY,xx-fanX);if(a<0)a+=2*Math.PI;angles.push(a);
+  for(const [xx,yy] of [[split,fanRegionBottom],[panelR,fanRegionBottom],
+                         [panelR,y1],[split,y1]]){
+   let a=Math.atan2(yy-fanY,xx-fanX);
+   if(a<0)a+=2*Math.PI;
+   angles.push(a);
   }
   angles.sort((a,b)=>a-b);
   const outer=a=>{
    const vx=Math.cos(a),vy=Math.sin(a),ts=[];
-   if(vx>0)ts.push((split-fanX)/vx);
-   else if(vx<0)ts.push((panelL-fanX)/vx);
+   if(vx>0)ts.push((panelR-fanX)/vx);
+   else if(vx<0)ts.push((split-fanX)/vx);
    if(vy>0)ts.push((y1-fanY)/vy);
-   else if(vy<0)ts.push((y0-fanY)/vy);
-   const t=Math.min(...ts.filter(n=>n>0));
-   return [fanX+vx*t,fanY+vy*t,zBack];
+   else if(vy<0)ts.push((fanRegionBottom-fanY)/vy);
+   const distance=Math.min(...ts.filter(n=>n>0));
+   return [fanX+vx*distance,fanY+vy*distance,zBack];
   };
   const inner=a=>[fanX+fanRadius*Math.cos(a),fanY+fanRadius*Math.sin(a),zBack];
   for(let i=0;i<angles.length;i++){
    const a=angles[i],b=i===angles.length-1?angles[0]+2*Math.PI:angles[i+1];
-   // Front face is double sided in WebGL, and has no fake solid disk.
    polygon([inner(a),outer(a),outer(b),inner(b)],'#1b2731');
   }
-  // Right section: a long ATX I/O window above seven distinct PCI slots.
-  const cutouts=[{x0:panelCenter-6,x1:panelCenter+143,y0:y0+121,y1:y0+166}];
-  for(let i=0;i<7;i++){
-   const xx=panelCenter-7+20.7*i;
-   cutouts.push({x0:xx,x1:xx+10,y0:y0+20,y1:y0+103});
-  }
-  const ys=[y0,y1,...cutouts.flatMap(v=>[v.y0,v.y1])].sort((a,b)=>a-b)
-    .filter((v,i,arr)=>i===0||v-arr[i-1]>.001);
+
   const fillRegion=(xa,xb,ya,yb)=>{
    if(xb-xa<.1||yb-ya<.1)return;
    polygon([[xa,ya,zBack],[xb,ya,zBack],[xb,yb,zBack],[xa,yb,zBack]],'#1b2731');
   };
+  // Separate bottom-right I/O section: solid strips on all four sides.
+  fillRegion(split,io.x0,y0,fanRegionBottom);
+  fillRegion(io.x1,panelR,y0,fanRegionBottom);
+  fillRegion(io.x0,io.x1,y0,io.y0);
+  fillRegion(io.x0,io.x1,io.y1,fanRegionBottom);
+
+  // Left-hand sheet around all seven PCI slots.
+  const ys=[y0,y1,...pciSlots.flatMap(v=>[v.y0,v.y1])].sort((a,b)=>a-b)
+   .filter((v,i,arr)=>i===0||v-arr[i-1]>.001);
   for(let k=1;k<ys.length;k++){
    const ya=ys[k-1],yb=ys[k],mid=(ya+yb)/2;
-   const cuts=cutouts.filter(v=>v.y0<=mid&&v.y1>=mid)
-     .map(v=>[v.x0,v.x1]).sort((a,b)=>a[0]-b[0]);
-   let start=split;
-   for(const [xa,xb] of cuts){fillRegion(start,xa,ya,yb);start=Math.max(start,xb)}
-   fillRegion(start,panelR,ya,yb);
+   const cuts=pciSlots.filter(v=>v.y0<=mid&&v.y1>=mid)
+    .map(v=>[v.x0,v.x1]).sort((a,b)=>a[0]-b[0]);
+   let cursor=panelL;
+   for(const [xa,xb] of cuts){fillRegion(cursor,xa,ya,yb);cursor=Math.max(cursor,xb)}
+   fillRegion(cursor,split,ya,yb);
   }
   const rim=[[panelL,y0,zBack],[panelR,y0,zBack],
              [panelR,y1,zBack],[panelL,y1,zBack]];
