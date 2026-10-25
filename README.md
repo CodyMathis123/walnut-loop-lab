@@ -25,6 +25,8 @@ A standalone, browser-based 3D-style planner for a custom walnut PC water-coolin
 
 Each radiator retains its attached fan counts when moved to another opening. The fan-only setting for a bay is remembered but is hidden while that bay has a radiator. Moving a radiator to a different bay doesn't reset unrelated radiator positions. Fan objects are included in the imported/exported project JSON; existing v0.8 browser data is upgraded automatically, defaulting older radiator setups to three panel-side fans and none on the opposite side.
 
+**Initial sample layout:** Radiator 1 on the front/right opening and Radiator 2 on the rear/right opening, each with **3 + 3** fans. The front/left and rear/left openings start with three fan-only frames apiece. Radiator 3 is unmounted. Imported and saved projects retain their own bay assignments.
+
 **Important assumptions:** Each radiator is approximated as a rectangular body (starter size 135 × 380 × 64 mm). Fans are shown at 120 × 120 mm with editable global thickness (initially 25.4 mm). Radiator mounting distances, actual fan frames and air direction are provisional. The controls currently model fan quantity and mounting sides, not verified airflow arrows, screw holes, or manufacturer-specific fit.
 
 ## Cabinet measurements
