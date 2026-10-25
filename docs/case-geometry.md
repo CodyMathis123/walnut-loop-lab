@@ -118,3 +118,24 @@ Detailed approximate panel layout in tray-relative world coordinates, where the 
 - Seven PCI slots: on left 172 mm wide section, each 10 mm wide, with about 21 mm X spacing and Y=+22..104 mm.
 
 These are schematic proportions (not cut/drill templates). The geometry has separate filled sheet regions around each hole so the GPU depth renderer sees actual open holes rather than painted rectangles. Regression tests verify the positions and empty cut-through regions.
+
+## v0.17 — dual/single loop assemblies
+
+Fresh-project default: **GPU left / CPU right**, each consisting of two 360 mm radiators, a matching FrozenQ reservoir, DDC/XSPC pump and its own low-point drain tee. X=0 is the center steel divider; both circulation sets occupy opposite sides:
+
+| Component | X | Y | Z | Reservoir body orientation |
+|---|---:|---:|---:|---|
+| GPU reservoir (res) | -125 | 300 | 55 | vertical 72 × 238 × 72 mm |
+| GPU pump (pump) | -125 | 104 | 70 | N/A |
+| GPU drain (drain) | -190 | 65 | 125 | capped tee |
+| CPU reservoir (res2) | +125 | 300 | 55 | vertical 72 × 238 × 72 mm |
+| CPU pump (pump2) | +125 | 104 | 70 | N/A |
+| CPU drain (drain2) | +190 | 65 | 125 | capped tee |
+
+Radiator assignments default: **rad3 + rad4 GPU**, **rad1 + rad2 CPU**. CPU water block is associated with CPU, GPU block with GPU. These are logical memberships; each radiator's assignment is editable in the Components panel when dual mode is selected. Single mode shares all four radiators and the original GPU-left reservoir/pump/drain set, hides the right kit, and supports routes connecting both blocks.
+
+Reservoir orientation is per component: **vertical** uses the long axis along Y, **horizontal** along Z (front–back). Switching orientation swaps the Y/Z physical body size and rotates all stored port offsets about X; it keeps the bottom at its former Y. Orientation and hand-edited coordinates persist in JSON. Reservoirs render as cylindrical, capped, helix-detailed approximations in the existing WebGL or Canvas/SVG pipeline (no new dependencies).
+
+Generated example routes do not imply safe coolant design or installation readiness. A tee off pump.out connects to drain.in while the drain.out remains capped. Do not add the drain in series to ordinary pump/radiator flow. Mount pumps below a flooded reservoir outlet and verify that horizontal configurations have a suitable fill/bleed path. The planner has no true collision/flow solver.
+
+Legacy v0.16 projects with no `loopMode` field migrate to **single** (preserving the user's established original loop), and the matching spare right hardware is appended hidden. Old untouched left drain coordinates are corrected to a left-side low point; custom settings are not overwritten. A fresh v0.17 project starts **dual**. Selecting the layout option with saved routes asks before clearing them.
