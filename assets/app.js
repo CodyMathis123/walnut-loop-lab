@@ -296,7 +296,7 @@ function renderCabinetShell(){
   if(y1>y0){
    for(const faceX of [x-1,x+1]){
     const points=[[faceX,y0,z0],[faceX,y0,z1],[faceX,y1,z1],[faceX,y1,z0]];
-    items.push({kind:'face',pts:points,fill:'#27343fbf',depth:depth([faceX,(y0+y1)/2,0])});
+    items.push({kind:'face',pts:points,fill:'#344452',depth:depth([faceX,(y0+y1)/2,0])});
    }
    line([[x,y0,z0],[x,y0,z1],[x,y1,z1],[x,y1,z0],[x,y0,z0]],'#637b86',1.4);
   }
