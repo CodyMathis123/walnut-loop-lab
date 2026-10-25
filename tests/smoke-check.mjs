@@ -7,8 +7,8 @@ import vm from 'node:vm';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const parts=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
-assert.match(html,/<script\s+src="assets\/app\.js\?v=0\.19"><\/script>/);
-assert.match(html,/<link\s+rel="stylesheet"\s+href="assets\/style\.css\?v=0\.19">/);
+assert.match(html,/<script\s+src="assets\/app\.js\?v=0\.20"><\/script>/);
+assert.match(html,/<link\s+rel="stylesheet"\s+href="assets\/style\.css\?v=0\.20">/);
 for(const m of app.matchAll(/\$\('([A-Za-z0-9_]+)'\)/g)){
  assert.ok(html.includes('id="'+m[1]+'"'),'Missing HTML element: '+m[1]);
 }
@@ -115,7 +115,7 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  assert.equal(model.project.parts.filter(p=>p.type==='radiator'&&p.visible!==false).length,4);
  assert.equal(model.project.parts.filter(p=>p.type==='radiator').reduce((n,p)=>n+model.attachedFans(p).length,0),24);
  // Only snapshots from the current prototype format are accepted.
- const snapshot={...model.initial(),format:'walnut-loop-v19'};
+ const snapshot={...model.initial(),format:'walnut-loop-v20'};
  snapshot.parts.find(p=>p.id==='tray').pos[0]=44;
  const imported=model.normalizeImport(snapshot);
  assert.equal(imported.parts.find(p=>p.id==='tray').pos[0],44);
