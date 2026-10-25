@@ -416,15 +416,18 @@ function refreshComponent(){let comp=cpart(selection)||project.parts[0];selectio
  $('portInfo').innerHTML=comp.ports.length?'<strong>Port positions (relative offsets):</strong><div class="help">Click a port dot in the viewer, or adjust its offsets below.</div>'+comp.ports.map((p,i)=>`<div class="help" style="margin:8px 0 3px">${p.name}: <b>${key(comp,p.id)}</b></div><div class="grid3">${p.off.map((v,j)=>`<div class="field"><label>${axes[j]} offset</label><input type="number" step="1" data-port="${i}" data-axis="${j}" value="${v}"></div>`).join('')}</div>`).join(''):'<span class="help">This component has no modeled water ports.</span>';
  $('portInfo').querySelectorAll('input').forEach(el=>el.addEventListener('change',e=>{comp.ports[+e.target.dataset.port].off[+e.target.dataset.axis]=Number(e.target.value)||0;changeModel()}));draw()}
 function refreshFreeBayControls(){
- const root=$('freeBayControls');if(!root)return;
- root.innerHTML=FAN_SLOTS.map(slot=>{
-  const rad=project.parts.find(p=>p.type==='radiator'&&p.slot===slot.id&&p.visible!==false);
-  const selection=rad?'<small>Radiator: '+rad.name+'</small>':
-   '<label><span class="sr-only">Standalone fans for '+slot.name+'</span><select data-free-bay="'+slot.id+'">'+
-   [0,1,2,3].map(n=>'<option value="'+n+'" '+(Number(project.fanOnly?.[slot.id])===n?'selected':'')+'>'+n+' fan'+(n===1?'':'s')+'</option>').join('')+
-   '</select></label>';
-  return '<div class="freebay-row"><span>'+slot.name+'</span>'+selection+'</div>';
- }).join('');
+ const root=$('freeBayControls');
+ const available=FAN_SLOTS.filter(slot=>!project.parts.some(
+  p=>p.type==='radiator'&&p.slot===slot.id&&p.visible!==false));
+ $('freeBaySection').style.display=available.length?'block':'none';
+ if(!available.length){root.replaceChildren();return}
+ root.innerHTML=available.map(slot=>
+  '<div class="freebay-row"><span>'+slot.name+'</span>'+
+  '<label><span class="sr-only">Standalone fans for '+slot.name+'</span>'+
+  '<select data-free-bay="'+slot.id+'">'+
+  [0,1,2,3].map(n=>'<option value="'+n+'" '+(Number(project.fanOnly?.[slot.id])===n?'selected':'')+
+  '>'+n+' fan'+(n===1?'':'s')+'</option>').join('')+
+  '</select></label></div>').join('');
  root.querySelectorAll('[data-free-bay]').forEach(el=>el.addEventListener('change',()=>{
   project.fanOnly[el.dataset.freeBay]=Number(el.value);
   showCoolingModel();changeModel();
