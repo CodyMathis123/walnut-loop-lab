@@ -2,7 +2,7 @@
 
 A standalone, browser-based 3D-style planner for a custom walnut PC water-cooling case.
 
-**Status:** v0.10 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+**Status:** v0.11 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
 
 ## Features
 
@@ -15,17 +15,17 @@ A standalone, browser-based 3D-style planner for a custom walnut PC water-coolin
 - Save and restore configurations as JSON; export the current view
 - Local browser persistence and a static fallback drawing for browsers that block scripts
 
-## Editor layout and rendering (v0.10)
+## Editor layout and rendering (v0.11)
 
 The interactive page now prioritizes **Components** and **Fan-only openings**. Case dimensions, tubing routes, and tubing estimates remain available in collapsed sections rather than showing all reference notes on every page load. Measurement history, assumptions, and unverified dimensions belong here and in `docs/case-geometry.md`, not in the everyday editor UI.
 
-The viewer uses **one shared depth-sorted face queue** for the wood panels, their through-cut apertures, the center divider, fans, radiator bodies and optional internal hardware. This avoids the previous behavior in which entire component groups were painted over a finished shell, regardless of their actual front/back positions. It is still a painter's-algorithm preview, not a true 3D engine with a depth buffer, collision detection, or boolean subtraction between arbitrary intersecting components.
+The viewer uses **one shared depth-sorted face queue** for the wood panels, their through-cut apertures, the center divider, fans, radiator bodies and optional internal hardware. The solid front/rear panels are subdivided into opaque face tiles bordering each opening, improving depth sorting relative to inset fans. This avoids the previous behavior in which entire component groups were painted over a finished shell, regardless of their actual front/back positions. It is still a painter's-algorithm preview, not a true 3D engine with a depth buffer, collision detection, or boolean subtraction between arbitrary intersecting components.
 
 The **Cooling view** focuses on radiators and fan assemblies. **Other parts** shows the provisional motherboard tray, CPU/GPU, pump, reservoir and drain. Existing projects retain their component positions and saved configurations; the new viewport filter defaults to cooling-only for older projects so those provisional internals no longer clutter the preview. Port markers are off in new projects but preserve their saved setting in older projects.
 
 ## Cooling assembly workflow
 
-1. Open **Components**, choose an existing radiator (Front/right, Front/left or Third radiator).
+1. Open **Components**, choose Radiator 1, 2, 3 or 4.
 2. Set its **Attach radiator to fan opening** slot: front/rear and left/right, or **Not installed**.
 3. Set **Between panel and radiator** and **Other side of radiator** to 0, 1, 2 or 3 fans. For instance, **3 + 3** means six fans in push/pull. **3 + 0** means three fans on one side. For two fans, the viewer shows the upper and lower positions; for one fan, the center.
 4. Under **Fan-only openings**, select a count for any unoccupied bay (e.g. a 3-fan airflow-only bank).
@@ -33,7 +33,9 @@ The **Cooling view** focuses on radiators and fan assemblies. **Other parts** sh
 
 Each radiator retains its attached fan counts when moved to another opening. The fan-only setting for a bay is remembered but is hidden while that bay has a radiator. Moving a radiator to a different bay doesn't reset unrelated radiator positions. Fan objects are included in the imported/exported project JSON; existing v0.8 browser data is upgraded automatically, defaulting older radiator setups to three panel-side fans and none on the opposite side.
 
-**Initial sample layout:** Radiator 1 on the front/right opening and Radiator 2 on the rear/right opening, each with **3 + 3** fans. The front/left and rear/left openings start with three fan-only frames apiece. Radiator 3 is unmounted. Imported and saved projects retain their own bay assignments.
+**Initial sample layout:** Four 360 mm radiators — one in each front/rear left/right opening — with **3 + 3** fans apiece (24 fan frames total). Each panel-facing 25.4 mm fan is nested into the 122 × 362 mm opening, with its exterior face flush with the walnut outside surface; the rest of its depth extends into the cabinet. The four radiator assemblies can be individually unmounted or hidden, and their 0–3 fan counts on each side can be changed.
+
+**Existing saved projects** retain customized assignments and counts, with Radiator 4 appended if missing. Old auto-positioned fan stacks migrate into the cutout; manually modified radiator Z positions are kept. Use **Preset: 4 radiators · 3+3 fans** to explicitly apply the new four-radiator starting configuration to an existing project, or Reset sample to restore all defaults.
 
 **Important assumptions:** Each radiator is approximated as a rectangular body (starter size 135 × 380 × 64 mm). Fans are shown at 120 × 120 mm with editable global thickness (initially 25.4 mm). Radiator mounting distances, actual fan frames and air direction are provisional. The controls currently model fan quantity and mounting sides, not verified airflow arrows, screw holes, or manufacturer-specific fit.
 
