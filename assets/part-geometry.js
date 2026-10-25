@@ -188,5 +188,45 @@
    stroke(circle3([px,yy+1.15,pz],10.2,'y',24),'#bbc8d2',1.1,.95);
   }
  }
- window.WalnutLoopPartGeometry={renderTray,renderRadiator,rearPanelAlignment,trayXForRearPanelCenter};
+ function renderReservoir(p,geo){
+  const {box,polygon,stroke,circle3}=geo;
+  const horizontal=p.orientation==='horizontal';
+  const axis=horizontal?'z':'y';
+  const length=p.size[horizontal?2:1],radius=p.size[0]*.45;
+  const [x,y,z]=p.pos;
+  const span=horizontal?[0,0,1]:[0,1,0];
+  const at=v=>[x+span[0]*v,y+span[1]*v,z+span[2]*v];
+  const center=at(0),from=at(-length/2),to=at(length/2);
+  const ring=(v,n=32)=>circle3(at(v),radius,axis,n).slice(0,-1);
+  const start=ring(-length/2+9),end=ring(length/2-9);
+  // Matte dark-tinted tube with 32 faceted sides for consistent GPU/Canvas rendering.
+  // Avoid alpha-blended polygons intersecting the center divider.
+  for(let i=0;i<start.length;i++){
+   const j=(i+1)%start.length;
+   polygon([start[i],start[j],end[j],end[i]],i%2?'#354d60':'#3b556a');
+  }
+  for(const v of [-length/2+5,length/2-5]){
+   polygon(ring(v),'#8394a2');
+   stroke(circle3(at(v),radius,axis,36),'#b9c8d2',1.7,.94);
+  }
+  // FrozenQ-style internal helix; simplified but follows reservoir orientation.
+  const helix=[];
+  const steps=96;
+  for(let k=0;k<=steps;k++){
+   const t=k/steps,a=t*Math.PI*8;
+   const base=at((t-.5)*(length-28));
+   const rr=radius*.48;
+   helix.push(horizontal?[base[0]+rr*Math.cos(a),base[1]+rr*Math.sin(a),base[2]]:
+                        [base[0]+rr*Math.cos(a),base[1],base[2]+rr*Math.sin(a)]);
+  }
+  stroke(helix,'#74bacd',2.1,.85);
+  stroke(circle3(from,radius*.9,axis,32),'#a3b0b7',1.6,.92);
+  stroke(circle3(to,radius*.9,axis,32),'#a3b0b7',1.6,.92);
+  for(const port of p.ports||[]){
+   const point=p.pos.map((v,i)=>v+port.off[i]);
+   stroke(circle3(point,7,axis,20),'#9fc1d0',1.2,.93);
+  }
+ }
+
+ window.WalnutLoopPartGeometry={renderTray,renderRadiator,renderReservoir,rearPanelAlignment,trayXForRearPanelCenter};
 })();
