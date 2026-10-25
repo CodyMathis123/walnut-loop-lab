@@ -562,7 +562,7 @@ function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.
   oldDrain.pos=[-190,65,125];
  for(const id of ['res2','pump2','drain2']){
   let part=byId(id);
-  if(!part){part=JSON.parse(JSON.stringify(start.parts.find(x=>x.id===id)));part.visible=false;vals.parts.push(part)}
+  if(!part){part=JSON.parse(JSON.stringify(start.parts.find(x=>x.id===id)));part.visible=vals.loopMode==='dual';vals.parts.push(part)}
   // Explicit saved visibility remains in dual mode. In single mode
   // the second kit is hidden but its geometry and port offsets persist.
   if(vals.loopMode==='single')part.visible=false;
