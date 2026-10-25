@@ -21,13 +21,13 @@ const initial=()=>({
     {id:'cpu',name:'CPU water block · AM4 socket',type:'cpu',loop:'cpu',mountedTo:'mobo',
      pos:[72.00,519.05,-142.45],size:[65,23,65],ports:[{id:'in',name:'In',off:[-16,17,0]},{id:'out',name:'Out',off:[16,17,0]}],note:'CPU/AM4 block location follows schematic motherboard positioning; no measurements yet.'},
     {id:'gpu',name:'RX 9070 XT / water block (draft)',type:'gpu',loop:'gpu',pos:[-151,527,-45],size:[112,29,290],ports:[{id:'in',name:'In',off:[48,11,-25]},{id:'out',name:'Out',off:[48,11,25]}],note:'Separate horizontal GPU location is only a planning placeholder.'},
-    {id:'res',name:'GPU reservoir · left',type:'res',loop:'gpu',orientation:'vertical',pos:[-125,300,55],size:[72,238,72],ports:[{id:'in',name:'Top return',off:[0,119,0]},{id:'out',name:'Bottom supply',off:[0,-119,0]}],note:'Left lower chamber, completely clear of the X=0 steel divider. Position and dimensions are provisional.'},
+    {id:'res',name:'GPU reservoir · left',type:'res',loop:'gpu',orientation:'vertical',pos:[-125,300,55],size:[72,238,72],ports:[{id:'in',name:'Bottom return',off:[-17,-119,0]},{id:'out',name:'Bottom supply',off:[17,-119,0]},{id:'top',name:'Top fill / vent',off:[0,119,0]}],note:'Left lower chamber, completely clear of the X=0 steel divider. Position and dimensions are provisional.'},
     {id:'pump',name:'GPU pump · left',type:'pump',loop:'gpu',pos:[-125,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'Pump location, inlet and outlet orientation are provisional. Maintain a reliable flooded pump inlet.'},
     {id:'drain',name:'GPU drain · left',type:'drain',loop:'gpu',pos:[-190,65,125],size:[55,26,36],ports:[{id:'in',name:'T branch',off:[-28,0,0]},{id:'out',name:'Capped outlet',off:[28,0,0]}],note:'Low-point drain tee with a capped/closed valve. Schematic mounting position.'},
-    {id:'res2',name:'CPU reservoir · right',type:'res',loop:'cpu',orientation:'vertical',pos:[125,300,55],size:[72,238,72],ports:[{id:'in',name:'Top return',off:[0,119,0]},{id:'out',name:'Bottom supply',off:[0,-119,0]}],note:'Right-side reservoir for dedicated CPU loop.'},
+    {id:'res2',name:'CPU reservoir · right',type:'res',loop:'cpu',orientation:'vertical',pos:[125,300,55],size:[72,238,72],ports:[{id:'in',name:'Bottom return',off:[-17,-119,0]},{id:'out',name:'Bottom supply',off:[17,-119,0]},{id:'top',name:'Top fill / vent',off:[0,119,0]}],note:'Right-side reservoir for dedicated CPU loop.'},
     {id:'pump2',name:'CPU pump · right',type:'pump',loop:'cpu',pos:[125,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'CPU DDC pump below its right-side reservoir.'},
     {id:'drain2',name:'CPU drain · right',type:'drain',loop:'cpu',pos:[190,65,125],size:[55,26,36],ports:[{id:'in',name:'T branch',off:[-28,0,0]},{id:'out',name:'Capped outlet',off:[28,0,0]}],note:'CPU-side low-point tee/drain with capped outlet.'}
-  ],loopMode:'dual', routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:false,fans:false,doors:false,caseOnly:false,internals:false,dimensions:false},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0},mountVersion:1,tubeOD:16,bendRadius:35});
+  ],loopMode:'dual',singleHardwareSide:'right', routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:false,fans:false,doors:false,caseOnly:false,internals:false,dimensions:false},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0},mountVersion:1,tubeOD:16,bendRadius:35});
 let project=initial(); let selection='rad1',selectedRoute=null,portClicks=0;
 let sceneQueue=null;
 let sceneRevision=0; // Increment only for model/edit changes, not camera orbit gestures.
@@ -441,7 +441,7 @@ function draw(){if(!ctx)return;const webgl=window.WalnutLoopWebGL?.active===true
  if(project.display.ports&&!project.display.caseOnly)for(let p of parts)for(let port of p.ports){let k=key(p,port.id),pos=portPos(k),v=screen(pos);let highlighted=($('fromPort').value===k||$('toPort').value===k);if(!webgl){ctx.beginPath();ctx.arc(v.x,v.y,highlighted?6.7:4.8,0,Math.PI*2);ctx.fillStyle=highlighted?'#fff0b2':'#f4c99f';ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle='#5f3826';ctx.stroke()}hitPorts.push({k,x:v.x,y:v.y,d:v.d})}
  if(project.display.labels&&!project.display.caseOnly){let arr=parts.filter(p=>p.type!=='tray');arr.forEach(p=>labelAt(add(p.pos,[0,p.size[1]/2+10,0]),p.name,p.id===selection?'#fbd3a1':'#d0dce8'));}
  $('viewStatus').textContent=(webgl?'WebGL / depth tested':isSvgMode?'SVG':'Canvas')+' · Drag to orbit · '+fans.length+' fans';$('staticPreview').style.display='none';}
-function refreshPortSelect(){let ks=portKeys(),a=$('fromPort').value,b=$('toPort').value;for(let id of ['fromPort','toPort']){$(id).innerHTML='';for(let k of ks){let op=document.createElement('option');op.value=k;op.textContent=portLabel(k);$(id).appendChild(op)}}$('fromPort').value=ks.includes(a)?a:'res.out';$('toPort').value=ks.includes(b)?b:'pump.in'}
+function refreshPortSelect(){let ks=portKeys(),a=$('fromPort').value,b=$('toPort').value;for(let id of ['fromPort','toPort']){$(id).innerHTML='';for(let k of ks){let op=document.createElement('option');op.value=k;op.textContent=portLabel(k);$(id).appendChild(op)}}const hardware=loopHardware(project.loopMode==='single'&&singleKitSide()==='right'?'cpu':'gpu');$('fromPort').value=ks.includes(a)?a:hardware.res+'.out';$('toPort').value=ks.includes(b)?b:hardware.pump+'.in'}
 function refreshCase(){let fields=[['width','Outside width'],['height','Outside height'],['depth','Outside depth']];$('caseFields').innerHTML=fields.map(([id,name])=>`<div class="field"><label>${name} (mm)</label><input id="case_${id}" type="number" min="200" max="1400" step=".1" value="${project.case[id]}"></div>`).join('');
  let more=[['doors','Each side door (mm)'],['openW','Top opening width (mm)'],['openD','Top opening depth (mm)'],['railWidth','Support rail width (mm)'],['railThickness','Support rail thick. (mm)'],['lowerRailTop','Lower support top (mm)'],['portY','Radiator port height (mm)'],['portFrontA','Port 1 from side edge (mm)'],['portFrontB','Port 2 from side edge (mm)'],['fanOpeningWidth','Fan cutout width (mm)'],['fanOpeningHeight','Fan cutout height (mm)'],['fanOpeningBottom','Fan cutout bottom inset (mm)'],['fanOpeningSide','Fan cutout side inset (mm)'],['windowSide','Window side inset (mm)'],['windowTop','Window top inset (mm)'],['windowHeight','Window height (mm)'],['fanThickness','Fan bank thickness (mm)'],['steelZ','Steel divider X shift (mm)']];
  $('caseMeasuredFields').innerHTML=more.map(([id,name])=>`<div class="field"><label>${name}</label><input id="case_${id}" type="number" step=".1" value="${project.case[id]}"></div>`).join('');
@@ -505,31 +505,41 @@ function setReservoirOrientation(p,orientation){
  p.pos[1]=bottom+p.size[1]/2;
  p.orientation=orientation;
 }
+// Both hardware kits always exist in the editor. A shared loop can use either
+// kit alone; dual uses one kit on each side. The inactive kit is hidden.
+function singleKitSide(){return project.singleHardwareSide==='left'?'left':'right'}
+function syncLoopHardwareVisibility(){
+ const dual=project.loopMode==='dual',side=singleKitSide();
+ for(const id of ['res','pump','drain']){const p=cpart(id);if(p)p.visible=dual||side==='left'}
+ for(const id of ['res2','pump2','drain2']){const p=cpart(id);if(p)p.visible=dual||side==='right'}
+}
 function refreshLoopSummary(){
- const mode=project.loopMode==='single'?'single':'dual';
- $('loopMode').value=mode;
- const names={gpu:'GPU / left',cpu:'CPU / right',shared:'CPU + GPU / shared'};
- const groups=mode==='single'?['shared']:['gpu','cpu'];
- $('loopSummary').textContent=groups.map(g=>{
-  const count=project.parts.filter(p=>p.type==='radiator'&&p.visible!==false&&effectiveLoop(p)===g).length;
-  return names[g]+' · '+count+' rad'+(count===1?'':'s')+' · 1 reservoir / pump / drain';
- }).join('   |   ');
+ const single=project.loopMode==='single';
+ $('loopMode').value=single?'single':'dual';
+ $('singleHardwareSideRow').style.display=single?'block':'none';
+ $('singleHardwareSide').value=singleKitSide();
+ if(single){
+  const side=singleKitSide(),kit=loopHardware(side==='left'?'gpu':'cpu');
+  $('loopSummary').textContent='One shared CPU + GPU circuit · '+side+' pump + reservoir + drain · 4 radiators';
+ }else{
+  $('loopSummary').textContent='GPU loop: left pump/reservoir + 2 radiators · CPU loop: right pump/reservoir + 2 radiators';
+ }
 }
 function applyLoopMode(mode,opts={}){
  if(!['single','dual'].includes(mode))return false;
- const switching=project.loopMode!==mode;
+ const side=opts.side||singleKitSide();
+ if(!['left','right'].includes(side))return false;
+ const switching=project.loopMode!==mode||singleKitSide()!==side;
  if(switching&&project.routes.length&&opts.confirmRoutes!==false&&
-    !confirm('Changing loop mode clears existing tubing routes. Continue?')){
-  $('loopMode').value=project.loopMode;return false;
+   !confirm('Switching cooling layout will clear the current tubing routes. Continue?')){
+   refreshLoopSummary();return false;
  }
- if(switching)project.routes=[];
- project.loopMode=mode;
- for(const id of ['res2','pump2','drain2']){
-  const p=cpart(id);if(p)p.visible=mode==='dual';
- }
- if(switching)selectedRoute=null;
+ if(switching){project.routes=[];selectedRoute=null}
+ project.loopMode=mode;project.singleHardwareSide=side;
+ syncLoopHardwareVisibility();
  project.display.caseOnly=false;
- changeModel();refreshComponent();return true;
+ changeModel();refreshComponent();
+ return true;
 }
 function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.parts[0];selection=comp.id;
  const isRes=comp.type==='res',isRad=comp.type==='radiator';
@@ -686,7 +696,7 @@ function sampleRoutes(){
  if(project.loopMode==='dual'){
   for(const mode of ['gpu','cpu'])for(const ports of chain(mode,loopHardware(mode),mode))
    links.push({ports,mode});
- }else for(const ports of chain('shared',loopHardware('gpu'),'both'))
+ }else for(const ports of chain('shared',loopHardware(singleKitSide()==='right'?'cpu':'gpu'),'both'))
   links.push({ports,mode:'shared'});
  project.routes=links.filter(({ports})=>portPos(ports[0])&&portPos(ports[1]))
   .map(({ports,mode},i)=>({id:'example'+i,from:ports[0],to:ports[1],
@@ -695,7 +705,7 @@ function sampleRoutes(){
  toast('Loaded '+project.routes.length+' conceptual runs; keep drain outlets capped.');
 }
 function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoom;view.target=[0,345,0];view.pan=[0,0];for(let id of ['isoBtn','frontBtn','sideBtn','topBtn'])$(id).classList.remove('active');draw()}
-function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();
+function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();syncLoopHardwareVisibility();
  // v0.18 intentionally discards old browser drafts; no automatic restore.
  try{localStorage.removeItem('walnutLoopLab05')}catch(e){}
  $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v18'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
@@ -708,6 +718,7 @@ function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!n
  $('alignBoardBtn').onclick=alignMotherboardToTray;
  $('alignBoardSelectedBtn').onclick=alignMotherboardToTray;
  $('loopMode').onchange=e=>applyLoopMode(e.target.value);
+ $('singleHardwareSide').onchange=e=>applyLoopMode('single',{side:e.target.value});
  $('reservoirOrientation').onchange=e=>{
   const part=cpart(selection);
   if(!part||part.type!=='res')return;
