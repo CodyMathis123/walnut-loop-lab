@@ -8,7 +8,7 @@ const initial=()=>({
     {id:'rad2',name:'Radiator 2',type:'radiator',fans:{panel:3,inner:3},slot:'rear-right',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[-31.75,190,-33]},{id:'out',name:'Far side',off:[31.75,190,-33]}],note:'Radiator 2 starts on the rear/right opening with three fans on each face. Radiator depth and mounting can be calibrated later.'},
     {id:'rad3',name:'Radiator 3',type:'radiator',fans:{panel:3,inner:3},slot:'front-left',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,-33]},{id:'out',name:'Port B',off:[31.75,190,-33]}],note:'Front-left radiator with three 120 mm fans on each side.'},
     {id:'rad4',name:'Radiator 4',type:'radiator',fans:{panel:3,inner:3},slot:'rear-left',pos:[-146,273.55,-180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,33]},{id:'out',name:'Port B',off:[31.75,190,33]}],note:'Rear-left radiator with three 120 mm fans on each side.'},
-    {id:'tray',name:'Mountain Mods ATX tray + 120 rear panel',type:'tray',pos:[76,489.775,-69.525],size:[276.86,1.65,323.85],cutout:{x:46,z:-96,width:120,depth:100},ports:[],note:'Mountain Mods ATXTOAB tray (10.9 × 12.75 in) and 120MOTRAY-BW rear I/O/PCI/fan panel. 1.65 mm aluminum. Rear panel geometry is an informed visual approximation.'},
+    {id:'tray',name:'Mountain Mods ATX tray + 120 rear panel',type:'tray',pos:[8.57,489.775,-69.525],size:[276.86,1.65,323.85],cutout:{x:46,z:-96,width:120,depth:100},ports:[],note:'Mountain Mods ATXTOAB tray (10.9 × 12.75 in) and 120MOTRAY-BW rear I/O/PCI/fan panel. 1.65 mm aluminum. Rear panel geometry is an informed visual approximation.'},
     {id:'cpu',name:'CPU water block (draft)',type:'cpu',pos:[93,525,-110],size:[65,23,65],ports:[{id:'in',name:'In',off:[-16,17,0]},{id:'out',name:'Out',off:[16,17,0]}],note:'CPU/AM4 block location follows schematic motherboard positioning; no measurements yet.'},
     {id:'gpu',name:'RX 9070 XT / water block (draft)',type:'gpu',pos:[-151,527,-45],size:[112,29,290],ports:[{id:'in',name:'In',off:[48,11,-25]},{id:'out',name:'Out',off:[48,11,25]}],note:'Separate horizontal GPU location is only a planning placeholder.'},
     {id:'res',name:'FrozenQ reservoir (draft)',type:'res',pos:[-125,300,55],size:[72,238,72],ports:[{id:'in',name:'Top return',off:[0,119,0]},{id:'out',name:'Bottom supply',off:[0,-119,0]}],note:'Left lower chamber, completely clear of the X=0 steel divider. Position and dimensions are provisional.'},
@@ -428,7 +428,8 @@ function refreshCase(){let fields=[['width','Outside width'],['height','Outside 
 function alignTrayToRearWindow(){
  const p=cpart('tray');if(!p)return;
  const c=project.case,behindEdge=-c.depth/2+c.wood+6;
- p.pos=[76,c.divider+p.size[1]/2,behindEdge+p.size[2]/2-2.5];
+ const x=window.WalnutLoopPartGeometry.trayXForRearPanelCenter(0,p.size[0]);
+ p.pos=[x,c.divider+p.size[1]/2,behindEdge+p.size[2]/2-2.5];
  changeModel();refreshComponent();
  toast('Tray aligned to the rear window and middle support.');
 }
@@ -530,6 +531,12 @@ function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.
  if(pump&&pump.pos.length===3&&pump.pos.every((v,i)=>Math.abs(v-[-12,104,70][i])<.01))
   pump.pos=[-125,104,70];
  // Tray opening is now a part property. Older projects inherit the improved
+ // v0.15: convert only the old automatically aligned tray to the
+ // connected-bracket position; manually repositioned trays stay unchanged.
+ if(originalTray&&Math.abs(originalTray.pos[0]-76)<.1&&
+    Math.abs(originalTray.pos[1]-(vals.case.divider+originalTray.size[1]/2))<1 &&
+    Math.abs(originalTray.pos[2]-(-69.525))<2)
+  originalTray.pos[0]=window.WalnutLoopPartGeometry.trayXForRearPanelCenter(0,originalTray.size[0]);
  // rear/right access-hole layout, without moving a manually positioned tray.
  if(originalTray){
   originalTray.cutout={...start.parts.find(v=>v.id==='tray').cutout,...originalTray.cutout};
