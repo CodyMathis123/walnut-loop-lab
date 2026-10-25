@@ -2,7 +2,26 @@
 
 A standalone, browser-based 3D-style planner for a custom walnut PC water-cooling case.
 
-**Status:** v0.16 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+**Status:** v0.17 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+
+## Cooling loops — v0.17
+
+A **fresh project starts with two independent cooling loops**:
+
+| Circuit | Dedicated radiators | Reservoir / pump / drain |
+|---|---|---|
+| **GPU — left** | Front-left and rear-left (rad3 + rad4) | GPU reservoir / DDC pump / capped tee drain |
+| **CPU — right** | Front-right and rear-right (rad1 + rad2) | Matching CPU reservoir / DDC pump / capped tee drain |
+
+The GPU side keeps the existing vertical reservoir position at **X -125, Y 300, Z 55 mm**. The CPU side mirrors it at **X +125 mm**, both below the separator. Pumps and drain tees are similarly separated left/right. All placements are adjustable; mounting and hydraulic clearances must be checked against the physical case.
+
+The **Cooling loops** control switches between **Dual · GPU left / CPU right** and **Single · shared CPU + GPU**. Single mode hides the CPU-side pump/reservoir/drain kit without deleting its saved coordinates. All four radiators belong to the combined loop in single mode. In dual mode each radiator has an editable CPU/GPU loop assignment.
+
+Select either reservoir in **Components → Reservoir orientation** to rotate between *vertical* and *horizontal (front-to-back)*. The body, visual helix and top/bottom ports rotate as one assembly, while the lowest point remains at the same height. Both reservoirs are independently adjustable.
+
+The **Generate example routes** button creates conceptual circuits for the selected mode. A dual example has separate GPU and CPU tubing routes; each drain is a capped side branch on the pump outlet, not part of the normal main flow. The planner blocks manual cross-loop connections in dual mode. **Routes are not created automatically**, and are not a validated final plumbing or priming design.
+
+Older saved browser projects automatically remain in **single-loop mode**, retain customized positions, and gain the spare right-side kit hidden. Select Dual explicitly to expand them. Existing tubing routes are only cleared on a mode change after confirmation.
 
 ## Features
 
@@ -98,6 +117,7 @@ To run the JavaScript/HTML smoke test with Node.js:
 node tests/smoke-check.mjs
 node tests/webgl-smoke-check.mjs
 node tests/component-geometry-check.mjs
+node tests/cooling-layout-check.mjs
 ```
 
 GitHub Pages publishes from the `Production` branch and repository root:
@@ -117,6 +137,7 @@ For iOS, visit the Pages site instead of using a local file preview, which may b
 - `tests/smoke-check.mjs` — DOM wiring and cooling configuration regression checks
 - `tests/webgl-smoke-check.mjs` — GPU geometry/caching/depth settings tests with a mocked Three.js
 - `tests/component-geometry-check.mjs` — tray aperture, radiator structure and dimensions
+- `tests/cooling-layout-check.mjs` — dual/single presets, independent routes, reservoir rotation and saved projects
 
 ## Accuracy and safety
 
