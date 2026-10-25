@@ -101,7 +101,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.deepEqual(Array.from(res.size),[72,72,238]);
  assert.ok(Math.abs(res.pos[1]-res.size[1]/2-bottom)<1e-9);
  assert.deepEqual(Array.from(res.ports.find(q=>q.id==='out').off),[0,0,119]);
- assert.ok(storage.data.includes('"orientation":"horizontal"'));
+ assert.equal(storage.data,null,'Prototyping changes are not automatically persisted');
  node('reservoirOrientation').onchange({target:{value:'vertical'}});
  assert.equal(res.orientation,'vertical');
  assert.equal(JSON.stringify(res.ports.map(q=>q.off)),original);
@@ -111,21 +111,15 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  node('reservoirOrientation').onchange({target:{value:'horizontal'}});
  assert.equal(api.cpart('res').orientation,'vertical');
  assert.equal(api.cpart('res2').orientation,'horizontal');
- // New projects are dual; old saved projects remain single and gain hidden spare parts.
- const old=api.initial();
- delete old.loopMode;
- old.parts=old.parts.filter(x=>!['res2','pump2','drain2'].includes(x.id));
- const oldDrain=old.parts.find(x=>x.id==='drain');
- oldDrain.pos=[55,80,75];
- const upgraded=api.normalizeImport(old);
- assert.equal(upgraded.loopMode,'single');
- assert.ok(['res2','pump2','drain2'].every(id=>upgraded.parts.find(x=>x.id===id)?.visible===false));
- assert.deepEqual(Array.from(upgraded.parts.find(x=>x.id==='drain').pos),[-190,65,125]);
- assert.equal(upgraded.parts.find(x=>x.id==='res').pos[0],-125);
- // A manually moved pump or drain is preserved, not reset.
- const custom=api.initial();delete custom.loopMode;
- custom.parts.find(x=>x.id==='drain').pos=[-160,75,90];
- const converted=api.normalizeImport(custom);
- assert.deepEqual(Array.from(converted.parts.find(x=>x.id==='drain').pos),[-160,75,90]);
+ // Explicit imports are complete snapshots of this version, without migration.
+ const current=api.initial();
+ assert.equal(current.format,'walnut-loop-v18');
+ current.parts.find(x=>x.id==='drain').pos=[-160,75,90];
+ const restored=api.normalizeImport(current);
+ assert.deepEqual(Array.from(restored.parts.find(x=>x.id==='drain').pos),[-160,75,90]);
+ const incomplete=api.initial();
+ incomplete.parts=incomplete.parts.filter(x=>x.id!=='res2');
+ assert.throws(()=>api.normalizeImport(incomplete),/current-format/);
+
 }
-console.log('Cooling presets, isolation, reservoir rotation and legacy migration passed.');
+console.log('Cooling presets, isolation, reservoir rotation and current-format import passed.');
