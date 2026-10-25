@@ -8,11 +8,11 @@ const initial=()=>({
     {id:'rad2',name:'Radiator 2',type:'radiator',fans:{panel:3,inner:3},slot:'rear-right',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[-31.75,190,-33]},{id:'out',name:'Far side',off:[31.75,190,-33]}],note:'Radiator 2 starts on the rear/right opening with three fans on each face. Radiator depth and mounting can be calibrated later.'},
     {id:'rad3',name:'Radiator 3',type:'radiator',fans:{panel:3,inner:3},slot:'front-left',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,-33]},{id:'out',name:'Port B',off:[31.75,190,-33]}],note:'Front-left radiator with three 120 mm fans on each side.'},
     {id:'rad4',name:'Radiator 4',type:'radiator',fans:{panel:3,inner:3},slot:'rear-left',pos:[-146,273.55,-180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,33]},{id:'out',name:'Port B',off:[31.75,190,33]}],note:'Rear-left radiator with three 120 mm fans on each side.'},
-    {id:'tray',name:'Mountain Mods ATX tray + 120 rear panel',type:'tray',pos:[76,489.95,-70],size:[276.86,1.65,323.85],ports:[],note:'Mountain Mods ATXTOAB tray (10.9 × 12.75 in) and 120MOTRAY-BW rear I/O/PCI/fan panel. 1.65 mm aluminum. Rear panel geometry is an informed visual approximation.'},
+    {id:'tray',name:'Mountain Mods ATX tray + 120 rear panel',type:'tray',pos:[76,489.775,-69.525],size:[276.86,1.65,323.85],cutout:{x:46,z:-96,width:120,depth:100},ports:[],note:'Mountain Mods ATXTOAB tray (10.9 × 12.75 in) and 120MOTRAY-BW rear I/O/PCI/fan panel. 1.65 mm aluminum. Rear panel geometry is an informed visual approximation.'},
     {id:'cpu',name:'CPU water block (draft)',type:'cpu',pos:[93,525,-110],size:[65,23,65],ports:[{id:'in',name:'In',off:[-16,17,0]},{id:'out',name:'Out',off:[16,17,0]}],note:'CPU/AM4 block location follows schematic motherboard positioning; no measurements yet.'},
     {id:'gpu',name:'RX 9070 XT / water block (draft)',type:'gpu',pos:[-151,527,-45],size:[112,29,290],ports:[{id:'in',name:'In',off:[48,11,-25]},{id:'out',name:'Out',off:[48,11,25]}],note:'Separate horizontal GPU location is only a planning placeholder.'},
-    {id:'res',name:'FrozenQ reservoir (draft)',type:'res',pos:[-12,300,55],size:[72,238,72],ports:[{id:'in',name:'Top return',off:[0,119,0]},{id:'out',name:'Bottom supply',off:[0,-119,0]}],note:'Centered in the lower cavity to match the photo broadly; dimensions and ports unmeasured.'},
-    {id:'pump',name:'Laing DDC / XSPC top (draft)',type:'pump',pos:[-12,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'Pump location, inlet and outlet orientation are provisional. Maintain a reliable flooded pump inlet.'},
+    {id:'res',name:'FrozenQ reservoir (draft)',type:'res',pos:[-125,300,55],size:[72,238,72],ports:[{id:'in',name:'Top return',off:[0,119,0]},{id:'out',name:'Bottom supply',off:[0,-119,0]}],note:'Left lower chamber, completely clear of the X=0 steel divider. Position and dimensions are provisional.'},
+    {id:'pump',name:'Laing DDC / XSPC top (draft)',type:'pump',pos:[-125,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'Pump location, inlet and outlet orientation are provisional. Maintain a reliable flooded pump inlet.'},
     {id:'drain',name:'Drain T + valve (draft)',type:'drain',pos:[55,80,75],size:[55,26,36],ports:[{id:'in',name:'In',off:[-28,0,0]},{id:'out',name:'Out',off:[28,0,0]}],note:'Low inline drain is shown provisionally; change location and orientation as needed.'}
   ], routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:false,fans:false,doors:false,caseOnly:false,internals:false,dimensions:false},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0},mountVersion:1,tubeOD:16,bendRadius:35});
 let project=initial(); let selection='rad1',selectedRoute=null,portClicks=0;
@@ -422,6 +422,16 @@ function refreshCase(){let fields=[['width','Outside width'],['height','Outside 
  for(let [id] of fields.concat(more))$('case_'+id).addEventListener('change',e=>{let n=Number(e.target.value);if(Number.isFinite(n)&& (id==='steelZ'||n>0)){project.case[id]=n;if(id==='fanThickness')project.parts.filter(p=>p.type==='radiator').forEach(repositionRadiatorDepth);persist();refreshComponent();draw()}});
  $('wallThickness').value=project.case.wood;$('dividerHeight').value=project.case.divider;
 }
+// Exact 3D docking of the rear I/O bracket to the rear upper walnut window.
+// Center the 310 mm wide rear panel in the 330.2 mm window, and put its
+// back face 6 mm inward of the inner walnut wall. Preserve other parts.
+function alignTrayToRearWindow(){
+ const p=cpart('tray');if(!p)return;
+ const c=project.case,behindEdge=-c.depth/2+c.wood+6;
+ p.pos=[76,c.divider+p.size[1]/2,behindEdge+p.size[2]/2-2.5];
+ changeModel();refreshComponent();
+ toast('Tray aligned to the rear window and middle support.');
+}
 function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.parts[0];selection=comp.id;
  $('radiatorFanControls').style.display=comp.type==='radiator'?'block':'none';
  if(comp.type==='radiator'){
@@ -433,6 +443,21 @@ function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.p
    ' attached fans · '+(comp.fans.panel||0)+' panel-facing / '+(comp.fans.inner||0)+
    ' inner-facing · total stack depth '+
    (comp.size[2]+(comp.fans.panel>0?t:0)+(comp.fans.inner>0?t:0)).toFixed(1)+' mm';
+ }
+ const isTray=comp.type==='tray';
+ $('trayCutoutControls').style.display=isTray?'block':'none';
+ if(isTray){
+  const original=initial().parts.find(v=>v.id==='tray').cutout;
+  comp.cutout={...original,...comp.cutout};
+  const labels=[['x','X center','mm, + is right'],['z','Z center','mm, − toward rear'],['width','Width','mm'],['depth','Depth','mm']];
+  $('trayCutoutFields').innerHTML=labels.map(([key,label,hint])=>
+   '<div class="field"><label>'+label+'</label><input type="number" step="1" data-cutout="'+key+'" value="'+comp.cutout[key]+'" title="'+hint+'"></div>').join('');
+  $('trayCutoutFields').querySelectorAll('[data-cutout]').forEach(el=>el.addEventListener('change',()=>{
+   const key=el.dataset.cutout,n=Number(el.value);
+   if(!Number.isFinite(n))return;
+   comp.cutout[key]=key==='width'||key==='depth'?Math.max(20,n):n;
+   changeModel();
+  }));
  }
  refreshFreeBayControls();$('componentVisible').checked=comp.visible!==false;$('mountChooser').style.display=comp.type==='radiator'?'block':'none';if(comp.type==='radiator')$('mountSlot').value=comp.slot||'unmounted';$('componentSelect').innerHTML=project.parts.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');$('componentSelect').value=selection;const axes=['X','Y','Z'];$('componentFields').innerHTML=comp.pos.map((x,i)=>`<div class="field"><label>${axes[i]} pos (mm)</label><input id="pos${i}" type="number" step="5" value="${r2(x)}"></div>`).join('')+comp.size.map((x,i)=>`<div class="field"><label>${axes[i]} size (mm)</label><input id="size${i}" type="number" min="1" step="1" value="${r2(x)}"></div>`).join('');for(let i=0;i<3;i++){const j=i;$('pos'+i).addEventListener('change',e=>{comp.pos[j]=Number(e.target.value)||0;changeModel();if(comp.type==='radiator')refreshComponent()});$('size'+i).addEventListener('change',e=>{comp.size[j]=Math.max(1,Number(e.target.value)||1);if(comp.type==='radiator'&&j===2)repositionRadiatorDepth(comp);changeModel();refreshComponent()})}$('componentNote').textContent=comp.note;
  $('portInfo').innerHTML=comp.ports.length?'<strong>Port positions (relative offsets):</strong><div class="help">Click a port dot in the viewer, or adjust its offsets below.</div>'+comp.ports.map((p,i)=>`<div class="help" style="margin:8px 0 3px">${p.name}: <b>${key(comp,p.id)}</b></div><div class="grid3">${p.off.map((v,j)=>`<div class="field"><label>${axes[j]} offset</label><input type="number" step="1" data-port="${i}" data-axis="${j}" value="${v}"></div>`).join('')}</div>`).join(''):'<span class="help">This component has no modeled water ports.</span>';
@@ -495,6 +520,22 @@ function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.
   if(Math.abs(originalTray.pos[1]-(vals.case.divider+1))<1)
    originalTray.pos[1]=vals.case.divider+.825;
   originalTray.size[1]=1.65;
+ }
+ // v0.14: the stock default reservoir/pump used to straddle X=0 steel.
+ // Change only unmodified old center positions, never a user's manual edits.
+ const res=vals.parts.find(v=>v.id==='res');
+ const pump=vals.parts.find(v=>v.id==='pump');
+ if(res&&res.pos.length===3&&res.pos.every((v,i)=>Math.abs(v-[-12,300,55][i])<.01))
+  res.pos=[-125,300,55];
+ if(pump&&pump.pos.length===3&&pump.pos.every((v,i)=>Math.abs(v-[-12,104,70][i])<.01))
+  pump.pos=[-125,104,70];
+ // Tray opening is now a part property. Older projects inherit the improved
+ // rear/right access-hole layout, without moving a manually positioned tray.
+ if(originalTray){
+  originalTray.cutout={...start.parts.find(v=>v.id==='tray').cutout,...originalTray.cutout};
+  const old=[76,489.95,-70],newDefault=start.parts.find(v=>v.id==='tray').pos;
+  if(originalTray.pos.length===3&&old.every((v,i)=>Math.abs(v-originalTray.pos[i])<.2))
+   originalTray.pos=newDefault.slice();
  }
  // v0.11 puts the panel-facing fan inside the actual cutout. Move only
  // radiators still at the old auto-aligned depth; preserve manual Z offsets.
@@ -571,6 +612,7 @@ function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!n
   }if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
  $('componentSelect').onchange=e=>{selection=e.target.value;const p=cpart(selection);if(p&&p.type!=='radiator'){project.display.caseOnly=false;showInternals(true)}persist();refreshComponent()};$('mountSlot').onchange=e=>setRadiatorSlot(selection,e.target.value);
  $('fourRadiatorsBtn').onclick=loadFourRadiatorPreset;
+ $('alignTrayBtn').onclick=alignTrayToRearWindow;
  for(const [id,face] of [['panelFanCount','panel'],['innerFanCount','inner']]){
   $(id).onchange=e=>{
    const rad=cpart(selection);if(!rad||rad.type!=='radiator')return;
