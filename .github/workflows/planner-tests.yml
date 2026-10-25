@@ -19,3 +19,5 @@ jobs:
         run: node tests/webgl-smoke-check.mjs
       - name: Sheet-metal tray and 60 mm radiator geometry
         run: node tests/component-geometry-check.mjs
+      - name: Dual/single cooling layouts and reservoir rotation
+        run: node tests/cooling-layout-check.mjs
