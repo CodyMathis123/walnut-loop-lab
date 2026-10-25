@@ -1,6 +1,10 @@
 'use strict';
 const $=id=>document.getElementById(id), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), r2=n=>Math.round(n*100)/100;
 const add=(a,b)=>a.map((x,i)=>x+b[i]),sub=(a,b)=>a.map((x,i)=>x-b[i]),scale=(a,s)=>a.map(x=>x*s),len=a=>Math.hypot(...a),dist=(a,b)=>len(sub(a,b)),mix=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
+// Small clearance avoids coplanar intersections between the walnut rail and tray.
+const TRAY_CLEARANCE_MM=3;
+const ITX_STANDOFF_MM=6.35, CPU_SOCKET_CLEAR_MM=6;
+const BOARD_SOCKET_OFFSET=[18,0,-6];
 const initial=()=>({
   case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:209.55,fanThickness:25.4},
   parts:[
@@ -8,8 +12,13 @@ const initial=()=>({
     {id:'rad2',name:'Radiator 2',type:'radiator',fans:{panel:3,inner:3},slot:'rear-right',loop:'cpu',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[-31.75,190,-33]},{id:'out',name:'Far side',off:[31.75,190,-33]}],note:'Radiator 2 starts on the rear/right opening with three fans on each face. Radiator depth and mounting can be calibrated later.'},
     {id:'rad3',name:'Radiator 3',type:'radiator',fans:{panel:3,inner:3},slot:'front-left',loop:'gpu',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,-33]},{id:'out',name:'Port B',off:[31.75,190,-33]}],note:'Front-left radiator with three 120 mm fans on each side.'},
     {id:'rad4',name:'Radiator 4',type:'radiator',fans:{panel:3,inner:3},slot:'rear-left',loop:'gpu',pos:[-146,273.55,-180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,33]},{id:'out',name:'Port B',off:[31.75,190,33]}],note:'Rear-left radiator with three 120 mm fans on each side.'},
-    {id:'tray',name:'Mountain Mods ATX tray + 120 rear panel',type:'tray',pos:[8.57,489.775,-69.525],size:[276.86,1.65,323.85],cutout:{x:46,z:-96,width:120,depth:100},ports:[],note:'Mountain Mods ATXTOAB tray (10.9 × 12.75 in) and 120MOTRAY-BW rear I/O/PCI/fan panel. 1.65 mm aluminum. Rear panel geometry is an informed visual approximation.'},
-    {id:'cpu',name:'CPU water block (draft)',type:'cpu',loop:'cpu',pos:[93,525,-110],size:[65,23,65],ports:[{id:'in',name:'In',off:[-16,17,0]},{id:'out',name:'Out',off:[16,17,0]}],note:'CPU/AM4 block location follows schematic motherboard positioning; no measurements yet.'},
+    {id:'tray',name:'Mountain Mods ATX tray + 120 rear panel',type:'tray',pos:[8.57,492.775,-69.525],size:[276.86,1.65,323.85],cutout:{x:46,z:-96,width:120,depth:100},ports:[],note:'Mountain Mods ATXTOAB tray (10.9 × 12.75 in) and 120MOTRAY-BW rear I/O/PCI/fan panel. 1.65 mm aluminum. Rear panel geometry is an informed visual approximation.'},
+    {id:'mobo',name:'GIGABYTE X570 I AORUS PRO WIFI · mock',type:'mobo',mountedTo:'tray',
+     loop:'cpu',pos:[53.00,500.75,-136.45],size:[170,1.6,170],
+     socketOffset:[18,0,-6],ports:[],
+     note:'170 mm Mini-ITX AM4 mock inspired by GIGABYTE reference. Rear I/O toward −Z, PCIe left, two DIMMs toward front (+Z); socket center is approximate.'},
+    {id:'cpu',name:'CPU water block · AM4 socket',type:'cpu',loop:'cpu',mountedTo:'mobo',
+     pos:[71.00,519.05,-142.45],size:[65,23,65],ports:[{id:'in',name:'In',off:[-16,17,0]},{id:'out',name:'Out',off:[16,17,0]}],note:'CPU/AM4 block location follows schematic motherboard positioning; no measurements yet.'},
     {id:'gpu',name:'RX 9070 XT / water block (draft)',type:'gpu',loop:'gpu',pos:[-151,527,-45],size:[112,29,290],ports:[{id:'in',name:'In',off:[48,11,-25]},{id:'out',name:'Out',off:[48,11,25]}],note:'Separate horizontal GPU location is only a planning placeholder.'},
     {id:'res',name:'GPU reservoir · left',type:'res',loop:'gpu',orientation:'vertical',pos:[-125,300,55],size:[72,238,72],ports:[{id:'in',name:'Top return',off:[0,119,0]},{id:'out',name:'Bottom supply',off:[0,-119,0]}],note:'Left lower chamber, completely clear of the X=0 steel divider. Position and dimensions are provisional.'},
     {id:'pump',name:'GPU pump · left',type:'pump',loop:'gpu',pos:[-125,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'Pump location, inlet and outlet orientation are provisional. Maintain a reliable flooded pump inlet.'},
@@ -113,7 +122,7 @@ function flushScene(){
  }
 }
 function renderedParts(){
- return project.display.caseOnly?[]:project.parts.filter(p=>p.visible!==false&&(p.type==='radiator'||p.type==='tray'||['res','pump','drain'].includes(p.type)||project.display.internals));
+ return project.display.caseOnly?[]:project.parts.filter(p=>p.visible!==false&&(p.type==='radiator'||p.type==='tray'||p.type==='mobo'||p.type==='cpu'||['res','pump','drain'].includes(p.type)||project.display.internals));
 }
 function showInternals(enabled){
  project.display.internals=enabled;
@@ -198,6 +207,8 @@ function renderPart(p){
  const drawParts=window.WalnutLoopPartGeometry;
  const geometryAPI={box,polygon,stroke,circle3,add};
  if(p.type==='tray'&&drawParts?.renderTray)drawParts.renderTray(p,geometryAPI);
+ else if(p.type==='mobo'&&drawParts?.renderMotherboard)
+  drawParts.renderMotherboard(p,geometryAPI);
  else if(p.type==='res'&&drawParts?.renderReservoir)drawParts.renderReservoir(p,geometryAPI);
  else if(p.type==='radiator'&&drawParts?.renderRadiator)
   drawParts.renderRadiator(p,geometryAPI);
@@ -439,11 +450,42 @@ function refreshCase(){let fields=[['width','Outside width'],['height','Outside 
 // Exact 3D docking of the rear I/O bracket to the rear upper walnut window.
 // Center the 310 mm wide rear panel in the 330.2 mm window, and put its
 // back face 6 mm inward of the inner walnut wall. Preserve other parts.
+// ITX bracket/CPU assembly. Geometry is measured from the adjustable tray.
+function boardPoseForTray(tray,board){
+ const x=tray.pos[0]+tray.size[0]/2-8-board.size[0]/2;
+ const z=tray.pos[2]-tray.size[2]/2+10+board.size[2]/2;
+ const y=tray.pos[1]+tray.size[1]/2+ITX_STANDOFF_MM+board.size[1]/2;
+ return [x,y,z];
+}
+function socketBlockPose(board,cpu){
+ const off=board.socketOffset||BOARD_SOCKET_OFFSET;
+ return [board.pos[0]+off[0],
+         board.pos[1]+board.size[1]/2+CPU_SOCKET_CLEAR_MM+cpu.size[1]/2,
+         board.pos[2]+off[2]];
+}
+function moveAttachedParts(owner,delta){
+ if(!delta.some(v=>Math.abs(v)>1e-9))return;
+ for(const part of project.parts.filter(p=>p.mountedTo===owner)){
+  part.pos=add(part.pos,delta);
+  moveAttachedParts(part.id,delta);
+ }
+}
+function alignMotherboardToTray(){
+ const tray=cpart('tray'),board=cpart('mobo'),cpu=cpart('cpu');
+ if(!tray||!board||!cpu)return;
+ board.pos=boardPoseForTray(tray,board);board.mountedTo='tray';
+ board.socketOffset=board.socketOffset||BOARD_SOCKET_OFFSET.slice();
+ cpu.pos=socketBlockPose(board,cpu);cpu.mountedTo='mobo';
+ changeModel();refreshComponent();
+ toast('Mini-ITX board aligned to rear/right; block centered on AM4 socket.');
+}
 function alignTrayToRearWindow(){
  const p=cpart('tray');if(!p)return;
  const c=project.case,behindEdge=-c.depth/2+c.wood+6;
  const x=window.WalnutLoopPartGeometry.trayXForRearPanelCenter(0,p.size[0]);
- p.pos=[x,c.divider+p.size[1]/2,behindEdge+p.size[2]/2-2.5];
+ const before=p.pos.slice();
+ p.pos=[x,c.divider+TRAY_CLEARANCE_MM+p.size[1]/2,behindEdge+p.size[2]/2-2.5];
+ moveAttachedParts(p.id,sub(p.pos,before));
  changeModel();refreshComponent();
  toast('Tray aligned to the rear window and middle support.');
 }
@@ -521,7 +563,10 @@ function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.p
    changeModel();
   }));
  }
- refreshFreeBayControls();$('componentVisible').checked=comp.visible!==false;$('mountChooser').style.display=comp.type==='radiator'?'block':'none';if(comp.type==='radiator')$('mountSlot').value=comp.slot||'unmounted';$('componentSelect').innerHTML=project.parts.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');$('componentSelect').value=selection;const axes=['X','Y','Z'];$('componentFields').innerHTML=comp.pos.map((x,i)=>`<div class="field"><label>${axes[i]} pos (mm)</label><input id="pos${i}" type="number" step="5" value="${r2(x)}"></div>`).join('')+comp.size.map((x,i)=>`<div class="field"><label>${axes[i]} size (mm)</label><input id="size${i}" type="number" min="1" step="1" value="${r2(x)}"></div>`).join('');for(let i=0;i<3;i++){const j=i;$('pos'+i).addEventListener('change',e=>{comp.pos[j]=Number(e.target.value)||0;changeModel();if(comp.type==='radiator')refreshComponent()});$('size'+i).addEventListener('change',e=>{comp.size[j]=Math.max(1,Number(e.target.value)||1);if(comp.type==='radiator'&&j===2)repositionRadiatorDepth(comp);changeModel();refreshComponent()})}$('componentNote').textContent=comp.note;
+ refreshFreeBayControls();$('componentVisible').checked=comp.visible!==false;$('mountChooser').style.display=comp.type==='radiator'?'block':'none';if(comp.type==='radiator')$('mountSlot').value=comp.slot||'unmounted';$('componentSelect').innerHTML=project.parts.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');$('componentSelect').value=selection;const axes=['X','Y','Z'];$('componentFields').innerHTML=comp.pos.map((x,i)=>`<div class="field"><label>${axes[i]} pos (mm)</label><input id="pos${i}" type="number" step="5" value="${r2(x)}"></div>`).join('')+comp.size.map((x,i)=>`<div class="field"><label>${axes[i]} size (mm)</label><input id="size${i}" type="number" min="1" step="1" value="${r2(x)}"></div>`).join('');for(let i=0;i<3;i++){const j=i;$('pos'+i).addEventListener('change',e=>{const before=comp.pos.slice();
+ comp.pos[j]=Number(e.target.value)||0;
+ moveAttachedParts(comp.id,sub(comp.pos,before));
+ changeModel();if(['radiator','tray','mobo'].includes(comp.type))refreshComponent()});$('size'+i).addEventListener('change',e=>{comp.size[j]=Math.max(1,Number(e.target.value)||1);if(comp.type==='radiator'&&j===2)repositionRadiatorDepth(comp);changeModel();refreshComponent()})}$('componentNote').textContent=comp.note;
  $('portInfo').innerHTML=comp.ports.length?'<strong>Port positions (relative offsets):</strong><div class="help">Click a port dot in the viewer, or adjust its offsets below.</div>'+comp.ports.map((p,i)=>`<div class="help" style="margin:8px 0 3px">${p.name}: <b>${key(comp,p.id)}</b></div><div class="grid3">${p.off.map((v,j)=>`<div class="field"><label>${axes[j]} offset</label><input type="number" step="1" data-port="${i}" data-axis="${j}" value="${v}"></div>`).join('')}</div>`).join(''):'<span class="help">This component has no modeled water ports.</span>';
  $('portInfo').querySelectorAll('input').forEach(el=>el.addEventListener('change',e=>{comp.ports[+e.target.dataset.port].off[+e.target.dataset.axis]=Number(e.target.value)||0;changeModel()}));draw()}
 function refreshFreeBayControls(){
@@ -668,12 +713,20 @@ function alignRadiatorToOpening(r){
  const b=bayGeometry(sl),depthHalf=r.size[2]/2;
  r.pos=[b.radX,c.portY-r.size[1]/2,b.panelOuter-sl.end*(Math.max(c.wood,r.fans?.panel>0?(c.fanThickness||25.4):0)+depthHalf)];
  const near=sl.side*(mainW/2-c.portFrontA),far=sl.side*(mainW/2-c.portFrontB);
- r.ports[0].off=[near-b.radX,r.size[1]/2,-sl.end*(depthHalf+1)];
- r.ports[1].off=[far-b.radX,r.size[1]/2,-sl.end*(depthHalf+1)];
+ // TFC X-Changer G1/4 ports occupy the broad inward-facing FRONT surface
+ // of the upper end tank; never place them on the horizontal tank cap.
+ const portY=r.size[1]/2-9;
+ r.ports[0].off=[near-b.radX,portY,-sl.end*(depthHalf+1)];
+ r.ports[1].off=[far-b.radX,portY,-sl.end*(depthHalf+1)];
 }
 function syncMeasuredRadiators(){
  for(const r of project.parts.filter(p=>p.type==='radiator'))alignRadiatorToOpening(r);
- const tray=cpart('tray');if(tray)tray.pos[1]=project.case.divider+tray.size[1]/2;
+ const tray=cpart('tray');
+ if(tray){
+  const before=tray.pos.slice();
+  tray.pos[1]=project.case.divider+TRAY_CLEARANCE_MM+tray.size[1]/2;
+  moveAttachedParts(tray.id,sub(tray.pos,before));
+ }
 }
 
 function loadFourRadiatorPreset(){
@@ -733,9 +786,10 @@ function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!n
     window.WalnutLoopWebGL.exportPng(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)});
     return;
   }if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
- $('componentSelect').onchange=e=>{selection=e.target.value;const p=cpart(selection);if(p&&!['radiator','res','pump','drain'].includes(p.type)){project.display.caseOnly=false;showInternals(true)}persist();refreshComponent()};$('mountSlot').onchange=e=>setRadiatorSlot(selection,e.target.value);
+ $('componentSelect').onchange=e=>{selection=e.target.value;const p=cpart(selection);if(p&&!['radiator','mobo','cpu','res','pump','drain'].includes(p.type)){project.display.caseOnly=false;showInternals(true)}persist();refreshComponent()};$('mountSlot').onchange=e=>setRadiatorSlot(selection,e.target.value);
  $('fourRadiatorsBtn').onclick=loadFourRadiatorPreset;
  $('alignTrayBtn').onclick=alignTrayToRearWindow;
+ $('alignBoardBtn').onclick=alignMotherboardToTray;
  $('loopMode').onchange=e=>applyLoopMode(e.target.value);
  $('reservoirOrientation').onchange=e=>{
   const part=cpart(selection);
