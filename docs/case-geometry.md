@@ -40,3 +40,11 @@ X = horizontal; Y = height from floor; Z = front/back. Millimeters throughout. T
 - Fan rotation / intake vs exhaust direction and exact mounting fasteners are **not yet modeled**. Visually inspect case clearances before assembly. No collision detection is provided.
 
 **Fresh-project sample:** front/right and rear/right radiators each use 3 panel-side + 3 inner-side fans (12 radiator fans). Front/left and rear/left openings each use a 3-fan-only bank (6 more). These are editable starting values, not verified permanent placements; browser-saved configurations are preserved.
+
+## Editor display and depth sorting (v0.10)
+
+- The model uses a single painter-style sorted list of front/rear walnut-panel surfaces, inner cutout faces, radiator and fan faces, optional other components, and their detail strokes.
+- **Cooling view** hides provisional motherboard, CPU/GPU, reservoir, pump and drain geometry without removing any components or saved tubing routes. **Other parts** reveals them. Existing project geometry and visibility flags are preserved.
+- The steel divider is rendered as an opaque dark panel; the cutout panels use even-odd polygon holes.
+- This improves visible occlusion but is *not a geometric collision solver*. Intersecting mesh faces, hard tubing, and fit tolerances are approximate.
+- The normal editor keeps component and fan controls immediately visible. Geometry, route and cost settings are available inside expandable sections; explanatory history stays in repository documentation.
