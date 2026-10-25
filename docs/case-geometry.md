@@ -106,3 +106,15 @@ The rear Mountain Mods I/O/PCI/120mm panel was previously drawn with its center 
 - When the panel is centered at X=0 within the 330.2 mm-wide walnut window, the 276.86 mm tray center is **X=+8.57 mm**.
 
 The entire assembly moves together if tray position or width changes, including both PCI slots and fan aperture. The alignment control derives tray X from the physical bracket shape. Saved projects with the old unmodified tray location get the correction without moving manually adjusted setups. Panel overhang estimates are based on the overhead reference photograph; they are not machining specifications.
+
+## v0.16 — orientation of mounted rear motherboard panel
+
+Correction from the real overhead reference: left-to-right across the back of the installed horizontal Mountain Mods assembly, the **seven PCI slots are LEFT**; the **120 mm fan opening is upper RIGHT** and the **motherboard I/O opening is below the fan**, nearest the ITX motherboard. The previous rendered design was mirrored. The rear bracket is still 310 mm across and anchored to the tray's right edge with the v0.15 overhang values; no case or tray positioning changes were required.
+
+Detailed approximate panel layout in tray-relative world coordinates, where the panel spans Y = tray top to tray top +183 mm:
+
+- Rear sheet fan region: rightmost **138 mm** wide; actual 110 mm diameter circular aperture, center Y=+119 mm from tray plate top. Standard 120 mm fan screw hole square remains at +/-52 mm.
+- I/O cutout: **98 × 39 mm**, centered below fan, Y=+10..49 mm from tray top. The between-region sheet remains solid.
+- Seven PCI slots: on left 172 mm wide section, each 10 mm wide, with about 21 mm X spacing and Y=+22..104 mm.
+
+These are schematic proportions (not cut/drill templates). The geometry has separate filled sheet regions around each hole so the GPU depth renderer sees actual open holes rather than painted rectangles. Regression tests verify the positions and empty cut-through regions.
