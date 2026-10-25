@@ -125,6 +125,19 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.ok(Math.abs(relocatedCpu.pos[0]-freshBoard.pos[0]-18)<.001);
  assert.ok(upgraded.parts.filter(q=>q.type==='radiator').every(rad=>
     rad.ports.every(port=>port.off[1]===rad.size[1]/2-9)));
+ // Two-step historical migration: re-register old tray X, then position
+ // the newly added board from the CORRECTED tray (not from obsolete X=76).
+ const earlier=api.initial();
+ earlier.parts=earlier.parts.filter(q=>q.id!=='mobo');
+ earlier.parts.find(q=>q.id==='tray').pos=[76,c.divider+.825,-69.525];
+ earlier.parts.find(q=>q.id==='cpu').pos=[93,525,-110];
+ const migrated=api.normalizeImport(earlier);
+ const migratedTray=migrated.parts.find(q=>q.id==='tray');
+ const migratedBoard=migrated.parts.find(q=>q.id==='mobo');
+ const migratedCPU=migrated.parts.find(q=>q.id==='cpu');
+ assert.ok(Math.abs(migratedTray.pos[0]-8.57)<.01);
+ assert.ok(Math.abs(migratedBoard.pos[0]-api.boardPoseForTray(migratedTray,migratedBoard)[0])<.01);
+ assert.ok(Math.abs(migratedCPU.pos[0]-migratedBoard.pos[0]-18)<.01);
  const manual=api.initial();
  manual.parts=manual.parts.filter(q=>q.id!=='mobo');
  manual.parts.find(q=>q.id==='cpu').pos=[35,550,-90];
