@@ -39,7 +39,7 @@ X = horizontal; Y = height from floor; Z = front/back. Millimeters throughout. T
 - Radiator ports remain separate editable offsets; fan mounting does not automatically calibrate G1/4 port or screw-hole coordinates.
 - Fan rotation / intake vs exhaust direction and exact mounting fasteners are **not yet modeled**. Visually inspect case clearances before assembly. No collision detection is provided.
 
-**Fresh-project sample:** front/right and rear/right radiators each use 3 panel-side + 3 inner-side fans (12 radiator fans). Front/left and rear/left openings each use a 3-fan-only bank (6 more). These are editable starting values, not verified permanent placements; browser-saved configurations are preserved.
+**Historical v0.9 sample (superseded):** two right-hand radiators with push/pull and six standalone left-hand fans. See the v0.11 section for the current four-radiator starting layout.
 
 ## Editor display and depth sorting (v0.10)
 
