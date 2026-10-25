@@ -29,6 +29,7 @@ const initial=()=>({
     {id:'drain2',name:'CPU drain · right',type:'drain',loop:'cpu',pos:[190,65,125],size:[55,26,36],ports:[{id:'in',name:'T branch',off:[-28,0,0]},{id:'out',name:'Capped outlet',off:[28,0,0]}],note:'CPU-side low-point tee/drain with capped outlet.'}
   ],loopMode:'dual',singleHardwareSide:'right', routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:false,fans:false,doors:false,caseOnly:false,internals:false,dimensions:false},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0},mountVersion:1,tubeOD:16,bendRadius:35});
 let project=initial(); let selection='rad1',selectedRoute=null,portClicks=0;
+let selectedWaypoint=-1,routeDrag=null;
 let sceneQueue=null;
 let sceneRevision=0; // Increment only for model/edit changes, not camera orbit gestures.
 let view={yaw:.58,pitch:.24,zoom:.90,target:[0,355,0],pan:[0,0]};let canvas=$('scene'),nativeCtx=canvas.getContext('2d'),ctx=nativeCtx,isSvgMode=false;let hitPorts=[],hitParts=[],isDragging=false,dragMoved=false,last=[0,0],dpr=1,W=100,H=100;
@@ -407,7 +408,87 @@ function drawCase(){
  if(project.display.fans)renderFanOpenings();
 }
 
-function routePoints(rt){let a=portPos(rt.from),b=portPos(rt.to);if(!a||!b)return [];let way=[a];let current=a.slice();for(let axis of (rt.axis||'xzy')){let i={x:0,y:1,z:2}[axis];if(Math.abs(b[i]-current[i])>.01){current=current.slice();current[i]=b[i];way.push(current)}}if(dist(way[way.length-1],b)>.01)way.push(b);return way}
+function routePoints(rt){let a=portPos(rt.from),b=portPos(rt.to);if(!a||!b)return [];if(Array.isArray(rt.waypoints))return [a,...rt.waypoints.map(p=>p.slice()),b];let way=[a];let current=a.slice();for(let axis of (rt.axis||'xzy')){let i={x:0,y:1,z:2}[axis];if(Math.abs(b[i]-current[i])>.01){current=current.slice();current[i]=b[i];way.push(current)}}if(dist(way[way.length-1],b)>.01)way.push(b);return way}
+// A waypoint is a true world-space 3D coordinate; endpoints remain attached
+// to real hardware ports. Existing automatic routes become editable on demand.
+function editableRoute(rt){
+ if(!Array.isArray(rt.waypoints))rt.waypoints=routePoints(rt).slice(1,-1);
+ return rt.waypoints;
+}
+function pointSegmentDistance(x,y,a,b){
+ const dx=b.x-a.x,dy=b.y-a.y,t=clamp(((x-a.x)*dx+(y-a.y)*dy)/(dx*dx+dy*dy||1),0,1);
+ return {distance:Math.hypot(x-a.x-t*dx,y-a.y-t*dy),t};
+}
+function nearestRouteSegment(rt,x,y){
+ const pts=routePoints(rt),arr=pts.map(screen);
+ let best={distance:Infinity,index:-1,t:.5};
+ for(let i=0;i<arr.length-1;i++){
+  const hit=pointSegmentDistance(x,y,arr[i],arr[i+1]);
+  if(hit.distance<best.distance)best={...hit,index:i};
+ }
+ return best;
+}
+function nearestRenderedRoute(x,y){
+ let candidate=null;
+ for(const rt of project.routes){
+  if(!portPos(rt.from)||!portPos(rt.to))continue;
+  const line=routeGeom(rt).smooth.map(screen);
+  for(let i=0;i<line.length-1;i++){
+   const hit=pointSegmentDistance(x,y,line[i],line[i+1]);
+   if(hit.distance<15&&(!candidate||hit.distance<candidate.distance))
+    candidate={route:rt,distance:hit.distance};
+  }
+ }
+ return candidate;
+}
+function routePointWorldDelta(dx,dy,shift=false){
+ const sf=screen([0,0,0]).sf||1,yaw=view.yaw,pitch=view.pitch;
+ if(shift){
+  // Shift + vertical drag moves along the camera-facing depth vector.
+  const depth=(dy/sf)/Math.max(.22,Math.abs(Math.sin(pitch)));
+  return [depth*Math.sin(yaw),0,depth*Math.cos(yaw)];
+ }
+ return [(dx/sf)*Math.cos(yaw),(-dy/sf)/Math.max(.2,Math.cos(pitch)),
+         -(dx/sf)*Math.sin(yaw)];
+}
+function insertRoutePoint(rt,segmentIndex,t=.5){
+ const wp=editableRoute(rt);
+ const pts=routePoints(rt),i=clamp(segmentIndex,0,pts.length-2);
+ const point=mix(pts[i],pts[i+1],t);
+ wp.splice(i,0,point);selectedRoute=rt.id;selectedWaypoint=i;
+ return point;
+}
+function addSelectedRoutePoint(){
+ const rt=project.routes.find(r=>r.id===selectedRoute);if(!rt)return;
+ const pts=routePoints(rt);
+ if(pts.length<2)return;
+ let longest=0,index=0;
+ for(let i=0;i<pts.length-1;i++){const d=dist(pts[i],pts[i+1]);if(d>longest){longest=d;index=i}}
+ insertRoutePoint(rt,index,.5);changeModel();
+}
+function removeSelectedRoutePoint(){
+ const rt=project.routes.find(r=>r.id===selectedRoute);
+ if(!rt||selectedWaypoint<0)return;
+ const wp=editableRoute(rt);if(selectedWaypoint>=wp.length)return;
+ wp.splice(selectedWaypoint,1);selectedWaypoint=-1;changeModel();
+}
+function clearSelectedRoutePoints(){
+ const rt=project.routes.find(r=>r.id===selectedRoute);if(!rt)return;
+ delete rt.waypoints;selectedWaypoint=-1;changeModel();
+}
+function drawRouteHandles(){
+ const rt=project.routes.find(r=>r.id===selectedRoute);
+ if(!rt||project.display.caseOnly||!portPos(rt.from)||!portPos(rt.to))return;
+ const pts=routePoints(rt);
+ // Open circles for two fixed endpoints, draggable gold circles for bends.
+ pts.forEach((point,i)=>{
+  const v=screen(point),end=i===0||i===pts.length-1;
+  ctx.beginPath();ctx.arc(v.x,v.y,end?5:8,0,Math.PI*2);
+  ctx.fillStyle=end?'#15232b':i-1===selectedWaypoint?'#ffefb0':'#f3b86c';
+  ctx.strokeStyle=end?'#b6d9df':'#171f28';ctx.lineWidth=2.5;
+  ctx.fill();ctx.stroke();
+ });
+}
 function roundPolyline(pts,R){if(pts.length<3)return pts;let out=[pts[0]];for(let i=1;i<pts.length-1;i++){let a=pts[i-1],b=pts[i],c=pts[i+1],u=sub(a,b),v=sub(c,b),L1=len(u),L2=len(v);if(L1<.1||L2<.1){out.push(b);continue}let radius=Math.min(R,L1*.44,L2*.44),p=mix(b,a,radius/L1),q=mix(b,c,radius/L2);out.push(p);for(let j=1;j<=11;j++){let t=j/12;out.push(add(add(scale(p,(1-t)*(1-t)),scale(b,2*(1-t)*t)),scale(q,t*t)))}out.push(q)}out.push(pts[pts.length-1]);return out}
 function softPolyline(pts){if(pts.length<2)return pts;let out=[];for(let i=0;i<pts.length-1;i++){let a=pts[Math.max(0,i-1)],b=pts[i],c=pts[i+1],d=pts[Math.min(pts.length-1,i+2)];let L=dist(b,c),sag=Math.min(28,L*.095);for(let j=0;j<=16;j++){if(i>0&&j===0)continue;let t=j/16,t2=t*t,t3=t2*t;let p=[0,1,2].map(k=>.5*((2*b[k])+(-a[k]+c[k])*t+(2*a[k]-5*b[k]+4*c[k]-d[k])*t2+(-a[k]+3*b[k]-3*c[k]+d[k])*t3));p[1]-=sag*Math.sin(Math.PI*t);out.push(p)}}return out}
 function lengthOf(pts){let v=0;for(let i=1;i<pts.length;i++)v+=dist(pts[i],pts[i-1]);return v}
@@ -438,6 +519,7 @@ function draw(){if(!ctx)return;const webgl=window.WalnutLoopWebGL?.active===true
   sceneQueue=null;
  }else flushScene();
  if(project.display.dimensions)drawDimensions();
+ drawRouteHandles();
  if(project.display.ports&&!project.display.caseOnly)for(let p of parts)for(let port of p.ports){let k=key(p,port.id),pos=portPos(k),v=screen(pos);let highlighted=($('fromPort').value===k||$('toPort').value===k);if(!webgl){ctx.beginPath();ctx.arc(v.x,v.y,highlighted?6.7:4.8,0,Math.PI*2);ctx.fillStyle=highlighted?'#fff0b2':'#f4c99f';ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle='#5f3826';ctx.stroke()}hitPorts.push({k,x:v.x,y:v.y,d:v.d})}
  if(project.display.labels&&!project.display.caseOnly){let arr=parts.filter(p=>p.type!=='tray');arr.forEach(p=>labelAt(add(p.pos,[0,p.size[1]/2+10,0]),p.name,p.id===selection?'#fbd3a1':'#d0dce8'));}
  $('viewStatus').textContent=(webgl?'WebGL / depth tested':isSvgMode?'SVG':'Canvas')+' · Drag to orbit · '+fans.length+' fans';$('staticPreview').style.display='none';}
@@ -600,8 +682,8 @@ function refreshFreeBayControls(){
  }));
 }
 function changeModel(){sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
-function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${Math.round(g.length)} mm · ${g.elbows} elbow${g.elbows===1?'':'s'}</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;refreshRouteList();draw()}))}
- let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis}}
+function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${Math.round(g.length)} mm · ${g.elbows} elbow${g.elbows===1?'':'s'}</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
+ let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=(rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points';$('deletePoint').disabled=selectedWaypoint<0}}
 function estimate(){let tubes=0,straight=0,elbow=0,softLen=0,hardLen=0;let lengths=[];for(let rt of project.routes){let g=routeGeom(rt);tubes++;straight+=2;elbow+=g.elbows;if(rt.style==='soft')softLen+=g.length;else hardLen+=g.length;lengths.push(g.length)}let w=1+project.prices.waste/100;let sf=softLen*w/1000,hf=hardLen*w/1000,c1=straight*project.prices.fit,c2=elbow*project.prices.elbow,c3=sf*project.prices.soft,c4=hf*project.prices.hard,total=c1+c2+c3+c4+project.prices.other;return{total,straight,elbow,softLen,hardLen,sf,hf,c1,c2,c3,c4,lengths}}
 function refreshEstimate(){let a=estimate();$('totalLength').textContent=((a.softLen+a.hardLen)/1000).toFixed(2)+' m';$('fittingCount').textContent=a.straight;$('elbowCount').textContent=a.elbow;let money=n=>'$'+n.toFixed(2);$('estimateRows').innerHTML=[['Port compressions',a.straight+' × '+money(project.prices.fit),a.c1],['Integrated 90° connectors',a.elbow+' × '+money(project.prices.elbow),a.c2],['Soft tubing',a.sf.toFixed(2)+' m',a.c3],['Hard tubing',a.hf.toFixed(2)+' m',a.c4],['Other / adapters','allowance',project.prices.other]].map(([n,detail,v])=>`<tr><td>${n}<small style="display:block;color:#8493a4">${detail}</small></td><td>${money(v)}</td></tr>`).join('');$('costTotal').textContent=money(a.total)}
 // Intentionally no automatic draft persistence during greenfield iteration.
@@ -675,7 +757,7 @@ function setRadiatorSlot(id,slot){let p=cpart(id);if(!p||p.type!=='radiator')ret
  }
  p.slot=slot;alignRadiatorToOpening(p);project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;showCoolingModel();changeModel();refreshComponent();
 }
-function addRoute(from,to,style,axis){if(!portPos(from)||!portPos(to)||from===to){toast('Select two different, valid ports.');return}if(project.loopMode==='dual'&&portLoop(from)!==portLoop(to)){toast('GPU and CPU loops are separate; select ports in the same loop.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);project.routes.push({id,from,to,style,axis,loop:portLoop(from)});selectedRoute=id;changeModel();toast('Route added. Select it in the list to change style.');}
+function addRoute(from,to,style,axis){if(!portPos(from)||!portPos(to)||from===to){toast('Select two different, valid ports.');return}if(project.loopMode==='dual'&&portLoop(from)!==portLoop(to)){toast('GPU and CPU loops are separate; select ports in the same loop.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);project.routes.push({id,from,to,style,axis,loop:portLoop(from)});selectedRoute=id;selectedWaypoint=-1;changeModel();toast('Route added. Select it in the list to change style.');}
 function sampleRoutes(){
  if(project.routes.length&&!confirm('Replace existing routes with '+project.loopMode+'-loop examples?'))return;
  const links=[];
@@ -701,7 +783,7 @@ function sampleRoutes(){
  project.routes=links.filter(({ports})=>portPos(ports[0])&&portPos(ports[1]))
   .map(({ports,mode},i)=>({id:'example'+i,from:ports[0],to:ports[1],
    loop:mode,style:'soft',axis:i%2?'zyx':'xzy'}));
- selectedRoute=null;changeModel();
+ selectedRoute=null;selectedWaypoint=-1;changeModel();
  toast('Loaded '+project.routes.length+' conceptual runs; keep drain outlets capped.');
 }
 function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoom;view.target=[0,345,0];view.pan=[0,0];for(let id of ['isoBtn','frontBtn','sideBtn','topBtn'])$(id).classList.remove('active');draw()}
@@ -745,12 +827,87 @@ function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!n
  $('showCoolingBtn').onclick=()=>{showCoolingModel();changeModel();toast('Cooling assemblies visible. Select a radiator to edit fans.');};$('componentVisible').onchange=e=>{let part=cpart(selection);if(!part)return;part.visible=e.target.checked;project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;changeModel()};$('wallThickness').onchange=e=>{project.case.wood=clamp(Number(e.target.value),1,80);changeModel()};$('syncRads').onclick=()=>{syncMeasuredRadiators();showCoolingModel();persist();refreshComponent();changeModel();toast('Aligned installed radiators to front/back panel cutouts.');};$('dividerHeight').onchange=e=>{project.case.divider=clamp(Number(e.target.value),50,project.case.height-50);changeModel()};$('centerComponent').onclick=()=>{let p=cpart(selection);if(p)view.target=p.pos.slice();draw()};
  for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).onclick=()=>{project.display[k]=!project.display[k];$(id).classList.toggle('active',project.display[k]);changeModel()};
  $('addRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,$('styleSelect').value,$('axisOrder').value);$('populateRoutes').onclick=sampleRoutes;
- $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.style=e.target.value;changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;changeModel()};
+ $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.style=e.target.value;changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;selectedWaypoint=-1;changeModel()};
+ $('addPoint').onclick=addSelectedRoutePoint;
+ $('deletePoint').onclick=removeSelectedRoutePoint;
+ $('autoRoute').onclick=clearSelectedRoutePoints;
  $('tubeOD').onchange=e=>{project.tubeOD=clamp(Number(e.target.value)||16,8,25);changeModel()};$('bendRadius').onchange=e=>{project.bendRadius=clamp(Number(e.target.value)||35,8,150);changeModel()};
  for(let [id,k] of [['fitPrice','fit'],['elbowPrice','elbow'],['softPrice','soft'],['hardPrice','hard'],['wastePct','waste'],['otherCost','other']])$(id).onchange=e=>{project.prices[k]=Math.max(0,Number(e.target.value)||0);changeModel()};
  $('rendererBtn').onclick=()=>{window.WalnutLoopWebGL?.setActive(false);enableRenderer(isSvgMode?'canvas':'svg')};
  $('isoBtn').onclick=()=>{setView(.58,.24,.90);$('isoBtn').classList.add('active')};$('frontBtn').onclick=()=>{setView(0,0,.95);$('frontBtn').classList.add('active')};$('sideBtn').onclick=()=>{setView(Math.PI/2,0,1);$('sideBtn').classList.add('active')};$('topBtn').onclick=()=>{setView(0,Math.PI/2-.001,.92);$('topBtn').classList.add('active')};
- canvas.addEventListener('pointerdown',e=>{isDragging=true;dragMoved=false;last=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(!isDragging)return;let dx=e.clientX-last[0],dy=e.clientY-last[1];if(Math.abs(dx)+Math.abs(dy)>1)dragMoved=true;if(e.shiftKey||e.buttons===2){view.pan[0]+=dx;view.pan[1]+=dy}else{view.yaw+=dx*.007;view.pitch=clamp(view.pitch-dy*.006,-1.4,1.4)}last=[e.clientX,e.clientY];draw()});canvas.addEventListener('pointerup',e=>{isDragging=false;if(dragMoved)return;let rect=canvas.getBoundingClientRect(),x=e.clientX-rect.left,y=e.clientY-rect.top;let closest=hitPorts.filter(p=>Math.hypot(p.x-x,p.y-y)<15).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];if(closest){let id=portClicks%2===0?'fromPort':'toPort';$(id).value=closest.k;portClicks++;toast((id==='fromPort'?'From':'To')+': '+portLabel(closest.k));draw();return}let part=hitParts.filter(p=>Math.hypot(p.x-x,p.y-y)<30).sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];if(part){selection=part.id;refreshComponent()}});canvas.addEventListener('wheel',e=>{e.preventDefault();view.zoom=clamp(view.zoom*Math.exp(-e.deltaY*.0015),.28,4);draw()},{passive:false});canvas.addEventListener('contextmenu',e=>e.preventDefault());
+ function canvasPoint(e){
+ const rect=canvas.getBoundingClientRect();
+ return [e.clientX-rect.left,e.clientY-rect.top];
+}
+canvas.addEventListener('pointerdown',e=>{
+ isDragging=true;dragMoved=false;last=[e.clientX,e.clientY];routeDrag=null;
+ const [x,y]=canvasPoint(e);
+ if(!project.display.caseOnly&&e.button!==2&&!e.shiftKey){
+  const rt=project.routes.find(r=>r.id===selectedRoute);
+  if(rt&&portPos(rt.from)&&portPos(rt.to)){
+   const pts=routePoints(rt);
+   for(let i=1;i<pts.length-1;i++){
+    const v=screen(pts[i]);
+    if(Math.hypot(v.x-x,v.y-y)<17){
+     editableRoute(rt);selectedWaypoint=i-1;
+     routeDrag={route:rt,index:i-1};
+     break;
+    }
+   }
+  }
+  if(!routeDrag){
+   const hit=nearestRenderedRoute(x,y);
+   if(hit){
+    const target=hit.route;
+    // Clicking a tube creates an editable bend at the nearest control segment.
+    const seg=nearestRouteSegment(target,x,y);
+    if(seg.index>=0){
+     insertRoutePoint(target,seg.index,seg.t);
+     routeDrag={route:target,index:selectedWaypoint};
+     refreshRouteList();sceneRevision++;draw();
+    }
+   }
+  }
+ }
+ if(routeDrag){selectedRoute=routeDrag.route.id;refreshRouteList();draw()}
+ canvas.setPointerCapture?.(e.pointerId);
+});
+canvas.addEventListener('pointermove',e=>{
+ if(!isDragging)return;
+ const dx=e.clientX-last[0],dy=e.clientY-last[1];
+ if(Math.abs(dx)+Math.abs(dy)>1)dragMoved=true;
+ if(routeDrag){
+  const wp=routeDrag.route.waypoints?.[routeDrag.index];
+  if(wp){const delta=routePointWorldDelta(dx,dy,!!e.shiftKey);
+   routeDrag.route.waypoints[routeDrag.index]=add(wp,delta);
+   sceneRevision++;draw();
+  }
+ }else if(e.shiftKey||e.buttons===2){
+  view.pan[0]+=dx;view.pan[1]+=dy;draw();
+ }else{
+  view.yaw+=dx*.007;view.pitch=clamp(view.pitch-dy*.006,-1.4,1.4);draw();
+ }
+ last=[e.clientX,e.clientY];
+});
+canvas.addEventListener('pointerup',e=>{
+ const edited=!!routeDrag;routeDrag=null;isDragging=false;
+ if(edited){changeModel();return}
+ if(dragMoved)return;
+ const [x,y]=canvasPoint(e);
+ const closest=hitPorts.filter(p=>Math.hypot(p.x-x,p.y-y)<15)
+  .sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
+ if(closest){
+  let id=portClicks%2===0?'fromPort':'toPort';$(id).value=closest.k;portClicks++;
+  toast((id==='fromPort'?'From':'To')+': '+portLabel(closest.k));draw();return;
+ }
+ const part=hitParts.filter(p=>Math.hypot(p.x-x,p.y-y)<30)
+  .sort((a,b)=>Math.hypot(a.x-x,a.y-y)-Math.hypot(b.x-x,b.y-y))[0];
+ if(part){selection=part.id;refreshComponent()}
+});
+canvas.addEventListener('pointercancel',()=>{
+ if(routeDrag){routeDrag=null;changeModel()}isDragging=false;
+});
+canvas.addEventListener('wheel',e=>{e.preventDefault();view.zoom=clamp(view.zoom*Math.exp(-e.deltaY*.0015),.28,4);draw()},{passive:false});canvas.addEventListener('contextmenu',e=>e.preventDefault());
  if(typeof ResizeObserver!=='undefined')new ResizeObserver(draw).observe($('viewport'));else window.onresize=draw;
  updateAll();}
 // The optional Three.js module attaches after this classic script. Old JSON,
