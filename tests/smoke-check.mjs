@@ -7,8 +7,8 @@ import vm from 'node:vm';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const parts=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
-assert.match(html,/<script\s+src="assets\/app\.js\?v=0\.16"><\/script>/);
-assert.match(html,/<link\s+rel="stylesheet"\s+href="assets\/style\.css\?v=0\.16">/);
+assert.match(html,/<script\s+src="assets\/app\.js\?v=0\.17"><\/script>/);
+assert.match(html,/<link\s+rel="stylesheet"\s+href="assets\/style\.css\?v=0\.17">/);
 for(const m of app.matchAll(/\$\('([A-Za-z0-9_]+)'\)/g)){
  assert.ok(html.includes('id="'+m[1]+'"'),'Missing HTML element: '+m[1]);
 }
@@ -51,6 +51,10 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  assert.equal(model.project.parts.find(p=>p.id==='tray').cutout.width,120);
  assert.equal(model.project.parts.find(p=>p.id==='tray').cutout.z,-96);
  assert.equal(model.project.parts.find(p=>p.id==='res').pos[0],-125);
+ assert.equal(model.project.loopMode,'dual');
+ assert.equal(model.project.parts.find(p=>p.id==='res2').pos[0],125);
+ assert.equal(model.project.parts.filter(p=>p.type==='pump').length,2);
+ assert.equal(model.project.parts.filter(p=>p.type==='drain').length,2);
  assert.equal(model.project.parts.find(p=>p.id==='pump').pos[0],-125);
  assert.ok(model.project.parts.filter(p=>p.type==='radiator').every(p=>p.size[2]===60));
  assert.equal(model.project.parts.filter(p=>p.type==='radiator').length,4);
