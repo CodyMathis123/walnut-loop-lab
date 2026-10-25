@@ -343,7 +343,7 @@ function refreshComponent(){let comp=cpart(selection)||project.parts[0];selectio
    ' inner-facing · total stack depth '+
    (comp.size[2]+(comp.fans.panel>0?t:0)+(comp.fans.inner>0?t:0)).toFixed(1)+' mm';
  }
- refreshFreeBayControls();$('componentVisible').checked=comp.visible!==false;$('mountChooser').style.display=comp.type==='radiator'?'block':'none';if(comp.type==='radiator')$('mountSlot').value=comp.slot||'unmounted';$('componentSelect').innerHTML=project.parts.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');$('componentSelect').value=selection;const axes=['X','Y','Z'];$('componentFields').innerHTML=comp.pos.map((x,i)=>`<div class="field"><label>${axes[i]} pos (mm)</label><input id="pos${i}" type="number" step="5" value="${r2(x)}"></div>`).join('')+comp.size.map((x,i)=>`<div class="field"><label>${axes[i]} size (mm)</label><input id="size${i}" type="number" min="1" step="1" value="${r2(x)}"></div>`).join('');for(let i=0;i<3;i++){const j=i;$('pos'+i).addEventListener('change',e=>{comp.pos[j]=Number(e.target.value)||0;changeModel()});$('size'+i).addEventListener('change',e=>{comp.size[j]=Math.max(1,Number(e.target.value)||1);if(comp.type==='radiator'&&j===2)repositionRadiatorDepth(comp);changeModel();refreshComponent()})}$('componentNote').textContent=comp.note;
+ refreshFreeBayControls();$('componentVisible').checked=comp.visible!==false;$('mountChooser').style.display=comp.type==='radiator'?'block':'none';if(comp.type==='radiator')$('mountSlot').value=comp.slot||'unmounted';$('componentSelect').innerHTML=project.parts.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');$('componentSelect').value=selection;const axes=['X','Y','Z'];$('componentFields').innerHTML=comp.pos.map((x,i)=>`<div class="field"><label>${axes[i]} pos (mm)</label><input id="pos${i}" type="number" step="5" value="${r2(x)}"></div>`).join('')+comp.size.map((x,i)=>`<div class="field"><label>${axes[i]} size (mm)</label><input id="size${i}" type="number" min="1" step="1" value="${r2(x)}"></div>`).join('');for(let i=0;i<3;i++){const j=i;$('pos'+i).addEventListener('change',e=>{comp.pos[j]=Number(e.target.value)||0;changeModel();if(comp.type==='radiator')refreshComponent()});$('size'+i).addEventListener('change',e=>{comp.size[j]=Math.max(1,Number(e.target.value)||1);if(comp.type==='radiator'&&j===2)repositionRadiatorDepth(comp);changeModel();refreshComponent()})}$('componentNote').textContent=comp.note;
  $('portInfo').innerHTML=comp.ports.length?'<strong>Port positions (relative offsets):</strong><div class="help">Click a port dot in the viewer, or adjust its offsets below.</div>'+comp.ports.map((p,i)=>`<div class="help" style="margin:8px 0 3px">${p.name}: <b>${key(comp,p.id)}</b></div><div class="grid3">${p.off.map((v,j)=>`<div class="field"><label>${axes[j]} offset</label><input type="number" step="1" data-port="${i}" data-axis="${j}" value="${v}"></div>`).join('')}</div>`).join(''):'<span class="help">This component has no modeled water ports.</span>';
  $('portInfo').querySelectorAll('input').forEach(el=>el.addEventListener('change',e=>{comp.ports[+e.target.dataset.port].off[+e.target.dataset.axis]=Number(e.target.value)||0;changeModel()}));draw()}
 function refreshFreeBayControls(){
@@ -379,21 +379,22 @@ function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.
  if(p.case&&p.case.windowHeight===215.9)vals.case.windowHeight=209.55;
  return vals}
 function validateImport(p){if(!p||!p.case||!Array.isArray(p.parts)||!Array.isArray(p.routes)||!p.prices||!p.display)return false;if(!p.parts.every(x=>typeof x.id==='string'&&Array.isArray(x.pos)&&x.pos.length===3&&Array.isArray(x.size)&&x.size.length===3&&Array.isArray(x.ports)))return false;return true}
-function syncMeasuredRadiators(){
+function alignRadiatorToOpening(r){
  const c=project.case,mainW=c.width-2*c.doors;
- for(const r of project.parts.filter(p=>p.type==='radiator')){
-  const sl=FAN_SLOTS.find(s=>s.id===r.slot);
-  if(!sl){r.visible=false;continue}
-  r.visible=true;
-  r.size[0]=r.size[0]===64?135:r.size[0];
-  r.size[2]=r.size[2]===135?64:r.size[2];
-  const b=bayGeometry(sl),depthHalf=r.size[2]/2;
-  r.pos=[b.radX,c.portY-r.size[1]/2,b.panelInside-sl.end*((r.fans?.panel>0?(c.fanThickness||25.4):0)+depthHalf)];
-  const near=sl.side*(mainW/2-c.portFrontA),far=sl.side*(mainW/2-c.portFrontB);
-  r.ports[0].off=[near-b.radX,r.size[1]/2,-sl.end*(depthHalf+1)];
-  r.ports[1].off=[far-b.radX,r.size[1]/2,-sl.end*(depthHalf+1)];
- }
- const tray=cpart('tray');if(tray)tray.pos[1]=c.divider+tray.size[1]/2;
+ const sl=FAN_SLOTS.find(s=>s.id===r.slot);
+ if(!sl){r.visible=false;return}
+ r.visible=true;
+ r.size[0]=r.size[0]===64?135:r.size[0];
+ r.size[2]=r.size[2]===135?64:r.size[2];
+ const b=bayGeometry(sl),depthHalf=r.size[2]/2;
+ r.pos=[b.radX,c.portY-r.size[1]/2,b.panelInside-sl.end*((r.fans?.panel>0?(c.fanThickness||25.4):0)+depthHalf)];
+ const near=sl.side*(mainW/2-c.portFrontA),far=sl.side*(mainW/2-c.portFrontB);
+ r.ports[0].off=[near-b.radX,r.size[1]/2,-sl.end*(depthHalf+1)];
+ r.ports[1].off=[far-b.radX,r.size[1]/2,-sl.end*(depthHalf+1)];
+}
+function syncMeasuredRadiators(){
+ for(const r of project.parts.filter(p=>p.type==='radiator'))alignRadiatorToOpening(r);
+ const tray=cpart('tray');if(tray)tray.pos[1]=project.case.divider+tray.size[1]/2;
 }
 
 function setRadiatorSlot(id,slot){let p=cpart(id);if(!p||p.type!=='radiator')return;
@@ -401,7 +402,7 @@ function setRadiatorSlot(id,slot){let p=cpart(id);if(!p||p.type!=='radiator')ret
   let incumbent=project.parts.find(q=>q!==p&&q.type==='radiator'&&q.slot===slot&&q.visible!==false);
   if(incumbent){toast('That opening is occupied by '+incumbent.name+'. Choose an empty opening.');$('mountSlot').value=p.slot||'unmounted';return}
  }
- p.slot=slot;syncMeasuredRadiators();project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;showCoolingModel();changeModel();refreshComponent();
+ p.slot=slot;alignRadiatorToOpening(p);project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;showCoolingModel();changeModel();refreshComponent();
 }
 function addRoute(from,to,style,axis){if(!portPos(from)||!portPos(to)||from===to){toast('Select two different, valid ports.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);project.routes.push({id,from,to,style,axis});selectedRoute=id;changeModel();toast('Route added. Select it in the list to change style.');}
 function sampleRoutes(){if(project.routes.length&&!confirm('Replace existing tubing routes with a full-loop example?'))return;project.routes=[];let radiatorList=project.parts.filter(p=>p.type==='radiator'&&p.visible!==false).map(p=>p.id);let links=[['res.out','pump.in'],['pump.out','drain.in'],['drain.out',radiatorList[0]+'.in']];for(let i=0;i<radiatorList.length-1;i++)links.push([radiatorList[i]+'.out',radiatorList[i+1]+'.in']);links.push([radiatorList.at(-1)+'.out','cpu.in'],['cpu.out','gpu.in'],['gpu.out','res.in']);links.forEach(([from,to],i)=>project.routes.push({id:'example'+i,from,to,style:i<3?'soft':'bend',axis:i%2===0?'xzy':'zyx'}));selectedRoute=null;changeModel();toast('Loaded '+links.length+' example tubing runs. Layout is provisional.');}
