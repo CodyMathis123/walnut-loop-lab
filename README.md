@@ -2,7 +2,17 @@
 
 A standalone, browser-based 3D-style planner for a custom walnut PC water-cooling case.
 
-**Status:** v0.17 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+**Status:** v0.18 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+
+## v0.18 — actual Gigabyte ITX mock and radiator faces
+
+The motherboard mock is now based on the user's **GIGABYTE X570 I AORUS PRO WIFI** Mini-ITX AM4 motherboard (170 × 170 mm), oriented with the rear I/O facing the Mountain Mods rear panel, the PCIe x16 slot on the left, and two DDR4 slots toward the front. Its socket has an approximate **+18 mm X, −6 mm Z** offset from the board center after rotation; the adjustable 65 mm CPU water block sits directly above it. The PCB model contains distinct VRM and I/O heatsinks, DIMM sockets, a PCIe slot, and an X570 chipset/M.2 cover. This is a visual reference, not a PCB drilling template.
+
+The stock board sits in the rear-right corner of the removable tray, **6.35 mm above the tray** on nominal standoffs. The **tray is lifted 3 mm above the center supporting rail** to prevent co-planar wood/sheet-metal overlaps. Moving the tray shifts the attached board and CPU block together; moving the board shifts the block. **Align motherboard + CPU** restores both parts to the mounted reference positions. Existing manually adjusted CPU, tray, or radiator coordinates remain intact on import.
+
+The **TFC X-Changer 360 (60 mm)** radiator port collars are now drawn on their **inward-facing vertical end-tank surfaces (Z plane)**, 9 mm below the top end. Earlier untouched top-mounted port offsets are migrated to the front plane while preserving custom port positions.
+
+References: [GIGABYTE X570 I AORUS PRO WIFI product](https://www.gigabyte.com/Motherboard/X570-I-AORUS-PRO-WIFI-rev-10) and [GIGABYTE motherboard layout manual](https://download.gigabyte.com/FileList/Manual/mb_manual_x570-i-aorus-pro-wifi_1002_e.pdf).
 
 ## Cooling loops — v0.17
 
@@ -118,6 +128,7 @@ node tests/smoke-check.mjs
 node tests/webgl-smoke-check.mjs
 node tests/component-geometry-check.mjs
 node tests/cooling-layout-check.mjs
+node tests/itx-layout-check.mjs
 ```
 
 GitHub Pages publishes from the `Production` branch and repository root:
@@ -138,6 +149,7 @@ For iOS, visit the Pages site instead of using a local file preview, which may b
 - `tests/webgl-smoke-check.mjs` — GPU geometry/caching/depth settings tests with a mocked Three.js
 - `tests/component-geometry-check.mjs` — tray aperture, radiator structure and dimensions
 - `tests/cooling-layout-check.mjs` — dual/single presets, independent routes, reservoir rotation and saved projects
+- `tests/itx-layout-check.mjs` — Gigabyte board/socket pose, tray support clearance and TFC face ports
 
 ## Accuracy and safety
 
