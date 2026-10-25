@@ -8,7 +8,18 @@
   rad:['#2b3742','#1f2b34','#17242e','#3c4852','#34424c','#1a2730'],
   tank:['#353e47','#25313b','#1d2831','#47525c','#39434d','#1a252d']
  };
- const mm=(a,b)=>Math.abs(a-b)<.001;
+ // Derive the rear bracket from the tray's right edge (not a free X offset).
+ // Physical-photo approximation: ~25 mm left overhang and ~8 mm right.
+ const rearPanelWidth=310, rearRightOverhang=8, rearFanSectionWidth=138;
+ function rearPanelAlignment(part){
+  const [x]=part.pos,[w]=part.size;
+  const right=x+w/2+rearRightOverhang,left=right-rearPanelWidth;
+  const center=(left+right)/2,split=left+rearFanSectionWidth;
+  return {left,right,center,split,fanX:(left+split)/2,width:rearPanelWidth};
+ }
+ function trayXForRearPanelCenter(center,trayWidth){
+  return center+rearPanelWidth/2-rearRightOverhang-trayWidth/2;
+ }
  function renderTray(part,geo){
   const {box,polygon,stroke,circle3,add}=geo;
   const [x,y,z]=part.pos, [w,t,d]=part.size;
@@ -57,10 +68,9 @@
   // The manufacturer rear panel has a 120 fan hole + I/O shield + PCI slots.
   // The whole rear panel is rotated to put the wide dimension horizontally
   // beneath the walnut rear window (13 in wide, 8.25 in tall).
-  const zBack=z+B+2.5, panelCenter=x-76, panelL=panelCenter-155,
-    panelR=panelCenter+155, split=panelCenter-17;
-  const y0=top,y1=top+183;
-  const fanX=panelCenter-86,fanY=y0+92,fanRadius=55;
+  const zBack=z+B+2.5;
+  const {left:panelL,right:panelR,center:panelCenter,split,fanX}=rearPanelAlignment(part);
+  const y0=top,y1=top+183,fanY=y0+92,fanRadius=55;
   // Geometrically cover the rectangular fan sheet outside its circular hole.
   // At each ray the outer endpoint is the intersection with panel bounds.
   let angles=[];
@@ -118,7 +128,7 @@
    stroke(circle3([fanX+dx,fanY+dy,zBack+1.2],3,'z',12),'#a3b2be',.85);
   }
   piece(0,4,B+2,w-10,8,4.5,palette.edge);
-  box({pos:[panelCenter,y1-2.7,zBack+2],size:[309,5.4,4]},palette.edge);
+  box({pos:[panelCenter,y1-2.7,zBack+2],size:[rearPanelWidth-1,5.4,4]},palette.edge);
   box({pos:[panelR-2.2,(y0+y1)/2,zBack+2],size:[4.4,y1-y0,4]},palette.edge);
  }
  function renderRadiator(part,geo){
@@ -162,5 +172,5 @@
    stroke(circle3([px,yy+1.15,pz],10.2,'y',24),'#bbc8d2',1.1,.95);
   }
  }
- window.WalnutLoopPartGeometry={renderTray,renderRadiator};
+ window.WalnutLoopPartGeometry={renderTray,renderRadiator,rearPanelAlignment,trayXForRearPanelCenter};
 })();
