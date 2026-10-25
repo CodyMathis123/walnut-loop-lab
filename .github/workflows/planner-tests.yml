@@ -23,3 +23,5 @@ jobs:
         run: node tests/cooling-layout-check.mjs
       - name: Gigabyte Mini-ITX, tray support clearance, and front-facing radiator ports
         run: node tests/itx-layout-check.mjs
+      - name: Left/right shared loop and interactive tubing waypoint editor
+        run: node tests/tubing-editor-check.mjs
