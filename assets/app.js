@@ -115,8 +115,12 @@ function circle3(center,r,axis='x',n=40){let pts=[];for(let i=0;i<=n;i++){let a=
 const fanRows=n=>n===1?[0]:n===2?[-1,1]:n===3?[-1,0,1]:[];
 function renderPhysicalFan(fan){
  const thickness=project.case.fanThickness||25.4;
- box({pos:fan.pos,size:[120,120,thickness]},
-    ['#24313d','#17232f','#1c2834','#334252','#2b3b49','#14212a']);
+ // Four structural rails leave the rotor physically open.
+ const colors=['#24313d','#17232f','#1c2834','#334252','#2b3b49','#14212a'];
+ for(const sign of [-1,1]){
+  box({pos:add(fan.pos,[sign*56,0,0]),size:[8,120,thickness]},colors);
+  box({pos:add(fan.pos,[0,sign*56,0]),size:[104,8,thickness]},colors);
+ }
  // Draw the visible fan frames and rotor on both faces for orbiting views.
  for(const dir of [-1,1]){
   const base=add(fan.pos,[0,0,dir*(thickness/2+.75)]);
@@ -245,19 +249,47 @@ function renderCabinetShell(){
  if(project.display.wood){
   // Exactly two SINGLE-SHEET panels. Each broad face is a Boolean
   // rectangle MINUS two apertures; the edge/tunnel faces represent thickness.
-  const outerRect=(z)=>[[-halfW,0,z],[halfW,0,z],[halfW,h,z],[-halfW,h,z]];   const holeRect=(xc,z)=>[[xc-holeW/2,bottom,z],[xc+holeW/2,bottom,z],
-                           [xc+holeW/2,top,z],[xc-holeW/2,top,z]];
-   const windowRect=z=>[[-winW/2,winBottom,z],[winW/2,winBottom,z],
-                         [winW/2,winTop,z],[-winW/2,winTop,z]];
-   function wall(aa,bb,cc,dd){const pts=[aa,bb,cc,dd];items.push({kind:'face',pts,fill:'#805031',depth:depth(pts.reduce((a,p)=>add(a,p),[0,0,0]).map(v=>v/4))})}
+  const outerRect=z=>[[-halfW,0,z],[halfW,0,z],[halfW,h,z],[-halfW,h,z]];
+ const holeRect=(xc,z)=>[[xc-holeW/2,bottom,z],[xc+holeW/2,bottom,z],
+                         [xc+holeW/2,top,z],[xc-holeW/2,top,z]];
+ const windowRect=z=>[[-winW/2,winBottom,z],[winW/2,winBottom,z],
+                       [winW/2,winTop,z],[-winW/2,winTop,z]];
+ // Solid walnut is divided into strips adjacent to openings, rather than
+ // depth-sorting a single huge surface whose center is far from any fan.
+ function panelFace(z,fill){
+  const regions=[
+   {x0:-hx-holeW/2,x1:-hx+holeW/2,y0:bottom,y1:top},
+   {x0:hx-holeW/2,x1:hx+holeW/2,y0:bottom,y1:top}
+  ];
+  if(hasWindow)regions.push({x0:-winW/2,x1:winW/2,y0:winBottom,y1:winTop});
+  const breaks=[0,h,...regions.flatMap(region=>[
+   clamp(region.y0,0,h),clamp(region.y1,0,h)])]
+   .sort((a,b)=>a-b).filter((v,i,arr)=>i===0||v-arr[i-1]>.001);
+  const tile=(x0,x1,y0,y1)=>{
+   if(x1-x0<=.001||y1-y0<=.001)return;
+   const pts=[[x0,y0,z],[x1,y0,z],[x1,y1,z],[x0,y1,z]];
+   items.push({kind:'face',pts,fill,depth:sceneDepth(pts)});
+  };
+  for(let i=1;i<breaks.length;i++){
+   const y0=breaks[i-1],y1=breaks[i],midY=(y0+y1)/2;
+   const cuts=regions.filter(region=>midY>=region.y0&&midY<=region.y1)
+    .map(region=>[clamp(region.x0,-halfW,halfW),clamp(region.x1,-halfW,halfW)])
+    .sort((a,b)=>a[0]-b[0]);
+   let cursor=-halfW;
+   for(const [x0,x1] of cuts){tile(cursor,x0,y0,y1);cursor=Math.max(cursor,x1)}
+   tile(cursor,halfW,y0,y1);
+  }
+  const outlines=[outerRect(z),holeRect(-hx,z),holeRect(hx,z)];
+  if(hasWindow)outlines.push(windowRect(z));
+  for(const vertices of outlines){
+   const pts=vertices.concat([vertices[0]]);
+   items.push({kind:'line',pts,color:'#a97951',lw:.75,alpha:.82,depth:sceneDepth(pts)});
+  }
+ }
+ function wall(aa,bb,cc,dd){const pts=[aa,bb,cc,dd];items.push({kind:'face',pts,fill:'#805031',depth:depth(pts.reduce((a,p)=>add(a,p),[0,0,0]).map(v=>v/4))})}
   for(const end of [-1,1]){
    const zInner=end*(d/2-t),zOuter=end*d/2;
-   for(const z of [zInner,zOuter]){     const outer=outerRect(z),holes=[holeRect(-hx,z),holeRect(hx,z)];
-     if(hasWindow)holes.push(windowRect(z));
-    const dp=depth([0,h/2,z]);
-    const outward=(z===zOuter),fill=outward?'#9f7049':'#825a3e';
-    items.push({kind:'panel',pts:outer,holes,fill,depth:dp});
-   }
+   for(const z of [zInner,zOuter])panelFace(z,z===zOuter?'#9f7049':'#825a3e');
    for(const pair of [[[-halfW,0],[-halfW,h]],[[halfW,0],[halfW,h]],
                       [[-halfW,0],[halfW,0]],[[-halfW,h],[halfW,h]]]){
     const [[x0,y0],[x1,y1]]=pair;
