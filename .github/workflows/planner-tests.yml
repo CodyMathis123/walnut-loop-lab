@@ -1,0 +1,19 @@
+name: Planner regression tests
+
+on:
+  push:
+    branches: [Production, feature/threejs-depth-buffer]
+  pull_request:
+
+jobs:
+  node-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Existing editor and Canvas/SVG checks
+        run: node tests/smoke-check.mjs
+      - name: GPU scene and depth-buffer bridge checks
+        run: node tests/webgl-smoke-check.mjs
