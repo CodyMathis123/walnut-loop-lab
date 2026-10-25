@@ -6,8 +6,8 @@ import vm from 'node:vm';
 
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
-assert.match(html,/<script\s+src="assets\/app\.js\?v=0\.9"><\/script>/);
-assert.match(html,/<link\s+rel="stylesheet"\s+href="assets\/style\.css\?v=0\.9">/);
+assert.match(html,/<script\s+src="assets\/app\.js\?v=0\.10"><\/script>/);
+assert.match(html,/<link\s+rel="stylesheet"\s+href="assets\/style\.css\?v=0\.10">/);
 for(const m of app.matchAll(/\$\('([A-Za-z0-9_]+)'\)/g)){
  assert.ok(html.includes('id="'+m[1]+'"'),'Missing HTML element: '+m[1]);
 }
@@ -52,8 +52,16 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  ui('panelFanCount').onchange({target:{value:'3'}});
  ui('innerFanCount').onchange({target:{value:'3'}});
  assert.equal(model.project.display.caseOnly,false);
+ assert.equal(model.project.display.internals,false);
  assert.equal(model.attachedFans(model.cpart('rad1')).length,6);
  assert.ok(store.data,'Project not persisted');
+ assert.equal(typeof ui('internalsBtn').onclick,'function');
+ // Show provisional hardware only when explicitly enabled.
+ assert.equal(model.project.display.internals,false);
+ ui('internalsBtn').onclick();
+ assert.equal(model.project.display.internals,true);
+ ui('showCoolingBtn').onclick();
+ assert.equal(model.project.display.internals,false);
  // Moving rad2 must not re-align or overwrite rad1's manually adjusted position.
  model.cpart('rad1').pos[0]+=8;
  const adjusted=model.cpart('rad1').pos.slice();
@@ -74,4 +82,8 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  assert.equal(updated.fanOnly['rear-right'],0);
  model.draw();
 }
+assert.equal(html.includes('Measurements captured'),false);
+assert.ok(html.includes('<summary>Case dimensions</summary>'));
+assert.ok(html.includes('<summary>Tubing routes</summary>'));
+
 console.log('Walnut Loop Lab: smoke checks passed for desktop Canvas and mobile SVG.');
