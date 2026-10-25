@@ -550,6 +550,7 @@ function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.p
  }
  const isTray=comp.type==='tray';
  $('trayCutoutControls').style.display=isTray?'block':'none';
+ $('motherboardControls').style.display=comp.type==='mobo'?'block':'none';
  if(isTray){
   const original=initial().parts.find(v=>v.id==='tray').cutout;
   comp.cutout={...original,...comp.cutout};
@@ -829,6 +830,7 @@ function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!n
  $('fourRadiatorsBtn').onclick=loadFourRadiatorPreset;
  $('alignTrayBtn').onclick=alignTrayToRearWindow;
  $('alignBoardBtn').onclick=alignMotherboardToTray;
+ $('alignBoardSelectedBtn').onclick=alignMotherboardToTray;
  $('loopMode').onchange=e=>applyLoopMode(e.target.value);
  $('reservoirOrientation').onchange=e=>{
   const part=cpart(selection);
