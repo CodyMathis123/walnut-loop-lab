@@ -6,7 +6,7 @@ const TRAY_CLEARANCE_MM=3;
 const ITX_STANDOFF_MM=6.35, CPU_SOCKET_CLEAR_MM=6;
 const BOARD_SOCKET_OFFSET=[18,0,-6];
 const initial=()=>({
-  format:'walnut-loop-v19',
+  format:'walnut-loop-v20',
   case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:209.55,fanThickness:25.4},
   parts:[
     {id:'rad1',name:'Radiator 1',type:'radiator',fans:{panel:3,inner:3},slot:'front-right',loop:'cpu',pos:[146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Radiator 1 starts on the front/right opening with three fans on each face. Port height and offsets follow provisional supplied measurements.'},
@@ -87,7 +87,16 @@ function portLoop(port){const p=cpart(port.split('.')[0]);return p?effectiveLoop
 function loopHardware(mode){return {res:mode==='cpu'?'res2':'res',pump:mode==='cpu'?'pump2':'pump',drain:mode==='cpu'?'drain2':'drain'}}
 function portPos(k){let [id,pid]=k.split('.');let p=cpart(id),q=p&&p.ports.find(x=>x.id===pid);return p&&p.visible!==false&&q?add(p.pos,q.off):null}
 function portLabel(k){let [id,pid]=k.split('.');let p=cpart(id),q=p&&p.ports.find(x=>x.id===pid);return p&&q?p.name+' · '+q.name:k}
-function portKeys(){return project.parts.filter(p=>p.visible!==false).flatMap(p=>p.ports.map(x=>key(p,x.id)))}
+// All reservoir ports remain visible, but the top fitting is a fill/vent
+// opening and is deliberately NOT available for normal tubing routes.
+function isFillVentPort(k){
+ const [id,pid]=k.split('.');
+ return pid==='top'&&cpart(id)?.type==='res';
+}
+function connectablePort(k){return !isFillVentPort(k)&&portPos(k)!==null}
+function portKeys(){return project.parts.filter(p=>p.visible!==false)
+ .flatMap(p=>p.ports.filter(port=>!(p.type==='res'&&port.id==='top'))
+ .map(port=>key(p,port.id)))}
 function toast(msg){const el=$('toast');el.textContent=msg;el.style.display='block';clearTimeout(toast.t);toast.t=setTimeout(()=>el.style.display='none',2700)}
 function screen(p){let v=sub(p,view.target),cy=Math.cos(view.yaw),sy=Math.sin(view.yaw),cp=Math.cos(view.pitch),sp=Math.sin(view.pitch);let x=v[0]*cy-v[2]*sy,z=v[0]*sy+v[2]*cy,y=v[1]*cp-z*sp,d=v[1]*sp+z*cp;let sf=Math.min(W/800,H/880)*view.zoom;return {x:W*.5+x*sf+view.pan[0],y:H*.52-y*sf+view.pan[1],d,sf}}
 function depth(p){return screen(p).d}
@@ -520,7 +529,10 @@ function draw(){if(!ctx)return;const webgl=window.WalnutLoopWebGL?.active===true
  }else flushScene();
  if(project.display.dimensions)drawDimensions();
  drawRouteHandles();
- if(project.display.ports&&!project.display.caseOnly)for(let p of parts)for(let port of p.ports){let k=key(p,port.id),pos=portPos(k),v=screen(pos);let highlighted=($('fromPort').value===k||$('toPort').value===k);if(!webgl){ctx.beginPath();ctx.arc(v.x,v.y,highlighted?6.7:4.8,0,Math.PI*2);ctx.fillStyle=highlighted?'#fff0b2':'#f4c99f';ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle='#5f3826';ctx.stroke()}hitPorts.push({k,x:v.x,y:v.y,d:v.d})}
+ if(project.display.ports&&!project.display.caseOnly)for(let p of parts)for(let port of p.ports){let k=key(p,port.id),pos=portPos(k),v=screen(pos);let highlighted=($('fromPort').value===k||$('toPort').value===k);if(!webgl){ctx.beginPath();ctx.arc(v.x,v.y,highlighted?6.7:4.8,0,Math.PI*2);
+ ctx.fillStyle=isFillVentPort(k)?'#829ba9':highlighted?'#fff0b2':'#f4c99f';
+ ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle='#5f3826';ctx.stroke()}
+ if(connectablePort(k))hitPorts.push({k,x:v.x,y:v.y,d:v.d})}
  if(project.display.labels&&!project.display.caseOnly){let arr=parts.filter(p=>p.type!=='tray');arr.forEach(p=>labelAt(add(p.pos,[0,p.size[1]/2+10,0]),p.name,p.id===selection?'#fbd3a1':'#d0dce8'));}
  $('viewStatus').textContent=(webgl?'WebGL / depth tested':isSvgMode?'SVG':'Canvas')+' · '+(selectedRoute?'Drag gold tubing points':'Drag to orbit')+' · '+fans.length+' fans';$('staticPreview').style.display='none';}
 function refreshPortSelect(){let ks=portKeys(),a=$('fromPort').value,b=$('toPort').value;for(let id of ['fromPort','toPort']){$(id).innerHTML='';for(let k of ks){let op=document.createElement('option');op.value=k;op.textContent=portLabel(k);$(id).appendChild(op)}}const hardware=loopHardware(project.loopMode==='single'&&singleKitSide()==='right'?'cpu':'gpu');$('fromPort').value=ks.includes(a)?a:hardware.res+'.out';$('toPort').value=ks.includes(b)?b:hardware.pump+'.in'}
@@ -697,7 +709,7 @@ function normalizeImport(p){
  return JSON.parse(JSON.stringify(p));
 }
 function validateImport(p){
- if(!p||p.format!=='walnut-loop-v19'||!p.case||!p.display||!p.prices||
+ if(!p||p.format!=='walnut-loop-v20'||!p.case||!p.display||!p.prices||
     !Array.isArray(p.parts)||!Array.isArray(p.routes)||
     !['dual','single'].includes(p.loopMode))return false;
  const required=initial().parts.map(part=>part.id);
@@ -707,7 +719,15 @@ function validateImport(p){
  return p.parts.every(part=>typeof part.id==='string' &&
    Array.isArray(part.pos)&&part.pos.length===3&&part.pos.every(Number.isFinite)&&
    Array.isArray(part.size)&&part.size.length===3&&part.size.every(n=>Number.isFinite(n)&&n>0)&&
-   Array.isArray(part.ports));
+   Array.isArray(part.ports)) &&
+   // Imported sketches follow the same rule as interactive routing.
+   p.routes.every(route=>{
+    if(typeof route?.from!=='string'||typeof route?.to!=='string')return false;
+    return ![route.from,route.to].some(k=>{
+     const [id,pid]=k.split('.');
+     return pid==='top'&&p.parts.find(part=>part.id===id)?.type==='res';
+    });
+   });
 }
 function alignRadiatorToOpening(r){
  const c=project.case,mainW=c.width-2*c.doors;
@@ -757,7 +777,14 @@ function setRadiatorSlot(id,slot){let p=cpart(id);if(!p||p.type!=='radiator')ret
  }
  p.slot=slot;alignRadiatorToOpening(p);project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;showCoolingModel();changeModel();refreshComponent();
 }
-function addRoute(from,to,style,axis){if(!portPos(from)||!portPos(to)||from===to){toast('Select two different, valid ports.');return}if(project.loopMode==='dual'&&portLoop(from)!==portLoop(to)){toast('GPU and CPU loops are separate; select ports in the same loop.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);project.routes.push({id,from,to,style,axis,loop:portLoop(from)});selectedRoute=id;selectedWaypoint=-1;changeModel();toast('Route added. Select it in the list to change style.');}
+function addRoute(from,to,style,axis){
+ if(isFillVentPort(from)||isFillVentPort(to)){
+  toast('Reservoir top ports are fill/vent only; connect tubing to the two bottom ports.');
+  return;
+ }
+ if(!connectablePort(from)||!connectablePort(to)||from===to){
+  toast('Select two different, valid ports.');return
+ }if(project.loopMode==='dual'&&portLoop(from)!==portLoop(to)){toast('GPU and CPU loops are separate; select ports in the same loop.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);project.routes.push({id,from,to,style,axis,loop:portLoop(from)});selectedRoute=id;selectedWaypoint=-1;changeModel();toast('Route added. Select it in the list to change style.');}
 function sampleRoutes(){
  if(project.routes.length&&!confirm('Replace existing routes with '+project.loopMode+'-loop examples?'))return;
  const links=[];
@@ -780,17 +807,25 @@ function sampleRoutes(){
    links.push({ports,mode});
  }else for(const ports of chain('shared',loopHardware(singleKitSide()==='right'?'cpu':'gpu'),'both'))
   links.push({ports,mode:'shared'});
- project.routes=links.filter(({ports})=>portPos(ports[0])&&portPos(ports[1]))
+ // Sample topology follows the active cooling layout, while geometry uses
+ // exactly the tubing style and routing axis currently selected by the user.
+ const chosenStyle=['soft','bend','elbow'].includes($('styleSelect').value)
+  ?$('styleSelect').value:'soft';
+ const chosenAxis=['xzy','zyx','yxz','xyz'].includes($('axisOrder').value)
+  ?$('axisOrder').value:'xzy';
+ project.routes=links.filter(({ports})=>connectablePort(ports[0])&&connectablePort(ports[1]))
   .map(({ports,mode},i)=>({id:'example'+i,from:ports[0],to:ports[1],
-   loop:mode,style:'soft',axis:i%2?'zyx':'xzy'}));
+   loop:mode,style:chosenStyle,axis:chosenAxis}));
  selectedRoute=null;selectedWaypoint=-1;changeModel();
- toast('Loaded '+project.routes.length+' conceptual runs; keep drain outlets capped.');
+ toast('Loaded '+project.routes.length+' '+(
+  chosenStyle==='soft'?'soft-tube':chosenStyle==='bend'?'hard-bend':'hard-elbow'
+ )+' sample runs; reservoir top fill/vent ports stay free.');
 }
 function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoom;view.target=[0,345,0];view.pan=[0,0];for(let id of ['isoBtn','frontBtn','sideBtn','topBtn'])$(id).classList.remove('active');draw()}
 function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();syncLoopHardwareVisibility();
  // v0.18 intentionally discards old browser drafts; no automatic restore.
  try{localStorage.removeItem('walnutLoopLab05')}catch(e){}
- $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v19'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
+ $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v20'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
     window.WalnutLoopWebGL.exportPng(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)});
     return;
   }if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
