@@ -2,7 +2,7 @@
 
 A standalone, browser-based 3D-style planner for a custom walnut PC water-cooling case.
 
-**Status:** v0.14 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+**Status:** v0.15 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
 
 ## Features
 
@@ -32,6 +32,10 @@ Official references: [installation](https://threejs.org/manual/pages/installatio
 The fallback viewer uses **one shared depth-sorted face queue** for the wood panels, their through-cut apertures, the center divider, fans, radiator bodies and optional internal hardware. The solid front/rear panels are subdivided into opaque face tiles bordering each opening, improving depth sorting relative to inset fans. This avoids the previous behavior in which entire component groups were painted over a finished shell, regardless of their actual front/back positions. It is still a painter's-algorithm preview, not a true 3D engine with a depth buffer, collision detection, or boolean subtraction between arbitrary intersecting components.
 
 The **Cooling view** focuses on radiators and fan assemblies. **Other parts** shows the provisional motherboard tray, CPU/GPU, pump, reservoir and drain. Existing projects retain their component positions and saved configurations; the new viewport filter defaults to cooling-only for older projects so those provisional internals no longer clutter the preview. Port markers are off in new projects but preserve their saved setting in older projects.
+
+## Rear panel alignment (v0.15)
+
+The Mountain Mods rear I/O + 120 mm bracket and removable tray now share one reference frame. The rear bracket's 310 mm width is anchored to the tray's **right edge**, with an 8 mm right-hand overhang and approximately 25.14 mm on the left of the 276.86 mm tray. The full assembly is centered within the 330.2 mm rear walnut window by setting the stock tray center to **X +8.57 mm** (previously +76 mm). Moving or resizing the tray keeps the bracket attached. The **Align tray to rear window** control uses the same geometry formula. Unmodified saved projects are migrated automatically; manually moved trays remain in place.
 
 ## Component geometry — Mountain Mods tray and radiators (v0.14)
 
