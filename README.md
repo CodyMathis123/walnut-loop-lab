@@ -1,156 +1,68 @@
 # Walnut Loop Lab
 
-A standalone, browser-based 3D-style planner for a custom walnut PC water-cooling case.
+An interactive, static-site 3D layout planner for a custom walnut PC water-cooling case. The live editor runs on GitHub Pages and uses Three.js/WebGL with Canvas/SVG fallback.
 
-**Status:** v0.18 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+**Status: v0.18 — greenfield prototype.** The design intentionally starts from its current default configuration on every page refresh. **Browser edits are not auto-saved and old browser drafts are discarded.** Use **Export project JSON** only when you want to keep an explicit current-version snapshot; **Import JSON** accepts v0.18-format projects only. There is **no backward-compatibility or automatic migration layer.**
 
-## v0.18 — actual Gigabyte ITX mock and radiator faces
+[Open the live planner](https://codymathis123.github.io/walnut-loop-lab/)
 
-The motherboard mock is now based on the user's **GIGABYTE X570 I AORUS PRO WIFI** Mini-ITX AM4 motherboard (170 × 170 mm), oriented with the rear I/O facing the Mountain Mods rear panel, the PCIe x16 slot on the left, and two DDR4 slots toward the front. Its socket has an approximate **+18 mm X, −6 mm Z** offset from the board center after rotation; the adjustable 65 mm CPU water block sits directly above it. The PCB model contains distinct VRM and I/O heatsinks, DIMM sockets, a PCIe slot, and an X570 chipset/M.2 cover. This is a visual reference, not a PCB drilling template.
+## Current layout
 
-The stock board sits in the rear-right corner of the removable tray, **6.35 mm above the tray** on nominal standoffs. The **tray is lifted 3 mm above the center supporting rail** to prevent co-planar wood/sheet-metal overlaps. Moving the tray shifts the attached board and CPU block together; moving the board shifts the block. **Align motherboard + CPU** restores both parts to the mounted reference positions. Existing manually adjusted CPU, tray, or radiator coordinates remain intact on import.
+| Assembly | Starting arrangement |
+|---|---|
+| Cabinet | Approx. 21.5″ W × 20″ D × 29″ H, walnut upper shell and center support |
+| Radiators | Four 360 mm TFC X-Changer-style bodies, **60 mm thick**, one per lower cutout |
+| Fans | Three 120 mm fans on each face of each radiator (**24 total**) |
+| Loops | **GPU-left**: two left radiators, reservoir, DDC pump, and drain. **CPU-right**: two right radiators, matching reservoir, pump, and drain |
+| Reservoirs | Both vertical by default; individually rotatable to horizontal (front-to-back) |
+| Tray | Mountain Mods ATX removable tray and attached rear I/O/120 mm fan/PCI panel, modeled as a sheet-metal assembly |
+| Motherboard | **Gigabyte X570 I AORUS PRO WIFI**, 170 × 170 mm Mini-ITX AM4 mock at rear-right of tray |
+| CPU water block | Positioned above the board's approximate AM4 socket center |
+| GPU | Provisional mounting position; eventual GPU/wood platform is not modeled in detail |
 
-The **TFC X-Changer 360 (60 mm)** radiator port collars are now drawn on their **inward-facing vertical end-tank surfaces (Z plane)**, 9 mm below the top end. Earlier untouched top-mounted port offsets are migrated to the front plane while preserving custom port positions.
+The motherboard and water block move with the tray when repositioning the assembly. The motherboard can be re-aligned using **Align motherboard + CPU**. The tray is kept **3 mm above the middle support** to avoid intersections; the motherboard has a nominal **6.35 mm standoff clearance**. The radiator's two G1/4-style ports are rendered on the **inward-facing vertical surface** of the upper end tank, not on its top.
 
-References: [GIGABYTE X570 I AORUS PRO WIFI product](https://www.gigabyte.com/Motherboard/X570-I-AORUS-PRO-WIFI-rev-10) and [GIGABYTE motherboard layout manual](https://download.gigabyte.com/FileList/Manual/mb_manual_x570-i-aorus-pro-wifi_1002_e.pdf).
+## Editor functionality
 
-## Cooling loops — v0.17
+- Orbit, zoom, and focus components; view 3D WebGL with optional Canvas/SVG fallback.
+- Move parts and edit sizes, radiator slots, fan counts, tubing paths, and cost estimates.
+- Switch **Dual GPU/CPU loops** or **Single shared loop**. Dual mode prevents cross-loop route connections; the single mode hides the spare right-side reservoir/pump/drain set.
+- Independently rotate each reservoir between vertical and horizontal; ports rotate with the body.
+- Adjust the tray CPU-backplate opening and align the rear bracket to the walnut window.
+- Generate conceptual tubing routes with low-point capped drain branches. They are *not* validated plumbing or a collision-free routing design.
+- Export a v0.18 JSON snapshot, import a v0.18 snapshot, export a PNG/SVG view, or reset the current sample.
 
-A **fresh project starts with two independent cooling loops**:
+**Prototype workflow:** Revisit or refresh to see the newest defaults. Nothing you edited previously will silently override new code changes. If you deliberately export and later import a snapshot, it must belong to the current project format.
 
-| Circuit | Dedicated radiators | Reservoir / pump / drain |
-|---|---|---|
-| **GPU — left** | Front-left and rear-left (rad3 + rad4) | GPU reservoir / DDC pump / capped tee drain |
-| **CPU — right** | Front-right and rear-right (rad1 + rad2) | Matching CPU reservoir / DDC pump / capped tee drain |
+## Structure
 
-The GPU side keeps the existing vertical reservoir position at **X -125, Y 300, Z 55 mm**. The CPU side mirrors it at **X +125 mm**, both below the separator. Pumps and drain tees are similarly separated left/right. All placements are adjustable; mounting and hydraulic clearances must be checked against the physical case.
+| Path | Purpose |
+|---|---|
+| `index.html` | Layout, controls, and pinned Three.js import map |
+| `assets/app.js` | Editor model, placement logic, scene generation, loop controls, routes, import/export |
+| `assets/part-geometry.js` | Tray, radiator, cylindrical reservoir, and Gigabyte ITX geometry |
+| `assets/renderer-webgl.js` | Three.js mesh renderer, actual depth buffer and Canvas/SVG fallback bridge |
+| `assets/style.css` | Responsive interface styles |
+| `docs/case-geometry.md` | Measurements, design assumptions, and historical modeling notes |
+| `tests/*.mjs` | Node-based regression and geometry checks |
 
-The **Cooling loops** control switches between **Dual · GPU left / CPU right** and **Single · shared CPU + GPU**. Single mode hides the CPU-side pump/reservoir/drain kit without deleting its saved coordinates. All four radiators belong to the combined loop in single mode. In dual mode each radiator has an editable CPU/GPU loop assignment.
+Run regression checks locally with Node 22+:
 
-Select either reservoir in **Components → Reservoir orientation** to rotate between *vertical* and *horizontal (front-to-back)*. The body, visual helix and top/bottom ports rotate as one assembly, while the lowest point remains at the same height. Both reservoirs are independently adjustable.
-
-The **Generate example routes** button creates conceptual circuits for the selected mode. A dual example has separate GPU and CPU tubing routes; each drain is a capped side branch on the pump outlet, not part of the normal main flow. The planner blocks manual cross-loop connections in dual mode. **Routes are not created automatically**, and are not a validated final plumbing or priming design.
-
-Older saved browser projects automatically remain in **single-loop mode**, retain customized positions, and gain the spare right-side kit hidden. Select Dual explicitly to expand them. Existing tubing routes are only cleared on a mode change after confirmation.
-
-## Features
-
-- Isometric, front, side and top views; Canvas renderer on desktop and SVG renderer for mobile Safari
-- Two solid, ¾-inch-thick walnut front/rear panels with four measured fan cutouts and two matching upper windows
-- Six correctly oriented front-to-back walnut support rails and a metal center divider
-- **Cooling assemblies:** assign radiators to one of four fan openings, attach 0–3 fans on each side, and preview 120-mm fan frames and rotor details
-- **Fan-only openings:** install 0–3 fans in a bay without a radiator
-- Adjustable radiator dimensions, positions, fan thickness, ports, coolant routes, tubing styles and cost allowances
-- Save and restore configurations as JSON; export the current view
-- Local browser persistence and a static fallback drawing for browsers that block scripts
-
-## Editor layout and rendering (v0.13)
-
-The interactive page now prioritizes **Components** and **Fan-only openings**. Case dimensions, tubing routes, and tubing estimates remain available in collapsed sections rather than showing all reference notes on every page load. Measurement history, assumptions, and unverified dimensions belong here and in `docs/case-geometry.md`, not in the everyday editor UI.
-
-**Rendering architecture:** The viewer now defaults to [Three.js 0.186.1](https://threejs.org/) and a real WebGL per-pixel depth buffer. The custom Canvas/SVG painter renderer remains available as a fallback. The library is loaded from a version-pinned jsDelivr ES-module URL using a browser import map; no build step is necessary. If loading the library or starting WebGL fails, the original viewer remains interactive.
-
-The GPU backend receives the *same world-space geometry* as the existing editor, avoiding any duplication of cabinet measurements, component placement, or saved project formats. Faces are batched by material into buffers, using depth testing and opaque depth writing. GPU meshes are cached while orbiting and rebuilt only after model changes. The WebGL display preserves the editor's existing camera math and gesture controls, and can export PNG.
-
-Use the **3D: WebGL** control to enable/disable hardware depth rendering. Canvas/SVG remains available using the fallback control.
-
-Official references: [installation](https://threejs.org/manual/pages/installation.html), [WebGLRenderer](https://threejs.org/docs/pages/WebGLRenderer), and [material depth testing](https://threejs.org/docs/pages/Material.html).
-
-### Legacy renderer
-
-The fallback viewer uses **one shared depth-sorted face queue** for the wood panels, their through-cut apertures, the center divider, fans, radiator bodies and optional internal hardware. The solid front/rear panels are subdivided into opaque face tiles bordering each opening, improving depth sorting relative to inset fans. This avoids the previous behavior in which entire component groups were painted over a finished shell, regardless of their actual front/back positions. It is still a painter's-algorithm preview, not a true 3D engine with a depth buffer, collision detection, or boolean subtraction between arbitrary intersecting components.
-
-The **Cooling view** focuses on radiators and fan assemblies. **Other parts** shows the provisional motherboard tray, CPU/GPU, pump, reservoir and drain. Existing projects retain their component positions and saved configurations; the new viewport filter defaults to cooling-only for older projects so those provisional internals no longer clutter the preview. Port markers are off in new projects but preserve their saved setting in older projects.
-
-## v0.16 — corrected rear I/O / fan / PCI orientation
-
-Facing the installed rear panel from above, the 120 mm fan is on the **right**, above a separate motherboard I/O rectangle. The seven PCI expansion slots are on the **left**. The prior model had the fan and PCI/I/O locations reversed and also filled over the desired lower I/O region. The geometry now separates the lower I/O sheet from the upper fan sheet, providing actual cut-through openings in the WebGL/Canvas models.
-
-The complete 310 mm rear panel remains anchored to the tray's edge with the same registered position as v0.15. The tray, radiator placements and CPU-backplate cutout are unchanged.
-
-## Rear panel alignment (v0.15)
-
-The Mountain Mods rear I/O + 120 mm bracket and removable tray now share one reference frame. The rear bracket's 310 mm width is anchored to the tray's **right edge**, with an 8 mm right-hand overhang and approximately 25.14 mm on the left of the 276.86 mm tray. The full assembly is centered within the 330.2 mm rear walnut window by setting the stock tray center to **X +8.57 mm** (previously +76 mm). Moving or resizing the tray keeps the bracket attached. The **Align tray to rear window** control uses the same geometry formula. Unmodified saved projects are migrated automatically; manually moved trays remain in place.
-
-## Component geometry — Mountain Mods tray and radiators (v0.14)
-
-The tray is the real **Mountain Mods Modular Removable ATX Tray Assembly, 120 mm black wrinkle (120MOTRAY-BW)** with the **ATX anodized-black tray (ATXTOAB)** underneath. The base tray is 10.9 × 12.75 in (276.86 × 323.85 mm). The nominal metal thickness is 1.65 mm. A detailed geometry builder (`assets/part-geometry.js`) now produces:
-
-- A thin metal plate with an actual CPU backplate access opening, shallow folded flanges, mounting ears, and stand-offs (approximate ATX pattern).
-- A vertical rear assembly with a **real 120 mm circular fan aperture**, an ATX I/O opening, and **seven separate PCI slot openings**. The panel is oriented horizontally across the 13-inch-wide rear walnut window, fitting its 8.25-inch height.
-- Four **60 mm thick** 360-radiator bodies with hollow-looking fin cores, two end tanks, mounting rails, screw details, and water-port collars. Fan counts/locations remain unchanged and editable.
-- The tray is visible in the default cooling view. **Other parts** adds the CPU, GPU, reservoir, pump and drain. Saved component IDs, tube routes and explicit coordinates remain compatible.
-
-**Tray refinement (v0.14):** The access opening is shifted toward the rear I/O end and the planned right-rear ITX motherboard area. The first-pass hole is **120 × 100 mm**, centered **X +46 mm / Z −96 mm relative to the tray center**, with the surrounding sheet metal preserved. The tray position is aligned to the rear window and top of the 19¼-inch support. Four approximate ITX mounting posts replace the old nine full-ATX markers. The rest of the tray is left open for the planned GPU/walnut overlay. Select the tray under **Components** to edit its cutout size/center, or use **Align tray to rear window**.
-
-**Lower chamber:** The reservoir and DDC pump now default to **X −125 mm**, fully on the left side of the center partition rather than across X = 0. Older saved projects inherit the new positions **only** when those components retain their untouched previous defaults.
-
-**Precisions:** Product specification supports tray size and nominal material thickness; the rear panel's exact outer profile, hole coordinates, fold details and placement in this custom case are *visually estimated from Mountain Mods references*, not manufacturer machining plans. The radiator cross section and fin pitches are similarly illustrative; the 60 mm radiator thickness is user-supplied.
-
-References: [Mountain Mods 120MOTRAY-BW assembly](https://www.mountainmods.com/MountainMods-Modular-Removable-Motherboard-Tray-Assembly%28ATX%29-120-Black-Wrinkle), [ATXTOAB tray](https://www.mountainmods.com/atx_tray_anodized_black).
-
-## Cooling assembly workflow
-
-1. Open **Components**, choose Radiator 1, 2, 3 or 4.
-2. Set its **Attach radiator to fan opening** slot: front/rear and left/right, or **Not installed**.
-3. Set **Between panel and radiator** and **Other side of radiator** to 0, 1, 2 or 3 fans. For instance, **3 + 3** means six fans in push/pull. **3 + 0** means three fans on one side. For two fans, the viewer shows the upper and lower positions; for one fan, the center.
-4. Under **Fan-only openings**, select a count for any unoccupied bay (e.g. a 3-fan airflow-only bank).
-5. Use **Show cooling assemblies in 3D** to leave Case-only mode. Select different views or drag the model to inspect stack depth. **Empty bay guides** toggles outlines of the available fan-bank apertures.
-
-Each radiator retains its attached fan counts when moved to another opening. The fan-only setting for a bay is remembered but is hidden while that bay has a radiator. Moving a radiator to a different bay doesn't reset unrelated radiator positions. Fan objects are included in the imported/exported project JSON; existing v0.8 browser data is upgraded automatically, defaulting older radiator setups to three panel-side fans and none on the opposite side.
-
-**Initial sample layout:** Four 360 mm radiators — one in each front/rear left/right opening — with **3 + 3** fans apiece (24 fan frames total). Each panel-facing 25.4 mm fan is nested into the 122 × 362 mm opening, with its exterior face flush with the walnut outside surface; the rest of its depth extends into the cabinet. The four radiator assemblies can be individually unmounted or hidden, and their 0–3 fan counts on each side can be changed.
-
-**Existing saved projects** retain customized assignments and counts, with Radiator 4 appended if missing. Old auto-positioned fan stacks migrate into the cutout; manually modified radiator Z positions are kept. Use **Preset: 4 radiators · 3+3 fans** to explicitly apply the new four-radiator starting configuration to an existing project, or Reset sample to restore all defaults.
-
-**Important assumptions:** Each radiator is approximated as a rectangular body (starter size 135 × 380 × 64 mm). Fans are shown at 120 × 120 mm with editable global thickness (initially 25.4 mm). Radiator mounting distances, actual fan frames and air direction are provisional. The controls currently model fan quantity and mounting sides, not verified airflow arrows, screw holes, or manufacturer-specific fit.
-
-## Cabinet measurements
-
-- Exterior: **21½″ wide × 20″ deep × 29″ tall**, including two ¾″ side doors
-- Lower fan apertures: approximately **122 × 362 mm**, 3¼″ above the bottom and 1¾″ in from the nearest end-panel side
-- Upper matching front/rear windows: **13″ wide × 8¼″ high**, 3½″ in from either side and 1½″ below the top
-- The window bottoms meet the middle support at **19¼″** above the case bottom
-- Radiator port-height references: approximately 18¼″ above the case bottom
-
-Details and open questions: [docs/case-geometry.md](docs/case-geometry.md).
-
-## Run and publish
-
-This project needs no build step, external scripts, external services or credentials.
-
-To develop locally, run `python3 -m http.server 8000` from the repository root and visit http://localhost:8000.
-
-To run the JavaScript/HTML smoke test with Node.js:
-
-```sh
+```bash
 node tests/smoke-check.mjs
-node tests/webgl-smoke-check.mjs
 node tests/component-geometry-check.mjs
 node tests/cooling-layout-check.mjs
 node tests/itx-layout-check.mjs
+node tests/webgl-smoke-check.mjs
 ```
 
-GitHub Pages publishes from the `Production` branch and repository root:
+GitHub Actions runs the same suite. GitHub Pages deploys directly from the `Production` branch; there is no build step.
 
-https://CodyMathis123.github.io/walnut-loop-lab/
+## Sources and model assumptions
 
-For iOS, visit the Pages site instead of using a local file preview, which may block scripts.
+- [GIGABYTE X570 I AORUS PRO WIFI](https://www.gigabyte.com/Motherboard/X570-I-AORUS-PRO-WIFI-rev-10): 170 × 170 mm AM4 Mini-ITX board. Socket coordinate and decorative chip placement in this model are **approximate visual references**, not verified drill coordinates.
+- [Mountain Mods ATX removable motherboard tray](https://www.mountainmods.com/atx_tray_anodized_black) and [120 mm tray assembly](https://www.mountainmods.com/MountainMods-Modular-Removable-Motherboard-Tray-Assembly%28ATX%29-120-Black-Wrinkle): base tray and connected rear panel.
+- Original user measurements of the walnut case and user-provided Gigabyte motherboard photo.
+- TFC X-Changer-style 360 mm radiators are represented as nominal **135 × 380 × 60 mm** bodies with recessed fins, end tanks, and approximate port spacing.
 
-## Repository structure
-
-- `index.html` — controls and layout
-- `assets/app.js` — editor, world geometry dispatch, routes, saved projects
-- `assets/part-geometry.js` — detailed sheet-metal tray and finned radiator mesh builders
-- `assets/style.css` — layout and responsive controls
-- `assets/case-preview.svg` — static fallback
-- `docs/case-geometry.md` — dimensional reference
-- `tests/smoke-check.mjs` — DOM wiring and cooling configuration regression checks
-- `tests/webgl-smoke-check.mjs` — GPU geometry/caching/depth settings tests with a mocked Three.js
-- `tests/component-geometry-check.mjs` — tray aperture, radiator structure and dimensions
-- `tests/cooling-layout-check.mjs` — dual/single presets, independent routes, reservoir rotation and saved projects
-- `tests/itx-layout-check.mjs` — Gigabyte board/socket pose, tray support clearance and TFC face ports
-
-## Accuracy and safety
-
-The planner does not yet check physical collisions, mounting fastener positions, realistic bends, or tube engagement depths. Verify all clearances and flow arrangements on the real machine before drilling, cutting, filling, or powering hardware. This is a public repository and public website.
+**Not CAD or fabrication-grade data.** Confirm radiator clearance, fasteners, exact standoffs, pump priming/flooded inlets, drain accessibility, fan direction, water block fit and tubing routes using real hardware before drilling or filling a loop.
