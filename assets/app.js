@@ -669,7 +669,10 @@ function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.
  // v0.15: convert only the old automatically aligned tray to the
  // connected-bracket position; manually repositioned trays stay unchanged.
  if(originalTray&&Math.abs(originalTray.pos[0]-76)<.1&&
-    Math.abs(originalTray.pos[1]-(vals.case.divider+originalTray.size[1]/2))<1 &&
+    Math.min(
+      Math.abs(originalTray.pos[1]-(vals.case.divider+originalTray.size[1]/2)),
+      Math.abs(originalTray.pos[1]-(vals.case.divider+TRAY_CLEARANCE_MM+originalTray.size[1]/2))
+    )<1 &&
     Math.abs(originalTray.pos[2]-(-69.525))<2)
   originalTray.pos[0]=window.WalnutLoopPartGeometry.trayXForRearPanelCenter(0,originalTray.size[0]);
  // rear/right access-hole layout, without moving a manually positioned tray.
@@ -717,6 +720,12 @@ function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.
       Math.abs(Math.abs(port.off[2])-(rad.size[2]/2+1))<4.1)
     port.off[1]=rad.size[1]/2-9;
   }
+ }
+ // The legacy tray X/Z migrations above must finish BEFORE positioning a
+ // newly inserted board. Otherwise the board can be left at the old X offset.
+ if(!p.parts.some(part=>part.id==='mobo')&&board&&originalTray){
+  board.pos=boardPoseForTray(originalTray,board);
+  if(cpu?.mountedTo==='mobo')cpu.pos=socketBlockPose(board,cpu);
  }
  // v0.11 puts the panel-facing fan inside the actual cutout. Move only
  // radiators still at the old auto-aligned depth; preserve manual Z offsets.
