@@ -2,7 +2,7 @@
 
 An interactive, static-site 3D layout planner for a custom walnut PC water-cooling case. The live editor runs on GitHub Pages and uses Three.js/WebGL with Canvas/SVG fallback.
 
-**Status: v0.18 — greenfield prototype.** The design intentionally starts from its current default configuration on every page refresh. **Browser edits are not auto-saved and old browser drafts are discarded.** Use **Export project JSON** only when you want to keep an explicit current-version snapshot; **Import JSON** accepts v0.18-format projects only. There is **no backward-compatibility or automatic migration layer.**
+**Status: v0.19 — greenfield prototype.** The design intentionally starts from its current default configuration on every page refresh. **Browser edits are not auto-saved and old browser drafts are discarded.** Use **Export project JSON** only when you want to keep an explicit current-version snapshot; **Import JSON** accepts v0.19-format projects only. There is **no backward-compatibility or automatic migration layer.**
 
 [Open the live planner](https://codymathis123.github.io/walnut-loop-lab/)
 
@@ -22,6 +22,23 @@ An interactive, static-site 3D layout planner for a custom walnut PC water-cooli
 
 The motherboard and water block move with the tray when repositioning the assembly. The motherboard can be re-aligned using **Align motherboard + CPU**. The tray is kept **3 mm above the middle support** to avoid intersections; the motherboard has a nominal **6.35 mm standoff clearance**. The radiator's two G1/4-style ports are rendered on the **inward-facing vertical surface** of the upper end tank, not on its top.
 
+## Configurable loop hardware and 3D tubing editor (v0.19)
+
+**Cooling loops** offers two independent loops (GPU on the left and CPU on the right), or **one shared loop** using *either* the right/primary CPU-side pump/reservoir/drain or the left-side pump/reservoir/drain. In shared mode, the inactive hardware set is hidden; all four installed radiators remain available to the shared loop. Switching layouts clears example tubing paths after confirmation, so the new circuit does not accidentally reuse incompatible connections.
+
+Each FrozenQ reservoir now has **three physical ports:** two distinct ports on its lower end cap (bottom return and bottom pump supply) and a third on its upper cap (fill/vent). Both reservoirs still independently switch from vertical to horizontal. Ports turn with the reservoir and are individually selectable for tube connections. These are approximate schematic connector locations, not verified physical dimensions.
+
+The tubing route editor now supports actual interactive **world-space control points**:
+
+- Pick two ports and add a tube, or generate conceptual example loops.
+- Click on the drawn tube to insert a control point, and drag it to reshape the 3D path. Select an existing gold handle to adjust it without orbiting the camera.
+- Hold **Shift while dragging** a point to adjust depth; otherwise dragging follows the camera-facing horizontal/vertical directions.
+- **Soft tubing** interpolates a smooth curve through the handles; **hard with bends** rounds corners using the bend-radius input; **hard with elbows** retains sharp turns and counts fittings.
+- Use **+ Bend point**, **Remove point**, or **Reset path** for the selected route. Both connection endpoints stay attached to hardware ports as parts are moved.
+- Bend locations, route style and port endpoints are saved only in an explicitly exported v0.19 JSON snapshot; no browser autosave.
+
+**Limitations:** This is an interactive layout sketch, not a collision solver, physics-based soft hose simulation or proof of achievable hard-tube bends. Confirm bend radii, port orientation, clearance and priming/drain behavior against real components.
+
 ## Editor functionality
 
 - Orbit, zoom, and focus components; view 3D WebGL with optional Canvas/SVG fallback.
@@ -30,7 +47,7 @@ The motherboard and water block move with the tray when repositioning the assemb
 - Independently rotate each reservoir between vertical and horizontal; ports rotate with the body.
 - Adjust the tray CPU-backplate opening and align the rear bracket to the walnut window.
 - Generate conceptual tubing routes with low-point capped drain branches. They are *not* validated plumbing or a collision-free routing design.
-- Export a v0.18 JSON snapshot, import a v0.18 snapshot, export a PNG/SVG view, or reset the current sample.
+- Export a v0.19 JSON snapshot, import a v0.19 snapshot, export a PNG/SVG view, or reset the current sample.
 
 **Prototype workflow:** Revisit or refresh to see the newest defaults. Nothing you edited previously will silently override new code changes. If you deliberately export and later import a snapshot, it must belong to the current project format.
 
@@ -53,6 +70,7 @@ node tests/smoke-check.mjs
 node tests/component-geometry-check.mjs
 node tests/cooling-layout-check.mjs
 node tests/itx-layout-check.mjs
+node tests/tubing-editor-check.mjs
 node tests/webgl-smoke-check.mjs
 ```
 
