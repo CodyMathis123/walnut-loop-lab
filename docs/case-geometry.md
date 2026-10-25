@@ -1,4 +1,6 @@
-# Cabinet geometry and measurements
+# Walnut Loop Lab — geometry notes
+
+**Current implementation: v0.18, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.18 format. See the current `README.md` and component builders for active defaults.
 
 Updated October 25, 2026. Approximate measurements are indicated.
 
