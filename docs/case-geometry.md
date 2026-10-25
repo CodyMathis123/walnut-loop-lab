@@ -38,3 +38,5 @@ X = horizontal; Y = height from floor; Z = front/back. Millimeters throughout. T
 - The current radiator slot attachments put the radiator/fan assembly just inside the corresponding end panel. Stack depth is body depth plus one fan thickness for each populated side.
 - Radiator ports remain separate editable offsets; fan mounting does not automatically calibrate G1/4 port or screw-hole coordinates.
 - Fan rotation / intake vs exhaust direction and exact mounting fasteners are **not yet modeled**. Visually inspect case clearances before assembly. No collision detection is provided.
+
+**Fresh-project sample:** front/right and rear/right radiators each use 3 panel-side + 3 inner-side fans (12 radiator fans). Front/left and rear/left openings each use a 3-fan-only bank (6 more). These are editable starting values, not verified permanent placements; browser-saved configurations are preserved.
