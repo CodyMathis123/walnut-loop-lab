@@ -9,7 +9,7 @@ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 assert.match(html,/id="loopMode"/);
 assert.match(html,/id="reservoirOrientation"/);
 assert.match(html,/id="radiatorLoop"/);
-assert.match(html,/src="assets\/app\.js\?v=0\.19"/);
+assert.match(html,/src="assets\/app\.js\?v=0\.20"/);
 
 function harness(agent){
  const elements=new Map(),ctx={
@@ -41,7 +41,7 @@ function harness(agent){
   setTimeout(){return 1},clearTimeout(){}
  });
  vm.runInContext(geometry,context);
- vm.runInContext(source+'\n;globalThis.__app={initial,project,cpart,renderedParts,effectiveLoop,applyLoopMode,setReservoirOrientation,normalizeImport,sampleRoutes,addRoute,changeModel}',context);
+ vm.runInContext(source+'\n;globalThis.__app={initial,project,cpart,renderedParts,effectiveLoop,applyLoopMode,setReservoirOrientation,normalizeImport,sampleRoutes,addRoute,changeModel,portKeys,portPos,routeGeom}',context);
  return {api:context.__app,node,storage,allow:(v)=>allowChange=v};
 }
 for(const agent of ['Desktop Chrome','iPhone Safari']){
@@ -75,6 +75,32 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
                                 item.pos[0]-item.size[0]/2>0,'No divider overlap: '+id);
  }
  assert.ok(api.renderedParts().some(x=>x.id==='res2'));
+ // Top ports are still physically modeled, but cannot be part of tubing.
+ assert.ok(api.portPos('res.top'));
+ assert.ok(api.portPos('res2.top'));
+ assert.ok(!api.portKeys().includes('res.top'));
+ assert.ok(!api.portKeys().includes('res2.top'));
+ assert.ok(api.portKeys().includes('res.in'));
+ assert.ok(api.portKeys().includes('res.out'));
+ assert.ok(api.portKeys().includes('res2.in'));
+ assert.ok(api.portKeys().includes('res2.out'));
+ api.addRoute('res.top','pump.in','soft','xzy');
+ api.addRoute('pump.out','res2.top','soft','xzy');
+ assert.equal(p.routes.length,0,'No hoses may connect to fill/vent ports');
+ // All styles must be honored by the example generator.
+ for(const [style,axis] of [['soft','xzy'],['elbow','yxz'],['bend','zyx']]){
+  node('styleSelect').value=style;
+  node('axisOrder').value=axis;
+  api.sampleRoutes();
+  assert.equal(p.routes.length,12);
+  assert.ok(p.routes.every(rt=>rt.style===style),'Style should be '+style);
+  assert.ok(p.routes.every(rt=>rt.axis===axis),'Axis order should be '+axis);
+  assert.ok(p.routes.every(rt=>!rt.from.endsWith('.top')&&!rt.to.endsWith('.top')));
+  if(style==='elbow')assert.ok(p.routes.some(rt=>api.routeGeom(rt).elbows>0));
+ }
+ // Return to the default style for the remaining mode-switch checks.
+ node('styleSelect').value='soft';
+ node('axisOrder').value='xzy';
  api.sampleRoutes();
  assert.equal(p.routes.length,12);
  assert.equal(p.routes.filter(r=>r.loop==='gpu').length,6);
@@ -101,14 +127,22 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.ok(p.routes.some(r=>r.to==='gpu.in'));
  assert.ok(p.routes.every(r=>r.loop==='shared'));
  assert.ok(p.routes.some(r=>r.from==='res2.out'&&r.to==='pump2.in'));
+ assert.ok(p.routes.some(r=>r.from==='cpu.out'&&r.to==='res2.in'),
+  'Right reservoir return must use the bottom return port');
  assert.ok(p.routes.every(r=>!r.from.startsWith('res.')&&!r.to.startsWith('res.')));
+ assert.ok(p.routes.every(r=>!r.from.endsWith('.top')&&!r.to.endsWith('.top')));
  assert.equal(api.applyLoopMode('single',{side:'left'}),true);
  assert.equal(p.singleHardwareSide,'left');
  assert.ok(['res2','pump2','drain2'].every(id=>api.cpart(id).visible===false));
  assert.ok(['res','pump','drain'].every(id=>api.cpart(id).visible!==false));
+ node('styleSelect').value='elbow';
+ node('axisOrder').value='xyz';
  api.sampleRoutes();
  assert.equal(p.routes.length,9);
+ assert.ok(p.routes.every(r=>r.style==='elbow'&&r.axis==='xyz'));
  assert.ok(p.routes.some(r=>r.from==='res.out'&&r.to==='pump.in'));
+ assert.ok(p.routes.some(r=>r.from==='cpu.out'&&r.to==='res.in'));
+ assert.ok(p.routes.every(r=>!r.from.endsWith('.top')&&!r.to.endsWith('.top')));
  assert.equal(api.applyLoopMode('dual'),true);
  assert.ok(['res2','pump2','drain2'].every(id=>api.cpart(id).visible!==false));
  assert.equal(p.routes.length,0);
@@ -134,13 +168,18 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.equal(api.cpart('res2').orientation,'horizontal');
  // Explicit imports are complete snapshots of this version, without migration.
  const current=api.initial();
- assert.equal(current.format,'walnut-loop-v19');
+ assert.equal(current.format,'walnut-loop-v20');
  current.parts.find(x=>x.id==='drain').pos=[-160,75,90];
  const restored=api.normalizeImport(current);
  assert.deepEqual(Array.from(restored.parts.find(x=>x.id==='drain').pos),[-160,75,90]);
  const incomplete=api.initial();
  incomplete.parts=incomplete.parts.filter(x=>x.id!=='res2');
  assert.throws(()=>api.normalizeImport(incomplete),/current-format/);
+ const invalidFillRoute=api.initial();
+ invalidFillRoute.routes.push({id:'vent-tube',from:'res.top',to:'pump.in',
+  style:'soft',axis:'xzy',loop:'gpu'});
+ assert.throws(()=>api.normalizeImport(invalidFillRoute),/current-format/,
+  'Current project snapshots must not attach a hose to a top vent');
 
 }
 console.log('Cooling presets, isolation, reservoir rotation and current-format import passed.');
