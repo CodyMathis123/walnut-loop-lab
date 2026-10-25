@@ -56,3 +56,17 @@ X = horizontal; Y = height from floor; Z = front/back. Millimeters throughout. T
 - Removing or hiding a radiator clears its opening. A user can substitute 0–3 standalone fans in an empty opening; attached counts remain editable per radiator from 0 to 3 on each side.
 - **Preset: 4 radiators · 3+3 fans** fills all four slots on request without resetting unrelated motherboard/pump settings. Existing saved radiator assignments and hand-positioned coordinates are otherwise retained. Projects from before the mounting-depth correction are adjusted only when their old Z coordinates still match auto-positioned defaults.
 - Opaque front/rear panel faces are subdivided into strips beside and between cutouts so the depth sorter does not try to render an entire cabinet side at a single mean depth. Fan frames are now modeled as four rails with an open center, not one solid 120 × 120 mm plane. This improves the transparency artifacts, but is still **not a true WebGL depth buffer or collision solver**.
+
+## v0.12 — root cause and actual GPU rendering
+
+The screenshot's intermittent transparency came from the original custom painter's algorithm. A globally sorted stack of 2D-projected polygons based on average face distance cannot accurately decide which portions of overlapping 3D surfaces are hidden. Tiling the panel faces reduced, but did not solve, the issue.
+
+The default GPU rendering path now uses **Three.js 0.186.1** and the WebGL depth buffer to resolve visibility *per pixel*. All geometry remains produced by the existing planner's world-space face and line commands, so this is a rendering swap rather than a new dimensions or data model.
+
+- `assets/renderer-webgl.js` receives model geometry via the `window.WalnutLoopRenderBridge` / `window.WalnutLoopWebGL` handshake and displays batched GPU meshes.
+- Solid surfaces use `depthTest: true`, `depthWrite: true`. Transparent surfaces do not write to the depth buffer.
+- Orbiting reuses GPU buffers; editing invalidates and rebuilds them while disposing old geometry. The orthographic camera matches existing model coordinates and gestures.
+- The original Canvas/SVG renderer is still usable when WebGL is not available, and can be selected manually. Three.js loads as a pinned ES module from jsDelivr; GitHub Pages still requires no build step.
+- Known limitations: 2D dimensions/labels remain overlays, tubing route lines are not full volumetric tube meshes, and there is no physical collision detection. Optional translucent components can still require specialized transparency handling.
+
+Verification commands: `node tests/smoke-check.mjs`, `node tests/webgl-smoke-check.mjs`.
