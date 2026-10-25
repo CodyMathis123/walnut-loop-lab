@@ -151,3 +151,11 @@ The motherboard is mounted at rear/right of the tray, approximately 8 mm inset f
 Each **TFC X-Changer radiator** has two ports on its **interior-facing vertical end-tank face** (front face relative to its fan-bank mount); both ports use the Z-normal face near the radiator's top, rather than the Y-normal horizontal cap. Default offsets are Y = radiator height / 2 − 9 mm and Z = inward-facing radiator depth / 2 + 1 mm, with the existing side-to-side spacing. The mesh-builder port collars are concentric rings in the Z plane. Unmodified saved Y=top stock ports are migrated; manually edited values are kept.
 
 The mock motherboard and hardware geometry are illustrative, not a guaranteed physical component collision or clearance study.
+
+## v0.19 — choose left/right/shared hardware and sketch tubing paths
+
+Fresh default is two independent loops, GPU-left and CPU-right. In single mode, **singleHardwareSide** selects `right` (primary/default) or `left`, with the other reservoir/pump/drain kit hidden. Both left/right radiator banks remain available on the common shared loop. Dual displays both kits. Both reservoirs have three axial ports in vertical position: **in** bottom left [-17,-119,0], **out** bottom right [17,-119,0], **top** [0,119,0], relative to reservoir center (mm). Horizontal orientation rotates coordinates about the X axis. The top port is modeled as fill/vent; bottom ports may be used for return and pump feed. Actual FrozenQ G1/4 offsets require measurement.
+
+Tubing routes optionally store an array of three-dimensional `waypoints`. Endpoints stay live references to component ports. Clicking a route converts its current automatic intermediate corners into draggable points and inserts another point at the clicked segment. Shift + drag changes the depth coordinate. No Shift changes horizontal screen-plane coordinate plus physical Y. Soft tubing is a Catmull-Rom-like spline with aesthetic sag; hard bends are rounded and hard elbows are polyline corners. Cost estimate recalculates routed centerline length and elbow count. Neither tight bends nor intersecting components are automatically validated.
+
+`tests/tubing-editor-check.mjs` exercises control point insertion, dragging, Shift depth, route style/estimation, clearing route points, on both desktop and mobile UI stand-ins.
