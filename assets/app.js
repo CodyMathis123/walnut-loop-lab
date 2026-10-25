@@ -14,7 +14,7 @@ const initial=()=>({
     {id:'res',name:'FrozenQ reservoir (draft)',type:'res',pos:[-12,300,55],size:[72,238,72],ports:[{id:'in',name:'Top return',off:[0,119,0]},{id:'out',name:'Bottom supply',off:[0,-119,0]}],note:'Centered in the lower cavity to match the photo broadly; dimensions and ports unmeasured.'},
     {id:'pump',name:'Laing DDC / XSPC top (draft)',type:'pump',pos:[-12,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'Pump location, inlet and outlet orientation are provisional. Maintain a reliable flooded pump inlet.'},
     {id:'drain',name:'Drain T + valve (draft)',type:'drain',pos:[55,80,75],size:[55,26,36],ports:[{id:'in',name:'In',off:[-28,0,0]},{id:'out',name:'Out',off:[28,0,0]}],note:'Low inline drain is shown provisionally; change location and orientation as needed.'}
-  ], routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:false,fans:false,doors:false,caseOnly:false,internals:false,dimensions:false},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0},tubeOD:16,bendRadius:35});
+  ], routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:false,fans:false,doors:false,caseOnly:false,internals:false,dimensions:false},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0},mountVersion:1,tubeOD:16,bendRadius:35});
 let project=initial(); let selection='rad1',selectedRoute=null,portClicks=0;
 let sceneQueue=null;
 let view={yaw:.58,pitch:.24,zoom:.90,target:[0,355,0],pan:[0,0]};let canvas=$('scene'),nativeCtx=canvas.getContext('2d'),ctx=nativeCtx,isSvgMode=false;let hitPorts=[],hitParts=[],isDragging=false,dragMoved=false,last=[0,0],dpr=1,W=100,H=100;
@@ -454,6 +454,21 @@ function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.
   const afterRads=vals.parts.findIndex(part=>part.type!=='radiator');
   vals.parts.splice(afterRads<0?vals.parts.length:afterRads,0,fourth);
  }
+ // v0.11 puts the panel-facing fan inside the actual cutout. Move only
+ // radiators still at the old auto-aligned depth; preserve manual Z offsets.
+ if(!p.mountVersion){
+  const c=vals.case,t=c.fanThickness||25.4;
+  for(const rad of vals.parts.filter(x=>x.type==='radiator')){
+   const mount=FAN_SLOTS.find(slot=>slot.id===rad.slot);
+   if(!mount)continue;
+   const offset=Number(rad.fans?.panel)>0?t:0,half=rad.size[2]/2;
+   const oldZ=mount.end*(c.depth/2-c.wood-offset-half);
+   const newZ=mount.end*(c.depth/2-Math.max(c.wood,offset)-half);
+   if(!p.parts.some(a=>a.id===rad.id)||Math.abs(rad.pos[2]-oldZ)<1)
+    rad.pos[2]=newZ;
+  }
+ }
+ vals.mountVersion=1;
  // Upgrade unchanged old defaults while retaining custom saved dimensions.
  if(p.case&&!Object.prototype.hasOwnProperty.call(p.case,'fanOpeningBottom')){
   if(p.case.fanOpeningWidth===130)vals.case.fanOpeningWidth=122;
@@ -482,6 +497,21 @@ function syncMeasuredRadiators(){
  const tray=cpart('tray');if(tray)tray.pos[1]=project.case.divider+tray.size[1]/2;
 }
 
+function loadFourRadiatorPreset(){
+ if(!confirm('Set all four radiator openings to three fans on each side? Existing radiator positions and fan counts will be replaced.'))return;
+ const layout=['front-right','rear-right','front-left','rear-left'];
+ const templates=initial().parts;
+ layout.forEach((slot,i)=>{
+  const id='rad'+(i+1);
+  let rad=cpart(id);
+  if(!rad){rad=JSON.parse(JSON.stringify(templates.find(p=>p.id===id)));project.parts.splice(i,0,rad)}
+  rad.slot=slot;rad.visible=true;rad.fans={panel:3,inner:3};
+  alignRadiatorToOpening(rad);
+ });
+ for(const slot of FAN_SLOTS)project.fanOnly[slot.id]=0;
+ showCoolingModel();changeModel();refreshComponent();
+ toast('Four radiators mounted: 3 + 3 fans each.');
+}
 function setRadiatorSlot(id,slot){let p=cpart(id);if(!p||p.type!=='radiator')return;
  if(slot!=='unmounted'){
   let incumbent=project.parts.find(q=>q!==p&&q.type==='radiator'&&q.slot===slot&&q.visible!==false);
@@ -495,6 +525,7 @@ function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoo
 function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();try{const v=JSON.parse(localStorage.getItem('walnutLoopLab05'));if(validateImport(v)){project=normalizeImport(v);persist()}}catch(e){};
  $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v5'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
  $('componentSelect').onchange=e=>{selection=e.target.value;const p=cpart(selection);if(p&&p.type!=='radiator'){project.display.caseOnly=false;showInternals(true)}persist();refreshComponent()};$('mountSlot').onchange=e=>setRadiatorSlot(selection,e.target.value);
+ $('fourRadiatorsBtn').onclick=loadFourRadiatorPreset;
  for(const [id,face] of [['panelFanCount','panel'],['innerFanCount','inner']]){
   $(id).onchange=e=>{
    const rad=cpart(selection);if(!rad||rad.type!=='radiator')return;
