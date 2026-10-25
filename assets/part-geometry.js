@@ -291,6 +291,8 @@
   stroke(helix,'#74bacd',2.1,.85);
   stroke(circle3(from,radius*.9,axis,32),'#a3b0b7',1.6,.92);
   stroke(circle3(to,radius*.9,axis,32),'#a3b0b7',1.6,.92);
+  // Body ports are axial: two separately placed on the bottom end-cap and
+  // one on the upper cap (fill/vent). Rotation changes their facing planes.
   for(const port of p.ports||[]){
    const point=p.pos.map((v,i)=>v+port.off[i]);
    stroke(circle3(point,7,axis,20),'#9fc1d0',1.2,.93);
