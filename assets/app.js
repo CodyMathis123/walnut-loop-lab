@@ -4,16 +4,16 @@ const add=(a,b)=>a.map((x,i)=>x+b[i]),sub=(a,b)=>a.map((x,i)=>x-b[i]),scale=(a,s
 const initial=()=>({
   case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:209.55,fanThickness:25.4},
   parts:[
-    {id:'rad1',name:'Front panel, right radiator',type:'radiator',slot:'front-right',pos:[146,273.55,180],size:[135,380,64],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Front-right fan cutout in the front panel. The radiator is mounted inward of the fan. Port height and horizontal offsets follow supplied measurements.'},
-    {id:'rad2',name:'Front panel, left radiator',type:'radiator',slot:'front-left',pos:[-146,273.55,180],size:[135,380,64],ports:[{id:'in',name:'Near side',off:[-31.75,190,-33]},{id:'out',name:'Far side',off:[31.75,190,-33]}],note:'Front-left fan cutout in the front panel. Radiator stack depth can be calibrated later.'},
-    {id:'rad3',name:'Third radiator (unassigned)',type:'radiator',slot:'unmounted',visible:false,pos:[-146,273.55,-180],size:[135,380,64],ports:[{id:'in',name:'Port A',off:[-31.75,190,33]},{id:'out',name:'Port B',off:[31.75,190,33]}],note:'Assign to either cutout on the rear panel, or another free location. Starts unmounted.'},
+    {id:'rad1',name:'Front panel, right radiator',type:'radiator',fans:{panel:3,inner:0},slot:'front-right',pos:[146,273.55,180],size:[135,380,64],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Front-right fan cutout in the front panel. The radiator is mounted inward of the fan. Port height and horizontal offsets follow supplied measurements.'},
+    {id:'rad2',name:'Front panel, left radiator',type:'radiator',fans:{panel:3,inner:0},slot:'front-left',pos:[-146,273.55,180],size:[135,380,64],ports:[{id:'in',name:'Near side',off:[-31.75,190,-33]},{id:'out',name:'Far side',off:[31.75,190,-33]}],note:'Front-left fan cutout in the front panel. Radiator stack depth can be calibrated later.'},
+    {id:'rad3',name:'Third radiator (unassigned)',type:'radiator',fans:{panel:3,inner:0},slot:'unmounted',visible:false,pos:[-146,273.55,-180],size:[135,380,64],ports:[{id:'in',name:'Port A',off:[-31.75,190,33]},{id:'out',name:'Port B',off:[31.75,190,33]}],note:'Assign to either cutout on the rear panel, or another free location. Starts unmounted.'},
     {id:'tray',name:'Motherboard tray on middle rail',type:'tray',pos:[76,489.95,-70],size:[276.86,2,323.85],ports:[],note:'Mountain Mods tray modeled at approximately 10.9 × 12.75 inches, resting on the measured 19.25-inch central support; thickness is a 2-mm visual placeholder and exact mounting position is adjustable.'},
     {id:'cpu',name:'CPU water block (draft)',type:'cpu',pos:[93,525,-110],size:[65,23,65],ports:[{id:'in',name:'In',off:[-16,17,0]},{id:'out',name:'Out',off:[16,17,0]}],note:'CPU/AM4 block location follows schematic motherboard positioning; no measurements yet.'},
     {id:'gpu',name:'RX 9070 XT / water block (draft)',type:'gpu',pos:[-151,527,-45],size:[112,29,290],ports:[{id:'in',name:'In',off:[48,11,-25]},{id:'out',name:'Out',off:[48,11,25]}],note:'Separate horizontal GPU location is only a planning placeholder.'},
     {id:'res',name:'FrozenQ reservoir (draft)',type:'res',pos:[-12,300,55],size:[72,238,72],ports:[{id:'in',name:'Top return',off:[0,119,0]},{id:'out',name:'Bottom supply',off:[0,-119,0]}],note:'Centered in the lower cavity to match the photo broadly; dimensions and ports unmeasured.'},
     {id:'pump',name:'Laing DDC / XSPC top (draft)',type:'pump',pos:[-12,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'Pump location, inlet and outlet orientation are provisional. Maintain a reliable flooded pump inlet.'},
     {id:'drain',name:'Drain T + valve (draft)',type:'drain',pos:[55,80,75],size:[55,26,36],ports:[{id:'in',name:'In',off:[-28,0,0]},{id:'out',name:'Out',off:[28,0,0]}],note:'Low inline drain is shown provisionally; change location and orientation as needed.'}
-  ], routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:true,fans:false,doors:false,caseOnly:true,dimensions:false},tubeOD:16,bendRadius:35});
+  ], routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:true,fans:false,doors:false,caseOnly:true,dimensions:false},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0},tubeOD:16,bendRadius:35});
 let project=initial(); let selection='rad1',selectedRoute=null,portClicks=0;
 let view={yaw:.58,pitch:.24,zoom:.90,target:[0,355,0],pan:[0,0]};let canvas=$('scene'),nativeCtx=canvas.getContext('2d'),ctx=nativeCtx,isSvgMode=false;let hitPorts=[],hitParts=[],isDragging=false,dragMoved=false,last=[0,0],dpr=1,W=100,H=100;
 
@@ -72,6 +72,70 @@ function stroke(points,color,width=3,alpha=1,dashes=null){ctx.beginPath();points
 function boxFaces(p){let [sx,sy,sz]=p.size.map(n=>n/2),[x,y,z]=p.pos;let corners=[[-sx,-sy,-sz],[sx,-sy,-sz],[sx,sy,-sz],[-sx,sy,-sz],[-sx,-sy,sz],[sx,-sy,sz],[sx,sy,sz],[-sx,sy,sz]].map(o=>add([x,y,z],o));let faceIdx=[[0,1,2,3],[4,5,6,7],[0,4,7,3],[1,5,6,2],[3,2,6,7],[0,1,5,4]];return faceIdx.map((f,i)=>({pts:f.map(j=>corners[j]),shade:i,dep:depth(f.reduce((v,j)=>add(v,corners[j]),[0,0,0]).map(n=>n/4))})).sort((a,b)=>a.dep-b.dep)}
 function box(p,colors){boxFaces(p).forEach(f=>polygon(f.pts,colors[f.shade%colors.length]||colors[0],'#111a2380',.75))}
 function circle3(center,r,axis='x',n=40){let pts=[];for(let i=0;i<=n;i++){let a=2*Math.PI*i/n;pts.push(axis==='x'?add(center,[0,Math.cos(a)*r,Math.sin(a)*r]):axis==='y'?add(center,[Math.cos(a)*r,0,Math.sin(a)*r]):add(center,[Math.cos(a)*r,Math.sin(a)*r,0]))}return pts}
+// Each radiator may carry 0–3 physical 120 mm fans on either Z-facing side.
+const fanRows=n=>n===1?[0]:n===2?[-1,1]:n===3?[-1,0,1]:[];
+function renderPhysicalFan(fan){
+ const thickness=project.case.fanThickness||25.4;
+ box({pos:fan.pos,size:[120,120,thickness]},
+    ['#24313d','#17232f','#1c2834','#334252','#2b3b49','#14212a']);
+ // Draw the visible fan frames and rotor on both faces for orbiting views.
+ for(const dir of [-1,1]){
+  const base=add(fan.pos,[0,0,dir*(thickness/2+.75)]);
+  stroke(circle3(base,55,'z',32),'#839bad',1.5,.90);
+  stroke(circle3(base,47,'z',32),'#3d586c',2.5,.96);
+  stroke(circle3(base,13,'z',24),'#aab6c0',2,.90);
+  for(let j=0;j<7;j++){
+   const a=j*2*Math.PI/7;
+   stroke([
+    add(base,[Math.cos(a)*14,Math.sin(a)*14,0]),
+    add(base,[Math.cos(a+.42)*34,Math.sin(a+.42)*34,0]),
+    add(base,[Math.cos(a+.62)*45,Math.sin(a+.62)*45,0])
+   ],'#617b90',2.6,.83);
+  }
+  for(const dx of [-51,51])for(const dy of [-51,51])
+   stroke(circle3(add(base,[dx,dy,0]),3,'z',10),'#91a3b0',1,.8);
+ }
+ if(fan.radiatorId)hitParts.push({id:fan.radiatorId,...screen(fan.pos)});
+}
+function attachedFans(r){
+ const slot=FAN_SLOTS.find(s=>s.id===r.slot);
+ if(!slot||r.visible===false)return [];
+ const b=bayGeometry(slot),spec=r.fans||{panel:3,inner:0};
+ const x=r.pos[0]+(b.centX-b.radX);
+ const y=r.pos[1]+(b.cy-(project.case.portY-r.size[1]/2));
+ const t=project.case.fanThickness||25.4;
+ const result=[];
+ for(const face of ['panel','inner']){
+  const count=clamp(Math.round(Number(spec[face])||0),0,3);
+  const z=r.pos[2]+slot.end*(face==='panel'?1:-1)*(r.size[2]/2+t/2);
+  for(const row of fanRows(count))
+   result.push({radiatorId:r.id,pos:[x,y+row*120,z]});
+ }
+ return result;
+}
+function freeBayFans(){
+ const result=[],t=project.case.fanThickness||25.4;
+ for(const slot of FAN_SLOTS){
+  // Bare fans are suppressed while a radiator occupies the same opening.
+  if(project.parts.some(p=>p.type==='radiator'&&p.slot===slot.id&&p.visible!==false))continue;
+  const count=clamp(Math.round(Number(project.fanOnly?.[slot.id])||0),0,3);
+  const b=bayGeometry(slot);
+  for(const row of fanRows(count))
+   result.push({pos:[b.centX,b.cy+row*120,b.panelInside-slot.end*t/2]});
+ }
+ return result;
+}
+function repositionRadiatorDepth(r){
+ const slot=FAN_SLOTS.find(s=>s.id===r.slot);
+ if(!slot)return;
+ const b=bayGeometry(slot),panelCount=Number(r.fans?.panel)||0;
+ const t=project.case.fanThickness||25.4;
+ r.pos[2]=b.panelInside-slot.end*((panelCount>0?t:0)+r.size[2]/2);
+}
+function showCoolingModel(){
+ project.display.caseOnly=false;
+ $('caseOnlyBtn').classList.remove('active');
+}
 function renderPart(p){let ps=p.size,sel=p.id===selection;let colors=p.type==='radiator'?['#232d38','#151f28','#172029','#273240','#1d2935','#202b36']:p.type==='tray'?['#171f29','#1d2835','#161e29','#232e3e','#283849','#111921']:p.type==='gpu'?['#30353e','#212933','#2c3641','#383f49','#41464c','#18232d']:p.type==='cpu'?['#b09a7d','#b4a080','#9a7e61','#d2b68a','#e4bc83','#7d6a52']:p.type==='pump'?['#30363b','#252e37','#1b242f','#3e4c57','#485463','#1a2530']:p.type==='res'?['#45536a88','#283748aa','#253349aa','#465d7288','#354c6088','#2e3e5488']:['#384552','#283541','#273541','#434e57','#4a5761','#253541'];box(p,colors);
  if(p.type==='res'){let top=add(p.pos,[0,ps[1]/2,0]);let low=add(p.pos,[0,-ps[1]/2,0]);stroke([low,top],'#70a7bc',4,.75);stroke(circle3(top,ps[0]*.35,'y'),'#b9c3cc',1.8);stroke(circle3(low,ps[0]*.35,'y'),'#b9c3cc',1.8)}
  if(p.type==='tray'){let q=add(p.pos,[-50,p.size[1]/2+8,-8]);polygon([add(q,[-52,0,-100]),add(q,[86,0,-100]),add(q,[86,0,75]),add(q,[-52,0,75])],'#22312c','#617468',1)}
@@ -245,7 +309,18 @@ function labelAt(p,text,color='#dbe6eb',shift=0){let v=screen(p);ctx.font='600 1
 function draw(){if(!ctx)return;let rect=$('viewport').getBoundingClientRect();W=Math.max(1,rect.width);H=Math.max(1,rect.height);const dd=Math.min(devicePixelRatio||1,2);if(canvas.width!==Math.round(W*dd)||canvas.height!==Math.round(H*dd)){canvas.width=Math.round(W*dd);canvas.height=Math.round(H*dd);canvas.style.width=W+'px';canvas.style.height=H+'px'}dpr=dd;ctx.setTransform(dd,0,0,dd,0,0);ctx.clearRect(0,0,W,H);hitPorts=[];hitParts=[];
  // subdued floor grid aids scale
  for(let u=-300;u<=300;u+=100){stroke([[u,0,-310],[u,0,310]],'#6b839b',.8,.19);stroke([[-330,0,u],[330,0,u]],'#6b839b',.8,.19)}
- let parts=project.display.caseOnly?[]:project.parts.filter(p=>p.visible!==false).slice().sort((a,b)=>depth(a.pos)-depth(b.pos));drawCase();parts.forEach(renderPart);if(!project.display.caseOnly)project.routes.forEach(renderTube);
+ const parts=project.display.caseOnly?[]:project.parts.filter(p=>p.visible!==false);
+ const fans=project.display.caseOnly?[]:[
+  ...parts.filter(p=>p.type==='radiator').flatMap(attachedFans),...freeBayFans()
+ ];
+ // Sort fan frames and radiator bodies together to preserve depth when orbiting.
+ const hardware=[
+  ...parts.map(item=>({kind:'part',item,pos:item.pos})),
+  ...fans.map(item=>({kind:'fan',item,pos:item.pos}))
+ ].sort((a,b)=>depth(a.pos)-depth(b.pos));
+ drawCase();
+ for(const h of hardware){if(h.kind==='fan')renderPhysicalFan(h.item);else renderPart(h.item)}
+ if(!project.display.caseOnly)project.routes.forEach(renderTube);
  if(project.display.ports&&!project.display.caseOnly)for(let p of project.parts.filter(p=>p.visible!==false))for(let port of p.ports){let k=key(p,port.id),pos=portPos(k),v=screen(pos);let highlighted=($('fromPort').value===k||$('toPort').value===k);ctx.beginPath();ctx.arc(v.x,v.y,highlighted?6.7:4.8,0,Math.PI*2);ctx.fillStyle=highlighted?'#fff0b2':'#f4c99f';ctx.fill();ctx.lineWidth=1.5;ctx.strokeStyle='#5f3826';ctx.stroke();hitPorts.push({k,x:v.x,y:v.y,d:v.d})}
  if(project.display.labels&&!project.display.caseOnly){let arr=project.parts.filter(p=>p.type!=='tray'&&p.visible!==false);arr.forEach(p=>labelAt(add(p.pos,[0,p.size[1]/2+10,0]),p.name,p.id===selection?'#fbd3a1':'#d0dce8'));}
  $('viewStatus').textContent=(isSvgMode?'SVG':'Canvas')+' active · Drag to orbit · '+project.routes.length+' runs';$('staticPreview').style.display='none';}
@@ -253,20 +328,47 @@ function refreshPortSelect(){let ks=portKeys(),a=$('fromPort').value,b=$('toPort
 function refreshCase(){let fields=[['width','Outside width'],['height','Outside height'],['depth','Outside depth']];$('caseFields').innerHTML=fields.map(([id,name])=>`<div class="field"><label>${name} (mm)</label><input id="case_${id}" type="number" min="200" max="1400" step=".1" value="${project.case[id]}"></div>`).join('');
  let more=[['doors','Each side door (mm)'],['openW','Top opening width (mm)'],['openD','Top opening depth (mm)'],['railWidth','Support rail width (mm)'],['railThickness','Support rail thick. (mm)'],['lowerRailTop','Lower support top (mm)'],['portY','Radiator port height (mm)'],['portFrontA','Port 1 from side edge (mm)'],['portFrontB','Port 2 from side edge (mm)'],['fanOpeningWidth','Fan cutout width (mm)'],['fanOpeningHeight','Fan cutout height (mm)'],['fanOpeningBottom','Fan cutout bottom inset (mm)'],['fanOpeningSide','Fan cutout side inset (mm)'],['windowSide','Window side inset (mm)'],['windowTop','Window top inset (mm)'],['windowHeight','Window height (mm)'],['fanThickness','Fan bank thickness (mm)'],['steelZ','Steel divider X shift (mm)']];
  $('caseMeasuredFields').innerHTML=more.map(([id,name])=>`<div class="field"><label>${name}</label><input id="case_${id}" type="number" step=".1" value="${project.case[id]}"></div>`).join('');
- for(let [id] of fields.concat(more))$('case_'+id).addEventListener('change',e=>{let n=Number(e.target.value);if(Number.isFinite(n)&& (id==='steelZ'||n>0)){project.case[id]=n;persist();draw()}});
+ for(let [id] of fields.concat(more))$('case_'+id).addEventListener('change',e=>{let n=Number(e.target.value);if(Number.isFinite(n)&& (id==='steelZ'||n>0)){project.case[id]=n;if(id==='fanThickness')project.parts.filter(p=>p.type==='radiator').forEach(repositionRadiatorDepth);persist();refreshComponent();draw()}});
  $('wallThickness').value=project.case.wood;$('dividerHeight').value=project.case.divider;
 }
-function refreshComponent(){let comp=cpart(selection)||project.parts[0];selection=comp.id;$('componentVisible').checked=comp.visible!==false;$('mountChooser').style.display=comp.type==='radiator'?'block':'none';if(comp.type==='radiator')$('mountSlot').value=comp.slot||'unmounted';$('componentSelect').innerHTML=project.parts.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');$('componentSelect').value=selection;const axes=['X','Y','Z'];$('componentFields').innerHTML=comp.pos.map((x,i)=>`<div class="field"><label>${axes[i]} pos (mm)</label><input id="pos${i}" type="number" step="5" value="${r2(x)}"></div>`).join('')+comp.size.map((x,i)=>`<div class="field"><label>${axes[i]} size (mm)</label><input id="size${i}" type="number" min="1" step="1" value="${r2(x)}"></div>`).join('');for(let i=0;i<3;i++){const j=i;$('pos'+i).addEventListener('change',e=>{comp.pos[j]=Number(e.target.value)||0;changeModel()});$('size'+i).addEventListener('change',e=>{comp.size[j]=Math.max(1,Number(e.target.value)||1);changeModel()})}$('componentNote').textContent=comp.note;
+function refreshComponent(){let comp=cpart(selection)||project.parts[0];selection=comp.id;
+ $('radiatorFanControls').style.display=comp.type==='radiator'?'block':'none';
+ if(comp.type==='radiator'){
+  comp.fans=comp.fans||{panel:3,inner:0};
+  $('panelFanCount').value=String(comp.fans.panel);
+  $('innerFanCount').value=String(comp.fans.inner);
+  const t=project.case.fanThickness||25.4;
+  $('radiatorFanSummary').textContent=(comp.fans.panel+comp.fans.inner)+
+   ' attached fans · '+(comp.fans.panel||0)+' panel-facing / '+(comp.fans.inner||0)+
+   ' inner-facing · total stack depth '+
+   (comp.size[2]+(comp.fans.panel>0?t:0)+(comp.fans.inner>0?t:0)).toFixed(1)+' mm';
+ }
+ refreshFreeBayControls();$('componentVisible').checked=comp.visible!==false;$('mountChooser').style.display=comp.type==='radiator'?'block':'none';if(comp.type==='radiator')$('mountSlot').value=comp.slot||'unmounted';$('componentSelect').innerHTML=project.parts.map(p=>`<option value="${p.id}">${p.name}</option>`).join('');$('componentSelect').value=selection;const axes=['X','Y','Z'];$('componentFields').innerHTML=comp.pos.map((x,i)=>`<div class="field"><label>${axes[i]} pos (mm)</label><input id="pos${i}" type="number" step="5" value="${r2(x)}"></div>`).join('')+comp.size.map((x,i)=>`<div class="field"><label>${axes[i]} size (mm)</label><input id="size${i}" type="number" min="1" step="1" value="${r2(x)}"></div>`).join('');for(let i=0;i<3;i++){const j=i;$('pos'+i).addEventListener('change',e=>{comp.pos[j]=Number(e.target.value)||0;changeModel()});$('size'+i).addEventListener('change',e=>{comp.size[j]=Math.max(1,Number(e.target.value)||1);if(comp.type==='radiator'&&j===2)repositionRadiatorDepth(comp);changeModel();refreshComponent()})}$('componentNote').textContent=comp.note;
  $('portInfo').innerHTML=comp.ports.length?'<strong>Port positions (relative offsets):</strong><div class="help">Click a port dot in the viewer, or adjust its offsets below.</div>'+comp.ports.map((p,i)=>`<div class="help" style="margin:8px 0 3px">${p.name}: <b>${key(comp,p.id)}</b></div><div class="grid3">${p.off.map((v,j)=>`<div class="field"><label>${axes[j]} offset</label><input type="number" step="1" data-port="${i}" data-axis="${j}" value="${v}"></div>`).join('')}</div>`).join(''):'<span class="help">This component has no modeled water ports.</span>';
  $('portInfo').querySelectorAll('input').forEach(el=>el.addEventListener('change',e=>{comp.ports[+e.target.dataset.port].off[+e.target.dataset.axis]=Number(e.target.value)||0;changeModel()}));draw()}
-function changeModel(){persist();refreshPortSelect();refreshRouteList();refreshEstimate();draw()}
+function refreshFreeBayControls(){
+ const root=$('freeBayControls');if(!root)return;
+ root.innerHTML=FAN_SLOTS.map(slot=>{
+  const rad=project.parts.find(p=>p.type==='radiator'&&p.slot===slot.id&&p.visible!==false);
+  const selection=rad?'<small>Radiator: '+rad.name+'</small>':
+   '<label><span class="sr-only">Standalone fans for '+slot.name+'</span><select data-free-bay="'+slot.id+'">'+
+   [0,1,2,3].map(n=>'<option value="'+n+'" '+(Number(project.fanOnly?.[slot.id])===n?'selected':'')+'>'+n+' fan'+(n===1?'':'s')+'</option>').join('')+
+   '</select></label>';
+  return '<div class="freebay-row"><span>'+slot.name+'</span>'+selection+'</div>';
+ }).join('');
+ root.querySelectorAll('[data-free-bay]').forEach(el=>el.addEventListener('change',()=>{
+  project.fanOnly[el.dataset.freeBay]=Number(el.value);
+  showCoolingModel();changeModel();
+ }));
+}
+function changeModel(){persist();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
 function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${Math.round(g.length)} mm · ${g.elbows} elbow${g.elbows===1?'':'s'}</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;refreshRouteList();draw()}))}
  let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis}}
 function estimate(){let tubes=0,straight=0,elbow=0,softLen=0,hardLen=0;let lengths=[];for(let rt of project.routes){let g=routeGeom(rt);tubes++;straight+=2;elbow+=g.elbows;if(rt.style==='soft')softLen+=g.length;else hardLen+=g.length;lengths.push(g.length)}let w=1+project.prices.waste/100;let sf=softLen*w/1000,hf=hardLen*w/1000,c1=straight*project.prices.fit,c2=elbow*project.prices.elbow,c3=sf*project.prices.soft,c4=hf*project.prices.hard,total=c1+c2+c3+c4+project.prices.other;return{total,straight,elbow,softLen,hardLen,sf,hf,c1,c2,c3,c4,lengths}}
 function refreshEstimate(){let a=estimate();$('totalLength').textContent=((a.softLen+a.hardLen)/1000).toFixed(2)+' m';$('fittingCount').textContent=a.straight;$('elbowCount').textContent=a.elbow;let money=n=>'$'+n.toFixed(2);$('estimateRows').innerHTML=[['Port compressions',a.straight+' × '+money(project.prices.fit),a.c1],['Integrated 90° connectors',a.elbow+' × '+money(project.prices.elbow),a.c2],['Soft tubing',a.sf.toFixed(2)+' m',a.c3],['Hard tubing',a.hf.toFixed(2)+' m',a.c4],['Other / adapters','allowance',project.prices.other]].map(([n,detail,v])=>`<tr><td>${n}<small style="display:block;color:#8493a4">${detail}</small></td><td>${money(v)}</td></tr>`).join('');$('costTotal').textContent=money(a.total)}
 function persist(){try{localStorage.setItem('walnutLoopLab05',JSON.stringify(project))}catch(e){}}
 function updateAll(){refreshCase();refreshPortSelect();refreshComponent();refreshRouteList();refreshEstimate();for(let id of ['fit','elbow','soft','hard','waste','other'])$(id==='fit'?'fitPrice':id==='elbow'?'elbowPrice':id==='soft'?'softPrice':id==='hard'?'hardPrice':id==='waste'?'wastePct':'otherCost').value=project.prices[id];$('tubeOD').value=project.tubeOD;$('bendRadius').value=project.bendRadius;for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports']])$(id).classList.toggle('active',project.display[k]);draw()}
-function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}function normalizeImport(p){let start=initial();let vals={...start,...p,case:{...start.case,...p.case},display:{...start.display,...p.display},prices:{...start.prices,...p.prices}};let slots={rad1:'front-right',rad2:'front-left',rad3:'unmounted'};vals.parts=vals.parts.map(a=>a.type==='radiator'&&!a.slot?{...a,slot:slots[a.id]||'unmounted'}:a);
+function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}function normalizeImport(p){let start=initial();let vals={...start,...p,case:{...start.case,...p.case},display:{...start.display,...p.display},prices:{...start.prices,...p.prices},fanOnly:{...start.fanOnly,...p.fanOnly}};let slots={rad1:'front-right',rad2:'front-left',rad3:'unmounted'};vals.parts=vals.parts.map(a=>a.type==='radiator'?{...a,slot:a.slot||slots[a.id]||'unmounted',fans:{panel:3,inner:0,...a.fans}}:a);
  // Upgrade unchanged old defaults while retaining custom saved dimensions.
  if(p.case&&!Object.prototype.hasOwnProperty.call(p.case,'fanOpeningBottom')){
   if(p.case.fanOpeningWidth===130)vals.case.fanOpeningWidth=122;
@@ -286,7 +388,7 @@ function syncMeasuredRadiators(){
   r.size[0]=r.size[0]===64?135:r.size[0];
   r.size[2]=r.size[2]===135?64:r.size[2];
   const b=bayGeometry(sl),depthHalf=r.size[2]/2;
-  r.pos=[b.radX,c.portY-r.size[1]/2,b.panelInside-sl.end*((c.fanThickness||25.4)+depthHalf)];
+  r.pos=[b.radX,c.portY-r.size[1]/2,b.panelInside-sl.end*((r.fans?.panel>0?(c.fanThickness||25.4):0)+depthHalf)];
   const near=sl.side*(mainW/2-c.portFrontA),far=sl.side*(mainW/2-c.portFrontB);
   r.ports[0].off=[near-b.radX,r.size[1]/2,-sl.end*(depthHalf+1)];
   r.ports[1].off=[far-b.radX,r.size[1]/2,-sl.end*(depthHalf+1)];
@@ -299,14 +401,24 @@ function setRadiatorSlot(id,slot){let p=cpart(id);if(!p||p.type!=='radiator')ret
   let incumbent=project.parts.find(q=>q!==p&&q.type==='radiator'&&q.slot===slot&&q.visible!==false);
   if(incumbent){toast('That opening is occupied by '+incumbent.name+'. Choose an empty opening.');$('mountSlot').value=p.slot||'unmounted';return}
  }
- p.slot=slot;syncMeasuredRadiators();project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;changeModel();refreshComponent();
+ p.slot=slot;syncMeasuredRadiators();project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;showCoolingModel();changeModel();refreshComponent();
 }
 function addRoute(from,to,style,axis){if(!portPos(from)||!portPos(to)||from===to){toast('Select two different, valid ports.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);project.routes.push({id,from,to,style,axis});selectedRoute=id;changeModel();toast('Route added. Select it in the list to change style.');}
 function sampleRoutes(){if(project.routes.length&&!confirm('Replace existing tubing routes with a full-loop example?'))return;project.routes=[];let radiatorList=project.parts.filter(p=>p.type==='radiator'&&p.visible!==false).map(p=>p.id);let links=[['res.out','pump.in'],['pump.out','drain.in'],['drain.out',radiatorList[0]+'.in']];for(let i=0;i<radiatorList.length-1;i++)links.push([radiatorList[i]+'.out',radiatorList[i+1]+'.in']);links.push([radiatorList.at(-1)+'.out','cpu.in'],['cpu.out','gpu.in'],['gpu.out','res.in']);links.forEach(([from,to],i)=>project.routes.push({id:'example'+i,from,to,style:i<3?'soft':'bend',axis:i%2===0?'xzy':'zyx'}));selectedRoute=null;changeModel();toast('Loaded '+links.length+' example tubing runs. Layout is provisional.');}
 function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoom;view.target=[0,345,0];view.pan=[0,0];for(let id of ['isoBtn','frontBtn','sideBtn','topBtn'])$(id).classList.remove('active');draw()}
 function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();try{const v=JSON.parse(localStorage.getItem('walnutLoopLab05'));if(validateImport(v)){project=normalizeImport(v);persist()}}catch(e){};
  $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v5'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
- $('componentSelect').onchange=e=>{selection=e.target.value;refreshComponent()};$('mountSlot').onchange=e=>setRadiatorSlot(selection,e.target.value);$('componentVisible').onchange=e=>{let part=cpart(selection);if(!part)return;part.visible=e.target.checked;project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;changeModel()};$('wallThickness').onchange=e=>{project.case.wood=clamp(Number(e.target.value),1,80);changeModel()};$('syncRads').onclick=()=>{syncMeasuredRadiators();persist();refreshComponent();changeModel();toast('Aligned installed radiators to front/back panel cutouts.');};$('dividerHeight').onchange=e=>{project.case.divider=clamp(Number(e.target.value),50,project.case.height-50);changeModel()};$('centerComponent').onclick=()=>{let p=cpart(selection);if(p)view.target=p.pos.slice();draw()};
+ $('componentSelect').onchange=e=>{selection=e.target.value;refreshComponent()};$('mountSlot').onchange=e=>setRadiatorSlot(selection,e.target.value);
+ for(const [id,face] of [['panelFanCount','panel'],['innerFanCount','inner']]){
+  $(id).onchange=e=>{
+   const rad=cpart(selection);if(!rad||rad.type!=='radiator')return;
+   rad.fans=rad.fans||{panel:3,inner:0};
+   rad.fans[face]=clamp(Math.round(Number(e.target.value)||0),0,3);
+   repositionRadiatorDepth(rad);
+   showCoolingModel();changeModel();refreshComponent();
+  };
+ }
+ $('showCoolingBtn').onclick=()=>{showCoolingModel();changeModel();toast('Cooling assemblies visible. Select a radiator to edit fans.');};$('componentVisible').onchange=e=>{let part=cpart(selection);if(!part)return;part.visible=e.target.checked;project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;changeModel()};$('wallThickness').onchange=e=>{project.case.wood=clamp(Number(e.target.value),1,80);changeModel()};$('syncRads').onclick=()=>{syncMeasuredRadiators();showCoolingModel();persist();refreshComponent();changeModel();toast('Aligned installed radiators to front/back panel cutouts.');};$('dividerHeight').onchange=e=>{project.case.divider=clamp(Number(e.target.value),50,project.case.height-50);changeModel()};$('centerComponent').onclick=()=>{let p=cpart(selection);if(p)view.target=p.pos.slice();draw()};
  for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports']])$(id).onclick=()=>{project.display[k]=!project.display[k];$(id).classList.toggle('active',project.display[k]);changeModel()};
  $('addRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,$('styleSelect').value,$('axisOrder').value);$('populateRoutes').onclick=sampleRoutes;
  $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.style=e.target.value;changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;changeModel()};
