@@ -6,6 +6,7 @@ import vm from 'node:vm';
 
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
+const parts=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 assert.match(html,/<script\s+src="assets\/app\.js\?v=0\.15"><\/script>/);
 assert.match(html,/<link\s+rel="stylesheet"\s+href="assets\/style\.css\?v=0\.15">/);
 for(const m of app.matchAll(/\$\('([A-Za-z0-9_]+)'\)/g)){
@@ -36,6 +37,7 @@ function makeHarness(userAgent){
   document,navigator:{userAgent},localStorage:store,window:{},devicePixelRatio:1,
   setTimeout(){return 1},clearTimeout(){},console,confirm(){return true}
  });
+ vm.runInContext(parts,context);
  vm.runInContext(app+'\n;globalThis.__test={initial,project,cpart,attachedFans,freeBayFans,setRadiatorSlot,normalizeImport,draw}',context);
  return {ui:node,model:context.__test,store};
 }
@@ -45,6 +47,7 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  assert.equal(ui('rendererBtn').textContent.includes(ua.startsWith('iPhone')?'SVG':'Canvas'),true);
  assert.equal(model.project.parts.filter(p=>p.type==='radiator'&&p.visible!==false).length,4);
  assert.equal(model.project.parts.find(p=>p.id==='tray').size[1],1.65);
+ assert.ok(Math.abs(model.cpart('tray').pos[0]-8.57)<.01);
  assert.equal(model.project.parts.find(p=>p.id==='tray').cutout.width,120);
  assert.equal(model.project.parts.find(p=>p.id==='tray').cutout.z,-96);
  assert.equal(model.project.parts.find(p=>p.id==='res').pos[0],-125);
@@ -102,7 +105,12 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  delete old.fanOnly;
  delete old.mountVersion;
  old.case.windowHeight=215.9;
+ old.parts.find(p=>p.id==='tray').pos[0]=76; // Previous stock offset.
  const updated=model.normalizeImport(old);
+ assert.ok(Math.abs(updated.parts.find(p=>p.id==='tray').pos[0]-8.57)<.01);
+ const manuallyMoved=model.initial();
+ manuallyMoved.parts.find(p=>p.id==='tray').pos[0]=44;
+ assert.equal(model.normalizeImport(manuallyMoved).parts.find(p=>p.id==='tray').pos[0],44);
  assert.equal(updated.case.windowHeight,209.55);
  assert.equal(updated.parts.find(p=>p.id==='rad1').fans.panel,3);
  assert.equal(updated.fanOnly['rear-right'],0);
