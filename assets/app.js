@@ -543,13 +543,41 @@ function refreshFreeBayControls(){
  }));
 }
 function changeModel(){sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
-function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${Math.round(g.length)} mm · ${g.elbows} elbow${g.elbows===1?'':'s'}</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;refreshRouteList();draw()}))}
+function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${Math.round(g.length)} mm · ${g.elbows} elbow${g.elbows===1?'':'s'}</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;refreshRouteList();draw()}))}
  let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis}}
 function estimate(){let tubes=0,straight=0,elbow=0,softLen=0,hardLen=0;let lengths=[];for(let rt of project.routes){let g=routeGeom(rt);tubes++;straight+=2;elbow+=g.elbows;if(rt.style==='soft')softLen+=g.length;else hardLen+=g.length;lengths.push(g.length)}let w=1+project.prices.waste/100;let sf=softLen*w/1000,hf=hardLen*w/1000,c1=straight*project.prices.fit,c2=elbow*project.prices.elbow,c3=sf*project.prices.soft,c4=hf*project.prices.hard,total=c1+c2+c3+c4+project.prices.other;return{total,straight,elbow,softLen,hardLen,sf,hf,c1,c2,c3,c4,lengths}}
 function refreshEstimate(){let a=estimate();$('totalLength').textContent=((a.softLen+a.hardLen)/1000).toFixed(2)+' m';$('fittingCount').textContent=a.straight;$('elbowCount').textContent=a.elbow;let money=n=>'$'+n.toFixed(2);$('estimateRows').innerHTML=[['Port compressions',a.straight+' × '+money(project.prices.fit),a.c1],['Integrated 90° connectors',a.elbow+' × '+money(project.prices.elbow),a.c2],['Soft tubing',a.sf.toFixed(2)+' m',a.c3],['Hard tubing',a.hf.toFixed(2)+' m',a.c4],['Other / adapters','allowance',project.prices.other]].map(([n,detail,v])=>`<tr><td>${n}<small style="display:block;color:#8493a4">${detail}</small></td><td>${money(v)}</td></tr>`).join('');$('costTotal').textContent=money(a.total)}
 function persist(){try{localStorage.setItem('walnutLoopLab05',JSON.stringify(project))}catch(e){}}
 function updateAll(){sceneRevision++;refreshLoopSummary();refreshCase();refreshPortSelect();refreshComponent();refreshRouteList();refreshEstimate();for(let id of ['fit','elbow','soft','hard','waste','other'])$(id==='fit'?'fitPrice':id==='elbow'?'elbowPrice':id==='soft'?'softPrice':id==='hard'?'hardPrice':id==='waste'?'wastePct':'otherCost').value=project.prices[id];$('tubeOD').value=project.tubeOD;$('bendRadius').value=project.bendRadius;for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).classList.toggle('active',project.display[k]);draw()}
-function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}function normalizeImport(p){let start=initial();let vals={...start,...p,case:{...start.case,...p.case},display:{...start.display,...p.display},prices:{...start.prices,...p.prices},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0,...p.fanOnly}};let slots={rad1:'front-right',rad2:'rear-right',rad3:'front-left',rad4:'rear-left'};vals.parts=vals.parts.map(a=>{
+function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}function normalizeImport(p){let start=initial();let vals={...start,...p,case:{...start.case,...p.case},display:{...start.display,...p.display},prices:{...start.prices,...p.prices},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0,...p.fanOnly}};// v0.17: old projects were one shared loop. Preserve that decision unless
+ // the project explicitly contains dual-loop configuration.
+ vals.loopMode=p.loopMode==='dual'?'dual':'single';
+ const byId=id=>vals.parts.find(part=>part.id===id);
+ for(const id of ['res','pump','drain']){
+  const value=byId(id),stock=start.parts.find(part=>part.id===id);
+  if(!value)vals.parts.push(JSON.parse(JSON.stringify(stock)));
+ }
+ const oldDrain=byId('drain');
+ if(oldDrain&&oldDrain.pos.every((v,i)=>Math.abs(v-[55,80,75][i])<.01))
+  oldDrain.pos=[-190,65,125];
+ for(const id of ['res2','pump2','drain2']){
+  let part=byId(id);
+  if(!part){part=JSON.parse(JSON.stringify(start.parts.find(x=>x.id===id)));part.visible=false;vals.parts.push(part)}
+  // Explicit saved visibility remains in dual mode. In single mode
+  // the second kit is hidden but its geometry and port offsets persist.
+  if(vals.loopMode==='single')part.visible=false;
+ }
+ for(const part of vals.parts){
+  if(part.type==='radiator')part.loop=part.loop||({rad1:'cpu',rad2:'cpu',rad3:'gpu',rad4:'gpu'}[part.id])||'gpu';
+  if(part.type==='res'){
+   part.orientation=part.orientation==='horizontal'?'horizontal':'vertical';
+  }
+  if(!part.loop){
+   const fromStart=start.parts.find(v=>v.id===part.id);
+   part.loop=fromStart?.loop||'shared';
+  }
+ }
+ let slots={rad1:'front-right',rad2:'rear-right',rad3:'front-left',rad4:'rear-left'};vals.parts=vals.parts.map(a=>{
   if(a.type!=='radiator')return a;
   const previousNames={rad1:'Front panel, right radiator',rad2:'Front panel, left radiator',rad3:'Third radiator (unassigned)'};
   const readableNames={rad1:'Radiator 1',rad2:'Radiator 2',rad3:'Radiator 3',rad4:'Radiator 4'};
@@ -670,8 +698,35 @@ function setRadiatorSlot(id,slot){let p=cpart(id);if(!p||p.type!=='radiator')ret
  }
  p.slot=slot;alignRadiatorToOpening(p);project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;showCoolingModel();changeModel();refreshComponent();
 }
-function addRoute(from,to,style,axis){if(!portPos(from)||!portPos(to)||from===to){toast('Select two different, valid ports.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);project.routes.push({id,from,to,style,axis});selectedRoute=id;changeModel();toast('Route added. Select it in the list to change style.');}
-function sampleRoutes(){if(project.routes.length&&!confirm('Replace existing tubing routes with a full-loop example?'))return;project.routes=[];let radiatorList=project.parts.filter(p=>p.type==='radiator'&&p.visible!==false).map(p=>p.id);let links=[['res.out','pump.in'],['pump.out','drain.in'],['drain.out',radiatorList[0]+'.in']];for(let i=0;i<radiatorList.length-1;i++)links.push([radiatorList[i]+'.out',radiatorList[i+1]+'.in']);links.push([radiatorList.at(-1)+'.out','cpu.in'],['cpu.out','gpu.in'],['gpu.out','res.in']);links.forEach(([from,to],i)=>project.routes.push({id:'example'+i,from,to,style:i<3?'soft':'bend',axis:i%2===0?'xzy':'zyx'}));selectedRoute=null;changeModel();toast('Loaded '+links.length+' example tubing runs. Layout is provisional.');}
+function addRoute(from,to,style,axis){if(!portPos(from)||!portPos(to)||from===to){toast('Select two different, valid ports.');return}if(project.loopMode==='dual'&&portLoop(from)!==portLoop(to)){toast('GPU and CPU loops are separate; select ports in the same loop.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);project.routes.push({id,from,to,style,axis,loop:portLoop(from)});selectedRoute=id;changeModel();toast('Route added. Select it in the list to change style.');}
+function sampleRoutes(){
+ if(project.routes.length&&!confirm('Replace existing routes with '+project.loopMode+'-loop examples?'))return;
+ const links=[];
+ function chain(mode,hardware,block){
+  const rad=project.parts.filter(p=>p.type==='radiator'&&p.visible!==false&&effectiveLoop(p)===mode);
+  if(!rad.length)return [];
+  const steps=[[hardware.res+'.out',hardware.pump+'.in'],
+    [hardware.pump+'.out',rad[0].id+'.in']];
+  for(let i=1;i<rad.length;i++)steps.push([rad[i-1].id+'.out',rad[i].id+'.in']);
+  const last=rad[rad.length-1].id;
+  if(block==='both')steps.push([last+'.out','gpu.in'],['gpu.out','cpu.in'],['cpu.out',hardware.res+'.in']);
+  else steps.push([last+'.out',block+'.in'],[block+'.out',hardware.res+'.in']);
+  // Drain is a tee branch from the pump outlet, NOT part of the main circuit.
+  // Its outlet remains capped; opening this valve is a separate maintenance action.
+  steps.push([hardware.pump+'.out',hardware.drain+'.in']);
+  return steps;
+ }
+ if(project.loopMode==='dual'){
+  for(const mode of ['gpu','cpu'])for(const ports of chain(mode,loopHardware(mode),mode))
+   links.push({ports,mode});
+ }else for(const ports of chain('shared',loopHardware('gpu'),'both'))
+  links.push({ports,mode:'shared'});
+ project.routes=links.filter(({ports})=>portPos(ports[0])&&portPos(ports[1]))
+  .map(({ports,mode},i)=>({id:'example'+i,from:ports[0],to:ports[1],
+   loop:mode,style:'soft',axis:i%2?'zyx':'xzy'}));
+ selectedRoute=null;changeModel();
+ toast('Loaded '+project.routes.length+' conceptual runs; keep drain outlets capped.');
+}
 function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoom;view.target=[0,345,0];view.pan=[0,0];for(let id of ['isoBtn','frontBtn','sideBtn','topBtn'])$(id).classList.remove('active');draw()}
 function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();try{const v=JSON.parse(localStorage.getItem('walnutLoopLab05'));if(validateImport(v)){project=normalizeImport(v);persist()}}catch(e){};
  $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v5'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
