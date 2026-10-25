@@ -95,3 +95,14 @@ The top view of the physical case and the Mountain Mods tray-only product photo 
 - The model now displays **four approximate ITX mounting standoffs** at rear/right positions. Their screw-hole coordinates have **not** been measured and must not be used as a drilling guide.
 - Component editor exposes the tray's cutout width, depth, local X/Z offsets, and a rear-window alignment control. Saved JSON persists them. Older JSON configurations keep custom tray positions; only untouched old stock tray offsets are migrated.
 - FrozenQ reservoir default: **[−125,300,55] mm**; DDC pump default **[−125,104,70] mm**. Both are entirely on the **negative-X side** of the X=0 steel partition, with vertical separation for the pump inlet. The physical reservoir bracket height and exact plumbing still require measurement. Existing saved layouts only migrate these positions if they match the former exact default coordinates.
+
+## v0.15 — tray and bracket registration fix
+
+The rear Mountain Mods I/O/PCI/120mm panel was previously drawn with its center at the tray's X minus 76 mm, causing visible lateral separation. The bracket is now attached geometrically to the right-hand tray edge:
+
+- Bracket width: **310 mm** (approximation).
+- Right edge: **trayX + trayWidth / 2 + 8 mm**.
+- Left edge: right edge minus 310 mm; for stock tray this means **25.14 mm left overhang** and 8 mm right overhang.
+- When the panel is centered at X=0 within the 330.2 mm-wide walnut window, the 276.86 mm tray center is **X=+8.57 mm**.
+
+The entire assembly moves together if tray position or width changes, including both PCI slots and fan aperture. The alignment control derives tray X from the physical bracket shape. Saved projects with the old unmodified tray location get the correction without moving manually adjusted setups. Panel overhang estimates are based on the overhead reference photograph; they are not machining specifications.
