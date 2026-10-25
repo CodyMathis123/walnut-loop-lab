@@ -593,165 +593,29 @@ function refreshRouteList(){let root=$('routeList');if(!project.routes.length){r
  let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis}}
 function estimate(){let tubes=0,straight=0,elbow=0,softLen=0,hardLen=0;let lengths=[];for(let rt of project.routes){let g=routeGeom(rt);tubes++;straight+=2;elbow+=g.elbows;if(rt.style==='soft')softLen+=g.length;else hardLen+=g.length;lengths.push(g.length)}let w=1+project.prices.waste/100;let sf=softLen*w/1000,hf=hardLen*w/1000,c1=straight*project.prices.fit,c2=elbow*project.prices.elbow,c3=sf*project.prices.soft,c4=hf*project.prices.hard,total=c1+c2+c3+c4+project.prices.other;return{total,straight,elbow,softLen,hardLen,sf,hf,c1,c2,c3,c4,lengths}}
 function refreshEstimate(){let a=estimate();$('totalLength').textContent=((a.softLen+a.hardLen)/1000).toFixed(2)+' m';$('fittingCount').textContent=a.straight;$('elbowCount').textContent=a.elbow;let money=n=>'$'+n.toFixed(2);$('estimateRows').innerHTML=[['Port compressions',a.straight+' × '+money(project.prices.fit),a.c1],['Integrated 90° connectors',a.elbow+' × '+money(project.prices.elbow),a.c2],['Soft tubing',a.sf.toFixed(2)+' m',a.c3],['Hard tubing',a.hf.toFixed(2)+' m',a.c4],['Other / adapters','allowance',project.prices.other]].map(([n,detail,v])=>`<tr><td>${n}<small style="display:block;color:#8493a4">${detail}</small></td><td>${money(v)}</td></tr>`).join('');$('costTotal').textContent=money(a.total)}
-function persist(){try{localStorage.setItem('walnutLoopLab05',JSON.stringify(project))}catch(e){}}
+// Intentionally no automatic draft persistence during greenfield iteration.
+function persist(){}
 function updateAll(){sceneRevision++;refreshLoopSummary();refreshCase();refreshPortSelect();refreshComponent();refreshRouteList();refreshEstimate();for(let id of ['fit','elbow','soft','hard','waste','other'])$(id==='fit'?'fitPrice':id==='elbow'?'elbowPrice':id==='soft'?'softPrice':id==='hard'?'hardPrice':id==='waste'?'wastePct':'otherCost').value=project.prices[id];$('tubeOD').value=project.tubeOD;$('bendRadius').value=project.bendRadius;for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).classList.toggle('active',project.display[k]);draw()}
-function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}function normalizeImport(p){let start=initial();let vals={...start,...p,case:{...start.case,...p.case},display:{...start.display,...p.display},prices:{...start.prices,...p.prices},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0,...p.fanOnly}};// v0.17: old projects were one shared loop. Preserve that decision unless
- // the project explicitly contains dual-loop configuration.
- vals.loopMode=p.loopMode==='dual'?'dual':'single';
- const byId=id=>vals.parts.find(part=>part.id===id);
- for(const id of ['res','pump','drain']){
-  const value=byId(id),stock=start.parts.find(part=>part.id===id);
-  if(!value)vals.parts.push(JSON.parse(JSON.stringify(stock)));
- }
- const oldDrain=byId('drain');
- if(oldDrain&&oldDrain.pos.every((v,i)=>Math.abs(v-[55,80,75][i])<.01))
-  oldDrain.pos=[-190,65,125];
- for(const id of ['res2','pump2','drain2']){
-  let part=byId(id);
-  if(!part){part=JSON.parse(JSON.stringify(start.parts.find(x=>x.id===id)));part.visible=vals.loopMode==='dual';vals.parts.push(part)}
-  // Explicit saved visibility remains in dual mode. In single mode
-  // the second kit is hidden but its geometry and port offsets persist.
-  if(vals.loopMode==='single')part.visible=false;
- }
- for(const part of vals.parts){
-  if(part.type==='radiator')part.loop=part.loop||({rad1:'cpu',rad2:'cpu',rad3:'gpu',rad4:'gpu'}[part.id])||'gpu';
-  if(part.type==='res'){
-   part.orientation=part.orientation==='horizontal'?'horizontal':'vertical';
-  }
-  if(!part.loop){
-   const fromStart=start.parts.find(v=>v.id===part.id);
-   part.loop=fromStart?.loop||'shared';
-  }
- }
- let slots={rad1:'front-right',rad2:'rear-right',rad3:'front-left',rad4:'rear-left'};vals.parts=vals.parts.map(a=>{
-  if(a.type!=='radiator')return a;
-  const previousNames={rad1:'Front panel, right radiator',rad2:'Front panel, left radiator',rad3:'Third radiator (unassigned)'};
-  const readableNames={rad1:'Radiator 1',rad2:'Radiator 2',rad3:'Radiator 3',rad4:'Radiator 4'};
-  return {...a,name:a.name===previousNames[a.id]?readableNames[a.id]:a.name,
-   slot:a.slot||slots[a.id]||'unmounted',fans:{panel:3,inner:0,...a.fans}};
- });
- // Existing saved/imported projects get a fourth configurable radiator without
- // rearranging other radiators or overwriting customized fan counts.
- if(!vals.parts.some(part=>part.id==='rad4')){
-  const fourth=JSON.parse(JSON.stringify(start.parts.find(part=>part.id==='rad4')));
-  if(vals.parts.some(part=>part.type==='radiator'&&part.slot===fourth.slot&&part.visible!==false)){
-   fourth.slot='unmounted';fourth.visible=false;
-  }
-  const afterRads=vals.parts.findIndex(part=>part.type!=='radiator');
-  vals.parts.splice(afterRads<0?vals.parts.length:afterRads,0,fourth);
- }
- // Update untouched old 64 mm radiator body defaults to the measured 60 mm.
- // Preserve any custom depth/position and maintain the same panel-facing fan surface.
- for(const rad of vals.parts.filter(v=>v.type==='radiator'&&v.size?.[2]===64)){
-  const slot=FAN_SLOTS.find(v=>v.id===rad.slot);
-  const c=vals.case,fan=rad.fans?.panel>0?(c.fanThickness||25.4):0;
-  const oldAuto=slot?slot.end*(c.depth/2-Math.max(c.wood,fan)-32):null;
-  rad.size[2]=60;
-  if(oldAuto!==null&&Math.abs(rad.pos[2]-oldAuto)<1)rad.pos[2]+=slot.end*2;
-  for(const port of rad.ports||[])if(Math.abs(Math.abs(port.off[2])-33)<1)
-   port.off[2]=Math.sign(port.off[2])*31;
- }
- const originalTray=vals.parts.find(v=>v.type==='tray');
- if(originalTray&&Math.abs(originalTray.size[1]-2)<.001){
-  if(Math.abs(originalTray.pos[1]-(vals.case.divider+1))<1)
-   originalTray.pos[1]=vals.case.divider+.825;
-  originalTray.size[1]=1.65;
- }
- // v0.14: the stock default reservoir/pump used to straddle X=0 steel.
- // Change only unmodified old center positions, never a user's manual edits.
- const res=vals.parts.find(v=>v.id==='res');
- const pump=vals.parts.find(v=>v.id==='pump');
- if(res&&res.pos.length===3&&res.pos.every((v,i)=>Math.abs(v-[-12,300,55][i])<.01))
-  res.pos=[-125,300,55];
- if(pump&&pump.pos.length===3&&pump.pos.every((v,i)=>Math.abs(v-[-12,104,70][i])<.01))
-  pump.pos=[-125,104,70];
- // Tray opening is now a part property. Older projects inherit the improved
- // v0.15: convert only the old automatically aligned tray to the
- // connected-bracket position; manually repositioned trays stay unchanged.
- if(originalTray&&Math.abs(originalTray.pos[0]-76)<.1&&
-    Math.min(
-      Math.abs(originalTray.pos[1]-(vals.case.divider+originalTray.size[1]/2)),
-      Math.abs(originalTray.pos[1]-(vals.case.divider+TRAY_CLEARANCE_MM+originalTray.size[1]/2))
-    )<1 &&
-    Math.abs(originalTray.pos[2]-(-69.525))<2)
-  originalTray.pos[0]=window.WalnutLoopPartGeometry.trayXForRearPanelCenter(0,originalTray.size[0]);
- // rear/right access-hole layout, without moving a manually positioned tray.
- if(originalTray){
-  originalTray.cutout={...start.parts.find(v=>v.id==='tray').cutout,...originalTray.cutout};
-  const old=[76,489.95,-70],newDefault=start.parts.find(v=>v.id==='tray').pos;
-  if(originalTray.pos.length===3&&old.every((v,i)=>Math.abs(v-originalTray.pos[i])<.2))
-   originalTray.pos=newDefault.slice();
- }
- // v0.18: lift only the old nominal support-height tray 3 mm.
- // A customized tray height is deliberately left where the user put it.
- if(originalTray){
-  const oldSupported=vals.case.divider+originalTray.size[1]/2;
-  if(Math.abs(originalTray.pos[1]-oldSupported)<.15)
-   originalTray.pos[1]+=TRAY_CLEARANCE_MM;
- }
- // Add the real 170 mm Gigabyte ITX reference to existing saved layouts.
- // Only untouched old generic CPU-block positions are re-anchored.
- let board=vals.parts.find(part=>part.id==='mobo');
- if(!board){
-  board=JSON.parse(JSON.stringify(start.parts.find(part=>part.id==='mobo')));
-  const i=vals.parts.findIndex(part=>part.id==='cpu');
-  vals.parts.splice(i<0?vals.parts.length:i,0,board);
-  if(originalTray)board.pos=boardPoseForTray(originalTray,board);
- }
- const cpu=vals.parts.find(part=>part.id==='cpu');
- if(cpu){
-  const stockOld=[93,525,-110];
-  if(cpu.pos.every((v,i)=>Math.abs(v-stockOld[i])<.15)){
-   cpu.pos=socketBlockPose(board,cpu);
-   cpu.mountedTo='mobo';
-  }else if(p.parts?.some(part=>part.id==='mobo')){
-   // Preserve existing explicit motherboard-mounted configurations.
-   cpu.mountedTo=cpu.mountedTo||undefined;
-  }else{
-   // An older manually positioned block must not be silently repositioned.
-   delete cpu.mountedTo;
-  }
- }
- // Correct stock top-surface radiator port entries; leave any manually
- // edited port coordinates unchanged. The matching front-face meshes use Z.
- for(const rad of vals.parts.filter(part=>part.type==='radiator')){
-  for(const port of rad.ports||[]){
-   if(Math.abs(port.off[1]-rad.size[1]/2)<.15 &&
-      Math.abs(Math.abs(port.off[2])-(rad.size[2]/2+1))<4.1)
-    port.off[1]=rad.size[1]/2-9;
-  }
- }
- // The legacy tray X/Z migrations above must finish BEFORE positioning a
- // newly inserted board. Otherwise the board can be left at the old X offset.
- if(!p.parts.some(part=>part.id==='mobo')&&board&&originalTray){
-  board.pos=boardPoseForTray(originalTray,board);
-  if(cpu?.mountedTo==='mobo')cpu.pos=socketBlockPose(board,cpu);
- }
- // v0.11 puts the panel-facing fan inside the actual cutout. Move only
- // radiators still at the old auto-aligned depth; preserve manual Z offsets.
- if(!p.mountVersion){
-  const c=vals.case,t=c.fanThickness||25.4;
-  for(const rad of vals.parts.filter(x=>x.type==='radiator')){
-   const mount=FAN_SLOTS.find(slot=>slot.id===rad.slot);
-   if(!mount)continue;
-   const offset=Number(rad.fans?.panel)>0?t:0,half=rad.size[2]/2;
-   const oldZ=mount.end*(c.depth/2-c.wood-offset-half);
-   const newZ=mount.end*(c.depth/2-Math.max(c.wood,offset)-half);
-   if(!p.parts.some(a=>a.id===rad.id)||Math.abs(rad.pos[2]-oldZ)<1)
-    rad.pos[2]=newZ;
-  }
- }
- vals.mountVersion=1;
- // Upgrade unchanged old defaults while retaining custom saved dimensions.
- if(p.case&&!Object.prototype.hasOwnProperty.call(p.case,'fanOpeningBottom')){
-  if(p.case.fanOpeningWidth===130)vals.case.fanOpeningWidth=122;
-  if(p.case.fanOpeningHeight===370)vals.case.fanOpeningHeight=362;
- }
- // Upgrade the old 8.5-inch window default in imported and saved projects.
- // Other customized window heights are not changed.
- if(p.case&&p.case.windowHeight===215.9)vals.case.windowHeight=209.55;
- return vals}
-function validateImport(p){if(!p||!p.case||!Array.isArray(p.parts)||!Array.isArray(p.routes)||!p.prices||!p.display)return false;if(!p.parts.every(x=>typeof x.id==='string'&&Array.isArray(x.pos)&&x.pos.length===3&&Array.isArray(x.size)&&x.size.length===3&&Array.isArray(x.ports)))return false;return true}
+function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}// Greenfield editor: imports are current-format snapshots, never upgraded.
+// Re-opening the page intentionally starts with initial() rather than restoring
+// older drafts. Export JSON explicitly to keep a particular experiment.
+function normalizeImport(p){
+ if(!validateImport(p))throw Error('Expected a current-format Walnut Loop Lab project');
+ return JSON.parse(JSON.stringify(p));
+}
+function validateImport(p){
+ if(!p||p.format!=='walnut-loop-v18'||!p.case||!p.display||!p.prices||
+    !Array.isArray(p.parts)||!Array.isArray(p.routes)||
+    !['dual','single'].includes(p.loopMode))return false;
+ const required=initial().parts.map(part=>part.id);
+ const ids=p.parts.map(part=>part?.id);
+ if(ids.length!==required.length||new Set(ids).size!==required.length||
+    required.some(id=>!ids.includes(id)))return false;
+ return p.parts.every(part=>typeof part.id==='string' &&
+   Array.isArray(part.pos)&&part.pos.length===3&&part.pos.every(Number.isFinite)&&
+   Array.isArray(part.size)&&part.size.length===3&&part.size.every(n=>Number.isFinite(n)&&n>0)&&
+   Array.isArray(part.ports));
+}
 function alignRadiatorToOpening(r){
  const c=project.case,mainW=c.width-2*c.doors;
  const sl=FAN_SLOTS.find(s=>s.id===r.slot);
@@ -830,8 +694,8 @@ function sampleRoutes(){
  toast('Loaded '+project.routes.length+' conceptual runs; keep drain outlets capped.');
 }
 function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoom;view.target=[0,345,0];view.pan=[0,0];for(let id of ['isoBtn','frontBtn','sideBtn','topBtn'])$(id).classList.remove('active');draw()}
-function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();try{const v=JSON.parse(localStorage.getItem('walnutLoopLab05'));if(validateImport(v)){project=normalizeImport(v);persist()}}catch(e){};
- $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v5'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
+function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();
+ $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v18'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
     window.WalnutLoopWebGL.exportPng(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)});
     return;
   }if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
