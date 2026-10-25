@@ -16,7 +16,13 @@
   const piece=(px,py,pz,sw,sh,sd,color=palette.tray)=>
    box({pos:[x+px,y+py,z+pz],size:[sw,sh,sd]},color);
   // Main tray plate has an actual rectangular CPU/backplate access cutout.
-  const cx=-14,cz=-52,cw=Math.min(132,w*.62),cd=Math.min(112,d*.46);
+  // Reference photo: opening is near the I/O-facing rear edge and right-hand
+  // ITX location in this horizontal, rotated installation.
+  // Keep offsets on the part so users can refine its real dimensions.
+  const cfg=part.cutout||{x:46,z:-96,width:120,depth:100};
+  const cw=Math.max(20,Math.min(cfg.width,w-18)),cd=Math.max(20,Math.min(cfg.depth,d-18));
+  const cx=Math.max(L+cw/2+9,Math.min(R-cw/2-9,cfg.x));
+  const cz=Math.max(B+cd/2+9,Math.min(F-cd/2-9,cfg.z));
   const x0=cx-cw/2,x1=cx+cw/2,z0=cz-cd/2,z1=cz+cd/2;
   const plate=(xa,xb,za,zb)=>{
    if(xb>xa&&zb>za)piece((xa+xb)/2,0,(za+zb)/2,xb-xa,t,zb-za);
@@ -35,8 +41,10 @@
    }
   }
   piece(0,4,F-2.4,w-7,8,4.8,palette.edge);
-  // ATX-like brass/aluminum standoffs; exact drilling locations are unconfirmed.
-  for(const xx of [-99,0,99])for(const zz of [-117,-8,115]){
+  // Only the future ITX motherboard mounts in the rear/right corner.
+  // The rest of the tray remains free for the GPU and later walnut surface.
+  // Holes are schematic until the physical standoff pattern is measured.
+  for(const xx of [-26,117])for(const zz of [-132,9]){
    const loc=[x+xx,top+4,z+zz];
    box({pos:loc,size:[7,7,7]},['#6b7884','#56636e','#53606b','#8c9aa4','#80909b','#42515e']);
    stroke(circle3([loc[0],loc[1]+4,loc[2]],3.2,'y',12),'#c9d3dc',.9);
