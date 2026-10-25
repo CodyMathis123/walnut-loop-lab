@@ -2,7 +2,7 @@
 
 A standalone, browser-based 3D-style planner for a custom walnut PC water-cooling case.
 
-**Status:** v0.13 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+**Status:** v0.14 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
 
 ## Features
 
@@ -33,7 +33,7 @@ The fallback viewer uses **one shared depth-sorted face queue** for the wood pan
 
 The **Cooling view** focuses on radiators and fan assemblies. **Other parts** shows the provisional motherboard tray, CPU/GPU, pump, reservoir and drain. Existing projects retain their component positions and saved configurations; the new viewport filter defaults to cooling-only for older projects so those provisional internals no longer clutter the preview. Port markers are off in new projects but preserve their saved setting in older projects.
 
-## Component geometry — Mountain Mods tray and radiators (v0.13)
+## Component geometry — Mountain Mods tray and radiators (v0.14)
 
 The tray is the real **Mountain Mods Modular Removable ATX Tray Assembly, 120 mm black wrinkle (120MOTRAY-BW)** with the **ATX anodized-black tray (ATXTOAB)** underneath. The base tray is 10.9 × 12.75 in (276.86 × 323.85 mm). The nominal metal thickness is 1.65 mm. A detailed geometry builder (`assets/part-geometry.js`) now produces:
 
@@ -41,6 +41,10 @@ The tray is the real **Mountain Mods Modular Removable ATX Tray Assembly, 120 mm
 - A vertical rear assembly with a **real 120 mm circular fan aperture**, an ATX I/O opening, and **seven separate PCI slot openings**. The panel is oriented horizontally across the 13-inch-wide rear walnut window, fitting its 8.25-inch height.
 - Four **60 mm thick** 360-radiator bodies with hollow-looking fin cores, two end tanks, mounting rails, screw details, and water-port collars. Fan counts/locations remain unchanged and editable.
 - The tray is visible in the default cooling view. **Other parts** adds the CPU, GPU, reservoir, pump and drain. Saved component IDs, tube routes and explicit coordinates remain compatible.
+
+**Tray refinement (v0.14):** The access opening is shifted toward the rear I/O end and the planned right-rear ITX motherboard area. The first-pass hole is **120 × 100 mm**, centered **X +46 mm / Z −96 mm relative to the tray center**, with the surrounding sheet metal preserved. The tray position is aligned to the rear window and top of the 19¼-inch support. Four approximate ITX mounting posts replace the old nine full-ATX markers. The rest of the tray is left open for the planned GPU/walnut overlay. Select the tray under **Components** to edit its cutout size/center, or use **Align tray to rear window**.
+
+**Lower chamber:** The reservoir and DDC pump now default to **X −125 mm**, fully on the left side of the center partition rather than across X = 0. Older saved projects inherit the new positions **only** when those components retain their untouched previous defaults.
 
 **Precisions:** Product specification supports tray size and nominal material thickness; the rear panel's exact outer profile, hole coordinates, fold details and placement in this custom case are *visually estimated from Mountain Mods references*, not manufacturer machining plans. The radiator cross section and fin pitches are similarly illustrative; the 60 mm radiator thickness is user-supplied.
 
