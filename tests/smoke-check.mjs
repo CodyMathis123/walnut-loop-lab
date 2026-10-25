@@ -44,7 +44,7 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  const {ui,model,store}=makeHarness(ua);
  assert.equal(ui('rendererBtn').textContent.includes(ua.startsWith('iPhone')?'SVG':'Canvas'),true);
  assert.equal(model.project.parts.filter(p=>p.type==='radiator'&&p.visible!==false).length,2);
- assert.equal(model.attachedFans(model.cpart('rad1')).length,3);
+ assert.equal(model.attachedFans(model.cpart('rad1')).length,6);
  assert.equal(typeof ui('innerFanCount').onchange,'function');
  const otherPosition=model.cpart('rad1').pos.slice();
  // Choose six fans (3 panel-side + 3 inside) and ensure cooling is visible.
@@ -57,12 +57,12 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  // Moving rad2 must not re-align or overwrite rad1's manually adjusted position.
  model.cpart('rad1').pos[0]+=8;
  const adjusted=model.cpart('rad1').pos.slice();
- model.setRadiatorSlot('rad2','rear-right');
- assert.equal(model.cpart('rad2').slot,'rear-right');
+ model.setRadiatorSlot('rad2','front-left');
+ assert.equal(model.cpart('rad2').slot,'front-left');
  assert.deepEqual(Array.from(model.cpart('rad1').pos),Array.from(adjusted));
  // Reuse an unoccupied opening for fans alone.
- model.project.fanOnly['front-left']=3;
- assert.equal(model.freeBayFans().filter(f=>f.pos[2]>0).length,3);
+ model.project.fanOnly['rear-right']=3;
+ assert.equal(model.freeBayFans().filter(f=>f.pos[2]<0&&f.pos[0]>0).length,3);
  // Old JSON projects gain defaults but retain the support-height correction.
  const old=model.initial();
  old.parts.forEach(p=>{delete p.fans});
