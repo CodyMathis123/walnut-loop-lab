@@ -32,7 +32,13 @@ function makeHarness(userAgent){
   nodes.set(id,value);return value;
  };
  const document={getElementById:node,createElement:tag=>node('element-'+Math.random()),createElementNS:(ns,tag)=>node('svg-'+Math.random())};
- const store={data:null,getItem(){return this.data},setItem(k,v){this.data=v}};
+ const store={
+  // A stale browser project must be discarded on every greenfield page load.
+  data:JSON.stringify({format:'walnut-loop-v17',loopMode:'single',parts:[]}),
+  removed:false,
+  getItem(){return this.data},setItem(k,v){this.data=v},
+  removeItem(k){assert.equal(k,'walnutLoopLab05');this.removed=true;this.data=null}
+ };
  const context=vm.createContext({
   document,navigator:{userAgent},localStorage:store,window:{},devicePixelRatio:1,
   setTimeout(){return 1},clearTimeout(){},console,confirm(){return true}
@@ -45,6 +51,8 @@ function makeHarness(userAgent){
 for(const ua of ['Desktop Chrome','iPhone Safari']){
  const {ui,model,store}=makeHarness(ua);
  assert.equal(ui('rendererBtn').textContent.includes(ua.startsWith('iPhone')?'SVG':'Canvas'),true);
+ assert.equal(store.removed,true,'Old browser drafts are explicitly cleared');
+ assert.equal(store.data,null,'Greenfield editor starts from current defaults');
  assert.equal(model.project.parts.filter(p=>p.type==='radiator'&&p.visible!==false).length,4);
  assert.equal(model.project.parts.find(p=>p.id==='tray').size[1],1.65);
  assert.equal(model.project.parts.find(p=>p.id==='mobo').size[0],170);
