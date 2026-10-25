@@ -183,9 +183,23 @@ function showCoolingModel(){
  $('caseOnlyBtn').classList.remove('active');
  showInternals(false);
 }
-function renderPart(p){let ps=p.size,sel=p.id===selection;let colors=p.type==='radiator'?['#232d38','#151f28','#172029','#273240','#1d2935','#202b36']:p.type==='tray'?['#171f29','#1d2835','#161e29','#232e3e','#283849','#111921']:p.type==='gpu'?['#30353e','#212933','#2c3641','#383f49','#41464c','#18232d']:p.type==='cpu'?['#b09a7d','#b4a080','#9a7e61','#d2b68a','#e4bc83','#7d6a52']:p.type==='pump'?['#30363b','#252e37','#1b242f','#3e4c57','#485463','#1a2530']:p.type==='res'?['#45536a88','#283748aa','#253349aa','#465d7288','#354c6088','#2e3e5488']:['#384552','#283541','#273541','#434e57','#4a5761','#253541'];box(p,colors);
+function renderPart(p){
+ const ps=p.size,sel=p.id===selection;
+ const drawParts=window.WalnutLoopPartGeometry;
+ const geometryAPI={box,polygon,stroke,circle3,add};
+ if(p.type==='tray'&&drawParts?.renderTray)drawParts.renderTray(p,geometryAPI);
+ else if(p.type==='radiator'&&drawParts?.renderRadiator)
+  drawParts.renderRadiator(p,geometryAPI);
+ else {
+  const colors=p.type==='gpu'?['#30353e','#212933','#2c3641','#383f49','#41464c','#18232d']
+  :p.type==='cpu'?['#b09a7d','#b4a080','#9a7e61','#d2b68a','#e4bc83','#7d6a52']
+  :p.type==='pump'?['#30363b','#252e37','#1b242f','#3e4c57','#485463','#1a2530']
+  :p.type==='res'?['#45536a88','#283748aa','#253349aa','#465d7288','#354c6088','#2e3e5488']
+  :p.type==='radiator'?['#273340','#1b2834','#1b2630','#364350','#303a44','#131d27']
+  :['#384552','#283541','#273541','#434e57','#4a5761','#253541'];
+  box(p,colors);
+ }
  if(p.type==='res'){let top=add(p.pos,[0,ps[1]/2,0]);let low=add(p.pos,[0,-ps[1]/2,0]);stroke([low,top],'#70a7bc',4,.75);stroke(circle3(top,ps[0]*.35,'y'),'#b9c3cc',1.8);stroke(circle3(low,ps[0]*.35,'y'),'#b9c3cc',1.8)}
- if(p.type==='tray'){let q=add(p.pos,[-50,p.size[1]/2+8,-8]);polygon([add(q,[-52,0,-100]),add(q,[86,0,-100]),add(q,[86,0,75]),add(q,[-52,0,75])],'#22312c','#617468',1)}
  if(p.type==='drain'){let q=add(p.pos,[0,0,0]);stroke([q,add(q,[0,-65,0])],'#b3a38c',6);stroke(circle3(add(q,[0,-55,0]),11,'y'),'#c39464',3)}
  if(sel&&p.type==='radiator'){
   const facing=FAN_SLOTS.find(slot=>slot.id===p.slot)?.end||1;
