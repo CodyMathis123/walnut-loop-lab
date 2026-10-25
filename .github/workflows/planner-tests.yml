@@ -21,3 +21,5 @@ jobs:
         run: node tests/component-geometry-check.mjs
       - name: Dual/single cooling layouts and reservoir rotation
         run: node tests/cooling-layout-check.mjs
+      - name: Gigabyte Mini-ITX, tray support clearance, and front-facing radiator ports
+        run: node tests/itx-layout-check.mjs
