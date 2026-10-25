@@ -6,8 +6,8 @@ import vm from 'node:vm';
 
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
-assert.match(html,/<script\s+src="assets\/app\.js\?v=0\.14"><\/script>/);
-assert.match(html,/<link\s+rel="stylesheet"\s+href="assets\/style\.css\?v=0\.14">/);
+assert.match(html,/<script\s+src="assets\/app\.js\?v=0\.15"><\/script>/);
+assert.match(html,/<link\s+rel="stylesheet"\s+href="assets\/style\.css\?v=0\.15">/);
 for(const m of app.matchAll(/\$\('([A-Za-z0-9_]+)'\)/g)){
  assert.ok(html.includes('id="'+m[1]+'"'),'Missing HTML element: '+m[1]);
 }
