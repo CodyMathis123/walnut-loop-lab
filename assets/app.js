@@ -14,11 +14,11 @@ const initial=()=>({
     {id:'rad4',name:'Radiator 4',type:'radiator',fans:{panel:3,inner:3},slot:'rear-left',loop:'gpu',pos:[-146,273.55,-180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,33]},{id:'out',name:'Port B',off:[31.75,190,33]}],note:'Rear-left radiator with three 120 mm fans on each side.'},
     {id:'tray',name:'Mountain Mods ATX tray + 120 rear panel',type:'tray',pos:[8.57,492.775,-69.525],size:[276.86,1.65,323.85],cutout:{x:46,z:-96,width:120,depth:100},ports:[],note:'Mountain Mods ATXTOAB tray (10.9 × 12.75 in) and 120MOTRAY-BW rear I/O/PCI/fan panel. 1.65 mm aluminum. Rear panel geometry is an informed visual approximation.'},
     {id:'mobo',name:'GIGABYTE X570 I AORUS PRO WIFI · mock',type:'mobo',mountedTo:'tray',
-     loop:'cpu',pos:[53.00,500.75,-136.45],size:[170,1.6,170],
+     loop:'cpu',pos:[54.00,500.75,-136.45],size:[170,1.6,170],
      socketOffset:[18,0,-6],ports:[],
      note:'170 mm Mini-ITX AM4 mock inspired by GIGABYTE reference. Rear I/O toward −Z, PCIe left, two DIMMs toward front (+Z); socket center is approximate.'},
     {id:'cpu',name:'CPU water block · AM4 socket',type:'cpu',loop:'cpu',mountedTo:'mobo',
-     pos:[71.00,519.05,-142.45],size:[65,23,65],ports:[{id:'in',name:'In',off:[-16,17,0]},{id:'out',name:'Out',off:[16,17,0]}],note:'CPU/AM4 block location follows schematic motherboard positioning; no measurements yet.'},
+     pos:[72.00,519.05,-142.45],size:[65,23,65],ports:[{id:'in',name:'In',off:[-16,17,0]},{id:'out',name:'Out',off:[16,17,0]}],note:'CPU/AM4 block location follows schematic motherboard positioning; no measurements yet.'},
     {id:'gpu',name:'RX 9070 XT / water block (draft)',type:'gpu',loop:'gpu',pos:[-151,527,-45],size:[112,29,290],ports:[{id:'in',name:'In',off:[48,11,-25]},{id:'out',name:'Out',off:[48,11,25]}],note:'Separate horizontal GPU location is only a planning placeholder.'},
     {id:'res',name:'GPU reservoir · left',type:'res',loop:'gpu',orientation:'vertical',pos:[-125,300,55],size:[72,238,72],ports:[{id:'in',name:'Top return',off:[0,119,0]},{id:'out',name:'Bottom supply',off:[0,-119,0]}],note:'Left lower chamber, completely clear of the X=0 steel divider. Position and dimensions are provisional.'},
     {id:'pump',name:'GPU pump · left',type:'pump',loop:'gpu',pos:[-125,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'Pump location, inlet and outlet orientation are provisional. Maintain a reliable flooded pump inlet.'},
@@ -677,6 +677,45 @@ function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.
   const old=[76,489.95,-70],newDefault=start.parts.find(v=>v.id==='tray').pos;
   if(originalTray.pos.length===3&&old.every((v,i)=>Math.abs(v-originalTray.pos[i])<.2))
    originalTray.pos=newDefault.slice();
+ }
+ // v0.18: lift only the old nominal support-height tray 3 mm.
+ // A customized tray height is deliberately left where the user put it.
+ if(originalTray){
+  const oldSupported=vals.case.divider+originalTray.size[1]/2;
+  if(Math.abs(originalTray.pos[1]-oldSupported)<.15)
+   originalTray.pos[1]+=TRAY_CLEARANCE_MM;
+ }
+ // Add the real 170 mm Gigabyte ITX reference to existing saved layouts.
+ // Only untouched old generic CPU-block positions are re-anchored.
+ let board=vals.parts.find(part=>part.id==='mobo');
+ if(!board){
+  board=JSON.parse(JSON.stringify(start.parts.find(part=>part.id==='mobo')));
+  const i=vals.parts.findIndex(part=>part.id==='cpu');
+  vals.parts.splice(i<0?vals.parts.length:i,0,board);
+  if(originalTray)board.pos=boardPoseForTray(originalTray,board);
+ }
+ const cpu=vals.parts.find(part=>part.id==='cpu');
+ if(cpu){
+  const stockOld=[93,525,-110];
+  if(cpu.pos.every((v,i)=>Math.abs(v-stockOld[i])<.15)){
+   cpu.pos=socketBlockPose(board,cpu);
+   cpu.mountedTo='mobo';
+  }else if(p.parts?.some(part=>part.id==='mobo')){
+   // Preserve existing explicit motherboard-mounted configurations.
+   cpu.mountedTo=cpu.mountedTo||undefined;
+  }else{
+   // An older manually positioned block must not be silently repositioned.
+   delete cpu.mountedTo;
+  }
+ }
+ // Correct stock top-surface radiator port entries; leave any manually
+ // edited port coordinates unchanged. The matching front-face meshes use Z.
+ for(const rad of vals.parts.filter(part=>part.type==='radiator')){
+  for(const port of rad.ports||[]){
+   if(Math.abs(port.off[1]-rad.size[1]/2)<.15 &&
+      Math.abs(Math.abs(port.off[2])-(rad.size[2]/2+1))<1.1)
+    port.off[1]=rad.size[1]/2-9;
+  }
  }
  // v0.11 puts the panel-facing fan inside the actual cutout. Move only
  // radiators still at the old auto-aligned depth; preserve manual Z offsets.
