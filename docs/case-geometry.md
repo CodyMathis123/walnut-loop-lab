@@ -15,10 +15,10 @@ The working model interprets horizontal offsets relative to the **20″-wide end
 | --- | --- | --- |
 | Left lower fan bank | ~**122 × 362 mm** | **3¼″ (82.55 mm)** above panel base; **1¾″ (44.45 mm)** from left end-panel edge |
 | Right lower fan bank | ~**122 × 362 mm** | **3¼″ (82.55 mm)** above panel base; **1¾″ (44.45 mm)** from right end-panel edge |
-| Upper window / rear motherboard opening | **13″ (330.2 mm)** wide × **8½″ (215.9 mm)** high | **3½″ (88.9 mm)** in from each side; **1½″ (38.1 mm)** below top |
+| Upper window / rear motherboard opening | **13″ (330.2 mm)** wide × **8¼″ (209.55 mm)** high | **3½″ (88.9 mm)** in from each side; **1½″ (38.1 mm)** below top |
 
 - Front and rear openings are modeled identically, as real cuts through ¾″-thick panels with edge faces.
-- Fan opening top is about **17½″**, window bottom **19″** above panel base; approximately **1½″** of walnut between them.
+- Fan opening top is about **17½″**, window bottom **19¼″** above panel base, flush with the **19¼″ upper support top**; approximately **1¾″** of walnut between the fan openings and upper window.
 - A nominal three-fan 120 × 360 mm assembly is nearly flush in a 122 × 362 mm cutout (~1 mm clearance on each side before tolerance).
 - Radiator ports separately measured at approximately **18¼″** above base, and about **3″ and 5½″** in from the outside side edge. These do not dictate fan-cutout centerlines.
 

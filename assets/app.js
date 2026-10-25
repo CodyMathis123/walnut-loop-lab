@@ -2,7 +2,7 @@
 const $=id=>document.getElementById(id), clamp=(v,a,b)=>Math.max(a,Math.min(b,v)), r2=n=>Math.round(n*100)/100;
 const add=(a,b)=>a.map((x,i)=>x+b[i]),sub=(a,b)=>a.map((x,i)=>x-b[i]),scale=(a,s)=>a.map(x=>x*s),len=a=>Math.hypot(...a),dist=(a,b)=>len(sub(a,b)),mix=(a,b,t)=>a.map((v,i)=>v+(b[i]-v)*t);
 const initial=()=>({
-  case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:215.9,fanThickness:25.4},
+  case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:209.55,fanThickness:25.4},
   parts:[
     {id:'rad1',name:'Front panel, right radiator',type:'radiator',slot:'front-right',pos:[146,273.55,180],size:[135,380,64],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Front-right fan cutout in the front panel. The radiator is mounted inward of the fan. Port height and horizontal offsets follow supplied measurements.'},
     {id:'rad2',name:'Front panel, left radiator',type:'radiator',slot:'front-left',pos:[-146,273.55,180],size:[135,380,64],ports:[{id:'in',name:'Near side',off:[-31.75,190,-33]},{id:'out',name:'Far side',off:[31.75,190,-33]}],note:'Front-left fan cutout in the front panel. Radiator stack depth can be calibrated later.'},
@@ -272,6 +272,9 @@ function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.
   if(p.case.fanOpeningWidth===130)vals.case.fanOpeningWidth=122;
   if(p.case.fanOpeningHeight===370)vals.case.fanOpeningHeight=362;
  }
+ // Upgrade the old 8.5-inch window default in imported and saved projects.
+ // Other customized window heights are not changed.
+ if(p.case&&p.case.windowHeight===215.9)vals.case.windowHeight=209.55;
  return vals}
 function validateImport(p){if(!p||!p.case||!Array.isArray(p.parts)||!Array.isArray(p.routes)||!p.prices||!p.display)return false;if(!p.parts.every(x=>typeof x.id==='string'&&Array.isArray(x.pos)&&x.pos.length===3&&Array.isArray(x.size)&&x.size.length===3&&Array.isArray(x.ports)))return false;return true}
 function syncMeasuredRadiators(){

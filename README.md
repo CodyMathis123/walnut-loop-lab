@@ -1,6 +1,6 @@
 # Walnut Loop Lab
 
-A 3D-style browser-based tubing planner for a custom walnut PC water-cooling case, developed from measurements of the physical build.**Status:** v0.7 prototype. Case dimensions are partly measured, while some mounting locations, ports, cutouts and tubing calculations are preliminary. **Do not use the reported lengths as final cutting measurements.**
+A 3D-style browser-based tubing planner for a custom walnut PC water-cooling case, developed from measurements of the physical build.**Status:** v0.8 prototype. Case dimensions are partly measured, while some mounting locations, ports, cutouts and tubing calculations are preliminary. **Do not use the reported lengths as final cutting measurements.**
 
 ## Features
 - Interactive isometric/front/side/top cabinet viewer, SVG renderer for iOS and Canvas alternative
@@ -31,7 +31,7 @@ Locally, run `python3 -m http.server 8000` in this directory and open http://loc
 - `docs/case-geometry.md` — known dimensions and open measurements
 - `.nojekyll` — no Jekyll processing required## Measured openings added October 25, 2026
 - Four approximately 122 × 362 mm lower fan openings, with 3.25-inch bottom and 1.75-inch nearest-side offsets.
-- Front and rear upper windows: 3.5-inch side insets, 1.5-inch top inset, 8.5-inch height (13-inch calculated width).
+- Front and rear upper windows: 3.5-inch side insets, 1.5-inch top inset, 8.25-inch height (13-inch calculated width), with the window lower edge flush with the 19.25-inch support top.
 - Measurements are modeled from the 20-inch end-panel edges, not the 21.5-inch outer case. Geometry settings remain editable.
 - Existing stored v0.6 projects migrate old default fan dimensions without overwriting customized values. After an upgrade, use **Align radiators to their fan openings** if needed.
 
