@@ -4,11 +4,11 @@ const add=(a,b)=>a.map((x,i)=>x+b[i]),sub=(a,b)=>a.map((x,i)=>x-b[i]),scale=(a,s
 const initial=()=>({
   case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:209.55,fanThickness:25.4},
   parts:[
-    {id:'rad1',name:'Radiator 1',type:'radiator',fans:{panel:3,inner:3},slot:'front-right',pos:[146,273.55,180],size:[135,380,64],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Radiator 1 starts on the front/right opening with three fans on each face. Port height and offsets follow provisional supplied measurements.'},
-    {id:'rad2',name:'Radiator 2',type:'radiator',fans:{panel:3,inner:3},slot:'rear-right',pos:[-146,273.55,180],size:[135,380,64],ports:[{id:'in',name:'Near side',off:[-31.75,190,-33]},{id:'out',name:'Far side',off:[31.75,190,-33]}],note:'Radiator 2 starts on the rear/right opening with three fans on each face. Radiator depth and mounting can be calibrated later.'},
-    {id:'rad3',name:'Radiator 3',type:'radiator',fans:{panel:3,inner:3},slot:'front-left',pos:[-146,273.55,180],size:[135,380,64],ports:[{id:'in',name:'Port A',off:[-31.75,190,-33]},{id:'out',name:'Port B',off:[31.75,190,-33]}],note:'Front-left radiator with three 120 mm fans on each side.'},
-    {id:'rad4',name:'Radiator 4',type:'radiator',fans:{panel:3,inner:3},slot:'rear-left',pos:[-146,273.55,-180],size:[135,380,64],ports:[{id:'in',name:'Port A',off:[-31.75,190,33]},{id:'out',name:'Port B',off:[31.75,190,33]}],note:'Rear-left radiator with three 120 mm fans on each side.'},
-    {id:'tray',name:'Motherboard tray on middle rail',type:'tray',pos:[76,489.95,-70],size:[276.86,2,323.85],ports:[],note:'Mountain Mods tray modeled at approximately 10.9 × 12.75 inches, resting on the measured 19.25-inch central support; thickness is a 2-mm visual placeholder and exact mounting position is adjustable.'},
+    {id:'rad1',name:'Radiator 1',type:'radiator',fans:{panel:3,inner:3},slot:'front-right',pos:[146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Radiator 1 starts on the front/right opening with three fans on each face. Port height and offsets follow provisional supplied measurements.'},
+    {id:'rad2',name:'Radiator 2',type:'radiator',fans:{panel:3,inner:3},slot:'rear-right',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[-31.75,190,-33]},{id:'out',name:'Far side',off:[31.75,190,-33]}],note:'Radiator 2 starts on the rear/right opening with three fans on each face. Radiator depth and mounting can be calibrated later.'},
+    {id:'rad3',name:'Radiator 3',type:'radiator',fans:{panel:3,inner:3},slot:'front-left',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,-33]},{id:'out',name:'Port B',off:[31.75,190,-33]}],note:'Front-left radiator with three 120 mm fans on each side.'},
+    {id:'rad4',name:'Radiator 4',type:'radiator',fans:{panel:3,inner:3},slot:'rear-left',pos:[-146,273.55,-180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,33]},{id:'out',name:'Port B',off:[31.75,190,33]}],note:'Rear-left radiator with three 120 mm fans on each side.'},
+    {id:'tray',name:'Mountain Mods ATX tray + 120 rear panel',type:'tray',pos:[76,489.95,-70],size:[276.86,1.65,323.85],ports:[],note:'Mountain Mods ATXTOAB tray (10.9 × 12.75 in) and 120MOTRAY-BW rear I/O/PCI/fan panel. 1.65 mm aluminum. Rear panel geometry is an informed visual approximation.'},
     {id:'cpu',name:'CPU water block (draft)',type:'cpu',pos:[93,525,-110],size:[65,23,65],ports:[{id:'in',name:'In',off:[-16,17,0]},{id:'out',name:'Out',off:[16,17,0]}],note:'CPU/AM4 block location follows schematic motherboard positioning; no measurements yet.'},
     {id:'gpu',name:'RX 9070 XT / water block (draft)',type:'gpu',pos:[-151,527,-45],size:[112,29,290],ports:[{id:'in',name:'In',off:[48,11,-25]},{id:'out',name:'Out',off:[48,11,25]}],note:'Separate horizontal GPU location is only a planning placeholder.'},
     {id:'res',name:'FrozenQ reservoir (draft)',type:'res',pos:[-12,300,55],size:[72,238,72],ports:[{id:'in',name:'Top return',off:[0,119,0]},{id:'out',name:'Bottom supply',off:[0,-119,0]}],note:'Centered in the lower cavity to match the photo broadly; dimensions and ports unmeasured.'},
@@ -465,6 +465,23 @@ function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.
   const afterRads=vals.parts.findIndex(part=>part.type!=='radiator');
   vals.parts.splice(afterRads<0?vals.parts.length:afterRads,0,fourth);
  }
+ // Update untouched old 64 mm radiator body defaults to the measured 60 mm.
+ // Preserve any custom depth/position and maintain the same panel-facing fan surface.
+ for(const rad of vals.parts.filter(v=>v.type==='radiator'&&v.size?.[2]===64)){
+  const slot=FAN_SLOTS.find(v=>v.id===rad.slot);
+  const c=vals.case,fan=rad.fans?.panel>0?(c.fanThickness||25.4):0;
+  const oldAuto=slot?slot.end*(c.depth/2-Math.max(c.wood,fan)-32):null;
+  rad.size[2]=60;
+  if(oldAuto!==null&&Math.abs(rad.pos[2]-oldAuto)<1)rad.pos[2]+=slot.end*2;
+  for(const port of rad.ports||[])if(Math.abs(Math.abs(port.off[2])-33)<1)
+   port.off[2]=Math.sign(port.off[2])*31;
+ }
+ const originalTray=vals.parts.find(v=>v.type==='tray');
+ if(originalTray&&Math.abs(originalTray.size[1]-2)<.001){
+  if(Math.abs(originalTray.pos[1]-(vals.case.divider+1))<1)
+   originalTray.pos[1]=vals.case.divider+.825;
+  originalTray.size[1]=1.65;
+ }
  // v0.11 puts the panel-facing fan inside the actual cutout. Move only
  // radiators still at the old auto-aligned depth; preserve manual Z offsets.
  if(!p.mountVersion){
@@ -496,7 +513,7 @@ function alignRadiatorToOpening(r){
  if(!sl){r.visible=false;return}
  r.visible=true;
  r.size[0]=r.size[0]===64?135:r.size[0];
- r.size[2]=r.size[2]===135?64:r.size[2];
+ r.size[2]=r.size[2]===135?60:r.size[2];
  const b=bayGeometry(sl),depthHalf=r.size[2]/2;
  r.pos=[b.radX,c.portY-r.size[1]/2,b.panelOuter-sl.end*(Math.max(c.wood,r.fans?.panel>0?(c.fanThickness||25.4):0)+depthHalf)];
  const near=sl.side*(mainW/2-c.portFrontA),far=sl.side*(mainW/2-c.portFrontB);
