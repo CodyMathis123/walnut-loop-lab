@@ -2,7 +2,7 @@
 
 A standalone, browser-based 3D-style planner for a custom walnut PC water-cooling case.
 
-**Status:** v0.9 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
+**Status:** v0.10 prototype. The cabinet dimensions come from physical measurements, but radiator sizes, assembly depths, ports, and component positions are partly provisional. **Do not use model coordinates as finished cutting or tubing measurements.**
 
 ## Features
 
@@ -14,6 +14,14 @@ A standalone, browser-based 3D-style planner for a custom walnut PC water-coolin
 - Adjustable radiator dimensions, positions, fan thickness, ports, coolant routes, tubing styles and cost allowances
 - Save and restore configurations as JSON; export the current view
 - Local browser persistence and a static fallback drawing for browsers that block scripts
+
+## Editor layout and rendering (v0.10)
+
+The interactive page now prioritizes **Components** and **Fan-only openings**. Case dimensions, tubing routes, and tubing estimates remain available in collapsed sections rather than showing all reference notes on every page load. Measurement history, assumptions, and unverified dimensions belong here and in `docs/case-geometry.md`, not in the everyday editor UI.
+
+The viewer uses **one shared depth-sorted face queue** for the wood panels, their through-cut apertures, the center divider, fans, radiator bodies and optional internal hardware. This avoids the previous behavior in which entire component groups were painted over a finished shell, regardless of their actual front/back positions. It is still a painter's-algorithm preview, not a true 3D engine with a depth buffer, collision detection, or boolean subtraction between arbitrary intersecting components.
+
+The **Cooling view** focuses on radiators and fan assemblies. **Other parts** shows the provisional motherboard tray, CPU/GPU, pump, reservoir and drain. Existing projects retain their component positions and saved configurations; the new viewport filter defaults to cooling-only for older projects so those provisional internals no longer clutter the preview. Port markers are off in new projects but preserve their saved setting in older projects.
 
 ## Cooling assembly workflow
 
