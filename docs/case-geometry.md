@@ -1,6 +1,6 @@
 # Walnut Loop Lab — geometry notes
 
-**Current implementation: v0.24, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.24 format. See the current `README.md` and component builders for active defaults.
+**Current implementation: v0.25, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.25 format. See the current `README.md` and component builders for active defaults.
 
 Updated October 25, 2026. Approximate measurements are indicated.
 
@@ -201,3 +201,15 @@ The `allowAuto45` checkbox is **off by default**; sample generation applies auto
 **GPU port correction:** Alphacool GPU block terminal G1/4 connections are on the **top surface (+Y)** of the right-hand terminal, not on the right vertical side. Current world-local port offsets are `[49.4,17.675,-17]` and `[49.4,17.675,17]` mm; nominal port Z spacing 34 mm. Fitting normals are +Y; matching G1/4 ring geometry is in the X-Z plane. This corrects the obsolete +X port direction in v0.22 historical notes above.
 
 Test: `tests/tube-separation-check.mjs`. JSON project format: `walnut-loop-v24`.
+
+## v0.25 — global 45° permission, port departures, case shell and tube radius
+
+`allow45` is a global setting, false by default. Manual 45° options are absent unless enabled; sample generation does not insert 45° hardware merely when enabled. When the option is disabled, existing 45° connectors become straight, and imports with 45° fittings are refused. Straight/90° remain available.
+
+Port fitting geometry consists of an axial stem and (for 90°/45°) a circular arc with an exact outlet tangent. Each tubing route is constrained to leave both fittings along their outward normal or swivel outlet tangent, with a straight lead before any free tubing curvature. Leads are nominally >=30 mm, shortened to >=12 mm on the reservoir bottoms directly above the pumps. Automatic planning uses the two lead endpoints, while soft curves and hard bends are applied only between them.
+
+`WalnutLoopRouting.cabinetBoxes` uses the same front/back walnut panel tiles as the rendered case, leaving the actual four fan slots and upper windows open. It also represents the six longitudinal wood supports and lower X=0 steel divider. Tube radius plus 2 mm padding is applied. Cabinet structure is always physical regardless of whether the user hides the wood/steel render layers. Unroutable paths are marked rather than forced through panels; the earlier assumption that every default route is achievable is superseded.
+
+The WebGL renderer now builds 16-sided radial rings with continuous parallel-transport frames to maintain consistent physical tube diameter through turns. The smoke test measures tube radius numerically on either side of a 90° route.
+
+Test: `tests/physical-port-clearance-check.mjs`. Greenfield JSON format `walnut-loop-v25`.
