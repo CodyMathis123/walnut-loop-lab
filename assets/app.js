@@ -481,7 +481,12 @@ function routeObstacles(rt,margin=10,includeTubes=true){
   // connections start inside an inflated fan box and cannot be routed.
   ...routeTools.fanBoxes(installedFans(),project.case.fanThickness||25.4,
    project.tubeOD/2+2),
-  ...(includeTubes?routeTools.tubeBoxes(otherTubePaths(rt),project.tubeOD,2):[])
+  // Planning boxes are a conservative approximation of other tubes.
+  // Let the pathfinder approach an endpoint even if a diagonal tube's
+  // inflated AABB overlaps it; exact segment clearance is checked later.
+  ...(includeTubes?routeTools.tubeBoxes(otherTubePaths(rt),project.tubeOD,2)
+   .filter(box=>!(routeEnds(rt)||[]).some(point=>
+    dist(point,box.min.map((v,i)=>(v+box.max[i])/2))<45)):[])
  ];
 }
 function routePoints(rt){
