@@ -1708,7 +1708,11 @@ canvas.addEventListener('pointerdown',e=>{
     const v=screen(pts[i]);
     if(Math.hypot(v.x-x,v.y-y)<17){
      editableRoute(rt);selectedWaypoint=i-1;
-     routeDrag={route:rt,index:i-1};
+     const current=routeCenterline(rt);
+     const orthogonal=rt.style!=='soft'&&!!routeTools.orthogonalDrag(
+      current,i+1,[0,0,0]);
+     routeDrag={route:rt,index:i-1,orthogonal,
+      startPath:orthogonal?current:null,startX:e.clientX,startY:e.clientY};
      break;
     }
    }
@@ -1750,6 +1754,15 @@ canvas.addEventListener('pointermove',e=>{
     $('bridgeRise').value=next.rise;
     sceneRevision++;draw();
    }
+  }
+ }else if(routeDrag?.orthogonal){
+  const delta=routePointWorldDelta(
+   e.clientX-routeDrag.startX,e.clientY-routeDrag.startY,!!e.shiftKey);
+  const next=routeTools.orthogonalDrag(routeDrag.startPath,
+   routeDrag.index+2,delta);
+  if(next){
+   routeDrag.route.waypoints=next.slice(2,-2);
+   sceneRevision++;draw();
   }
  }else if(routeDrag){
   const wp=routeDrag.route.waypoints?.[routeDrag.index];
