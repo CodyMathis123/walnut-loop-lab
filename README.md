@@ -2,9 +2,13 @@
 
 An interactive, static-site 3D layout planner for a custom walnut PC water-cooling case. The live editor runs on GitHub Pages and uses Three.js/WebGL with Canvas/SVG fallback.
 
-**Status: v0.26 — greenfield prototype.** The design intentionally starts from its current default configuration on every page refresh. **Browser edits are not auto-saved and old browser drafts are discarded.** Use **Export project JSON** only when you want to keep an explicit current-version snapshot; **Import JSON** accepts v0.26-format projects only. There is **no backward-compatibility or automatic migration layer.**
+**Status: v0.27 — greenfield prototype.** The design intentionally starts from its current default configuration on every page refresh. **Browser edits are not auto-saved and old browser drafts are discarded.** Use **Export project JSON** only when you want to keep an explicit current-version snapshot; **Import JSON** accepts v0.27-format projects only. There is **no backward-compatibility or automatic migration layer.**
 
 [Open the live planner](https://codymathis123.github.io/walnut-loop-lab/)
+
+## v0.27 — unambiguous port labels
+
+Radiator selections now use **radiator number, current mounting location, and physical port position**, e.g. `Radiator 1 · Front right · Outer port (right edge)` and `Radiator 1 · Front right · Inner port (toward center)`. All four radiator slots (front/rear × left/right) are labeled consistently. The labels derive from the current mounting slot and the two actual X offsets, so changing slot or editing a port offset updates them automatically. They appear consistently in both tubing selectors, route descriptions, and the component port editor. Other port dropdown entries have shorter hardware names (CPU block, GPU block, left/right reservoir/pump/drain). Port IDs are unchanged; geometry/routing is unaffected.
 
 ## v0.26 — per-corner discrete elbows and formed-bend presets
 
@@ -152,6 +156,7 @@ node tests/fan-clearance-check.mjs
 node tests/tube-separation-check.mjs
 node tests/physical-port-clearance-check.mjs
 node tests/corner-angle-check.mjs
+node tests/port-labels-check.mjs
 node tests/webgl-smoke-check.mjs
 ```
 
