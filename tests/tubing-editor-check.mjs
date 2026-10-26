@@ -9,7 +9,7 @@ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 for(const id of ['addPoint','deletePoint','autoRoute','pointCount','singleHardwareSide']){
  assert.ok(html.includes('id="'+id+'"'),'Missing route control '+id);
 }
-assert.match(html,/assets\/app\.js\?v=0\.26/);
+assert.match(html,/assets\/app\.js\?v=0\.27/);
 
 function setup(userAgent){
  let counter=0;
