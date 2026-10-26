@@ -25,3 +25,5 @@ jobs:
         run: node tests/itx-layout-check.mjs
       - name: Left/right shared loop and interactive tubing waypoint editor
         run: node tests/tubing-editor-check.mjs
+      - name: 3D tube clearance, physical compression fittings and swivel orientation
+        run: node tests/route-collision-check.mjs
