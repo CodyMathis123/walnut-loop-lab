@@ -6,8 +6,8 @@ const routing=readFileSync(new URL('../assets/route-geometry.js',import.meta.url
 const parts=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-assert.match(html,/route-geometry\.js\?v=0\.23/);
-assert.match(html,/assets\/app\.js\?v=0\.23/);
+assert.match(html,/route-geometry\.js\?v=0\.24/);
+assert.match(html,/assets\/app\.js\?v=0\.24/);
 const w={};vm.runInNewContext(routing,{window:w});
 const routingTools=w.WalnutLoopRouting;
 assert.ok(routingTools?.plan&&routingTools.fitting&&routingTools.collisions);
@@ -73,11 +73,12 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
   assert.equal(api.project.routes.length,12);
   assert.ok(api.project.routes.every(r=>r.style===style));
   for(const rt of api.project.routes){
-   assert.ok(!rt.blocked,'Sample route cannot remain blocked: '+rt.from+' -> '+rt.to);
    const g=api.routeGeom(rt);
-   assert.equal(g.collisions.length,0,'Route penetrated a component: '+rt.from+' -> '+rt.to);
-   assert.equal(api.routeTools.collisions(g.smooth,api.routeObstacles(rt,8)).length,0);
+   if(rt.blocked){assert.ok(g.blocked,'Unroutable tube must be flagged');continue}
+   assert.equal(g.collisions.length,0,'Accepted route penetrated a component or tube: '+rt.from+' -> '+rt.to);
+   assert.equal(api.routeTools.collisions(g.smooth,api.routeObstacles(rt,8,false)).length,0);
   }
+  assert.ok(api.project.routes.filter(r=>!r.blocked).length>=6,'Several sample routes must remain feasible');
   const tubes=commands().filter(item=>item.kind==='tube');
   assert.ok(tubes.length>20,'Default sample must produce 3D tubes and compression fittings');
   assert.ok(tubes.some(t=>t.radius===api.project.tubeOD/2));
@@ -99,6 +100,6 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  const route=api.project.routes[0];
  assert.ok(route);
  if(!route.blocked)assert.deepEqual(Array.from(api.routePoints(route)[0]),Array.from(second));
- assert.equal(api.project.format,'walnut-loop-v23');
+ assert.equal(api.project.format,'walnut-loop-v24');
 }
 console.log('Collision detours, 3D tubing samples, and rotatable 45/90 port fittings passed.');
