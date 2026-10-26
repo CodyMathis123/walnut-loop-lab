@@ -35,3 +35,5 @@ jobs:
         run: node tests/tube-separation-check.mjs
       - name: Port exit tangents and walnut case shell clearance
         run: node tests/physical-port-clearance-check.mjs
+      - name: Per-corner elbow hardware and hard-tube bend angle validation
+        run: node tests/corner-angle-check.mjs
