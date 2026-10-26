@@ -1388,7 +1388,79 @@ function setRadiatorSlot(id,slot){let p=cpart(id);if(!p||p.type!=='radiator')ret
  }
  p.slot=slot;alignRadiatorToOpening(p);project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;showCoolingModel();changeModel();refreshComponent();
 }
-function addRoute(from,to,style,axis){
+function canBridgePorts(from,to){
+ const p=cpart((from||'').split('.')[0]),q=cpart((to||'').split('.')[0]);
+ if(p?.type!=='radiator'||q?.type!=='radiator')return false;
+ const leads=fittingLeads({from,to});
+ return !!routeTools.radiatorBridge(leads,{exit:35,rise:95,order:'x'});
+}
+function configureBridge(rt,config={exit:35,rise:95,order:'x'}){
+ if(!canBridgePorts(rt.from,rt.to))return false;
+ rt.bridge={exit:clamp(Number(config.exit)||0,0,180),
+  rise:clamp(Number(config.rise)||95,25,260),
+  order:config.order==='z'?'z':'x'};
+ if(rt.style==='soft')rt.style='elbow';
+ delete rt.waypoints;delete rt.lockedCorners;delete rt.cornerAngles;
+ delete rt._displayPath;delete rt._geometrySignature;delete rt.blocked;
+ rt.auto=false;rt._built=true;selectedWaypoint=-1;
+ return true;
+}
+function detachRadiatorBridge(rt){
+ if(!rt?.bridge)return false;
+ const pts=routeCenterline(rt);
+ if(pts.length<4)return false;
+ rt.waypoints=pts.slice(2,-2).map(p=>p.slice());
+ delete rt.bridge;delete rt._displayPath;delete rt._geometrySignature;
+ selectedWaypoint=-1;return true;
+}
+function makeSelectedBridge(){
+ const rt=project.routes.find(r=>r.id===selectedRoute);
+ if(!rt)return;
+ if(!configureBridge(rt,rt.bridge||{exit:35,rise:95,order:'x'})){
+  toast('Bridge needs two radiator ports with straight, side-facing fittings.');
+  return;
+ }
+ changeModel();
+ const g=routeGeom(rt);
+ toast(g.blocked?'Bridge created with 90° turns; adjust rise/exit to clear obstacles.':
+  'Bridge created: every turn is an exact 90°. Adjust exit and rise below.');
+}
+function fitSelectedBridge(){
+ const rt=project.routes.find(r=>r.id===selectedRoute);
+ if(!rt?.bridge)return;
+ const original={...rt.bridge};
+ // Try short exits and successively higher crossbars; never accept a clash.
+ const candidates=[...new Set([original.rise,65,85,105,125,150,190,230])];
+ const exits=[...new Set([original.exit,15,25,40,60,90])];
+ let found=null;
+ outer:for(const rise of candidates)for(const exit of exits)for(const order of ['x','z']){
+  rt.bridge={exit,rise,order};
+  const g=routeGeom(rt);
+  if(!g.blocked){found={...rt.bridge};break outer}
+ }
+ rt.bridge=found||original;
+ changeModel();
+ toast(found?'Found a bridge with component and tube clearance.':
+  'No clear bridge found in the tested positions; path remains flagged.');
+}
+function refreshBridgeControls(rt){
+ const enabled=!!rt?.bridge;
+ $('bridgeControls').style.display=enabled?'block':'none';
+ $('routePointControls').style.display=enabled?'none':'block';
+ $('makeBridge').disabled=!rt||!canBridgePorts(rt.from,rt.to);
+ if(!enabled)return;
+ $('bridgeExit').value=rt.bridge.exit;
+ $('bridgeRise').value=rt.bridge.rise;
+ $('bridgeOrder').value=rt.bridge.order;
+ const g=routeGeom(rt);
+ const issues=g.collisions.map(k=>k.startsWith('bridge:')?
+  'straight port fittings required':k).slice(0,4);
+ $('bridgeStatus').textContent=g.blocked?
+  '⚠ Clearance needed: '+issues.join(', ')+
+   (g.collisions.length>4?' and more':''):
+  'All '+g.corners.length+' turns are exactly 90° · no modeled collisions.';
+}
+function addRoute(from,to,style,axis,preset=null){
  if(isFillVentPort(from)||isFillVentPort(to)){
   toast('Reservoir top ports are fill/vent only; connect tubing to the two bottom ports.');
   return;
@@ -1396,6 +1468,16 @@ function addRoute(from,to,style,axis){
  if(!connectablePort(from)||!connectablePort(to)||from===to){
   toast('Select two different, valid ports.');return
  }if(project.loopMode==='dual'&&portLoop(from)!==portLoop(to)){toast('GPU and CPU loops are separate; select ports in the same loop.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);const route={id,from,to,style,axis,loop:portLoop(from),auto:false,_built:false};
+ if(preset==='bridge'){
+  if(!configureBridge(route)){
+   toast('Select two radiator ports with straight, side-facing fittings.');return;
+  }
+  project.routes.push(route);selectedRoute=id;selectedWaypoint=-1;
+  changeModel();
+  toast(routeGeom(route).blocked?'Bridge created, but clearance needs adjustment.':
+   '90° radiator bridge created. Tune its exit and rise in Selected route.');
+  return;
+ }
  const safe=generateRoutePath(route);
  project.routes.push(route);selectedRoute=id;selectedWaypoint=-1;
  changeModel();toast(safe?'Route added with component clearance.':'No clear automatic path. Adjust component positions or add points.');}
