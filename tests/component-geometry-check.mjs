@@ -7,7 +7,7 @@ import vm from 'node:vm';
 const source=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-assert.match(html,/<script src="assets\/part-geometry\.js\?v=0\.25"><\/script>\s*<script src="assets\/route-geometry\.js\?v=0\.25"><\/script>\s*<script src="assets\/app\.js\?v=0\.25"><\/script>/);
+assert.match(html,/<script src="assets\/part-geometry\.js\?v=0\.26"><\/script>\s*<script src="assets\/route-geometry\.js\?v=0\.26"><\/script>\s*<script src="assets\/app\.js\?v=0\.26"><\/script>/);
 assert.match(app,/p\.type==='tray'&&drawParts\?\.renderTray/);
 assert.match(app,/p\.type==='radiator'&&drawParts\?\.renderRadiator/);
 
