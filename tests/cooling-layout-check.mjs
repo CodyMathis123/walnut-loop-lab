@@ -10,7 +10,7 @@ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 assert.match(html,/id="loopMode"/);
 assert.match(html,/id="reservoirOrientation"/);
 assert.match(html,/id="radiatorLoop"/);
-assert.match(html,/src="assets\/app\.js\?v=0\.25"/);
+assert.match(html,/src="assets\/app\.js\?v=0\.26"/);
 
 function harness(agent){
  const elements=new Map(),ctx={
@@ -170,7 +170,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.equal(api.cpart('res2').orientation,'horizontal');
  // Explicit imports are complete snapshots of this version, without migration.
  const current=api.initial();
- assert.equal(current.format,'walnut-loop-v25');
+ assert.equal(current.format,'walnut-loop-v26');
  current.parts.find(x=>x.id==='drain').pos=[-160,75,90];
  const restored=api.normalizeImport(current);
  assert.deepEqual(Array.from(restored.parts.find(x=>x.id==='drain').pos),[-160,75,90]);
