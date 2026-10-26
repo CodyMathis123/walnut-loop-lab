@@ -499,6 +499,7 @@ function fittingLeads(rt){
 function routeCenterline(rt){
  const ends=fittingLeads(rt);if(!ends)return [];
  const {a,b,depart,approach}=ends;
+ if(rt.bridge)return routeTools.radiatorBridge(ends,rt.bridge)||[];
  let middle=[];
  if(Array.isArray(rt.waypoints)){
   middle=rt.waypoints.map(p=>p.slice());
@@ -694,6 +695,7 @@ function routeObstacles(rt,margin=10,includeTubes=true){
  ];
 }
 function routePoints(rt){
+ if(rt.bridge)return routeCenterline(rt);
  const ends=routeEnds(rt);
  if(!ends)return [];
  const [a,b]=ends;
@@ -751,6 +753,7 @@ function generateRoutePath(rt){
 // A waypoint is a true world-space 3D coordinate; endpoints remain attached
 // to real hardware ports. Existing automatic routes become editable on demand.
 function editableRoute(rt){
+ if(rt.bridge)return [];
  if(!Array.isArray(rt.waypoints))rt.waypoints=routePoints(rt).slice(1,-1);
  return rt.waypoints;
 }
@@ -854,11 +857,13 @@ function removeSelectedRoutePoint(){
 }
 function clearSelectedRoutePoints(){
  const rt=project.routes.find(r=>r.id===selectedRoute);if(!rt)return;
+ delete rt.bridge;
  delete rt.waypoints;delete rt.blocked;delete rt.lockedCorners;
  delete rt.cornerAngles;selectedWaypoint=-1;generateRoutePath(rt);changeModel();
 }
 function drawRouteHandles(){
  const rt=project.routes.find(r=>r.id===selectedRoute);
+ if(rt?.bridge)return;
  if(!rt||project.display.caseOnly||!portPos(rt.from)||!portPos(rt.to))return;
  const pts=routePoints(rt);
  // Open circles for two fixed endpoints, draggable gold circles for bends.
@@ -879,6 +884,8 @@ function routeGeom(rt){
  // Broad tube AABBs are used to steer auto routing, but only exact
  // centerline separation decides whether a drawn tube collides.
  const pts=routeCenterline(rt),obstacles=routeObstacles(rt,8,false);
+ if(rt.bridge&&!pts.length)return {pts:[],smooth:[],length:0,elbows:0,
+  corners:[],angleIssues:[],collisions:['bridge:invalid-port-direction'],blocked:true};
  let smooth=tubingShape(rt);
  // Tight curves can bow beyond otherwise-clear control points. Never silently
  // render that curve through a component; display the safe path instead.
@@ -1217,8 +1224,8 @@ function changeModel(){for(const rt of project.routes)if(rt.lockedCorners?.lengt
  sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
 function refreshCornerControls(rt){
  const panel=$('routeCornerControls'),list=$('cornerList');
- panel.style.display=rt&&rt.style!=='soft'?'block':'none';
- if(!rt||rt.style==='soft'){list.innerHTML='';return}
+ panel.style.display=rt&&rt.style!=='soft'&&!rt.bridge?'block':'none';
+ if(!rt||rt.style==='soft'||rt.bridge){list.innerHTML='';return}
  const c=routeCorners(rt),angles=rt.style==='elbow'?
   (project.allow45?[90,45]:[90]):routeTools.BEND_ANGLES;
  const pts=routeCenterline(rt);
@@ -1490,7 +1497,11 @@ function init(){ $('allowAuto45').checked=project.allow45===true;
  $('showCoolingBtn').onclick=()=>{showCoolingModel();changeModel();toast('Cooling assemblies visible. Select a radiator to edit fans.');};$('componentVisible').onchange=e=>{let part=cpart(selection);if(!part)return;part.visible=e.target.checked;project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;changeModel()};$('wallThickness').onchange=e=>{project.case.wood=clamp(Number(e.target.value),1,80);changeModel()};$('syncRads').onclick=()=>{syncMeasuredRadiators();showCoolingModel();persist();refreshComponent();changeModel();toast('Aligned installed radiators to front/back panel cutouts.');};$('dividerHeight').onchange=e=>{project.case.divider=clamp(Number(e.target.value),50,project.case.height-50);changeModel()};$('centerComponent').onclick=()=>{let p=cpart(selection);if(p)view.target=p.pos.slice();draw()};
  for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).onclick=()=>{project.display[k]=!project.display[k];$(id).classList.toggle('active',project.display[k]);changeModel()};
  $('addRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,$('styleSelect').value,$('axisOrder').value);$('populateRoutes').onclick=sampleRoutes;
- $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.style=e.target.value;if(rt.style==='soft'){delete rt.lockedCorners;delete rt.cornerAngles}changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;selectedWaypoint=-1;changeModel()};
+ $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){
+ if(e.target.value==='soft'&&rt.bridge)detachRadiatorBridge(rt);
+ rt.style=e.target.value;
+ if(rt.style==='soft'){delete rt.lockedCorners;delete rt.cornerAngles}
+ changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;selectedWaypoint=-1;changeModel()};
  $('addPoint').onclick=addSelectedRoutePoint;
  $('add90Corner').onclick=addLocked90Corner;
  $('deletePoint').onclick=removeSelectedRoutePoint;
@@ -1508,7 +1519,7 @@ canvas.addEventListener('pointerdown',e=>{
  const [x,y]=canvasPoint(e);
  if(!project.display.caseOnly&&e.button!==2){
   const rt=project.routes.find(r=>r.id===selectedRoute);
-  if(rt&&portPos(rt.from)&&portPos(rt.to)){
+  if(rt&&!rt.bridge&&portPos(rt.from)&&portPos(rt.to)){
    const pts=routePoints(rt);
    for(let i=1;i<pts.length-1;i++){
     const v=screen(pts[i]);
@@ -1521,7 +1532,7 @@ canvas.addEventListener('pointerdown',e=>{
   }
   if(!routeDrag){
    const hit=nearestRenderedRoute(x,y);
-   if(hit){
+   if(hit&&!hit.route.bridge){
     const target=hit.route;
     // Clicking a tube creates an editable bend at the nearest control segment.
     const seg=nearestRouteSegment(target,x,y);
