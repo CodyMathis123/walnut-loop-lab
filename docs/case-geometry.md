@@ -1,6 +1,6 @@
 # Walnut Loop Lab — geometry notes
 
-**Current implementation: v0.21, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.21 format. See the current `README.md` and component builders for active defaults.
+**Current implementation: v0.22, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.22 format. See the current `README.md` and component builders for active defaults.
 
 Updated October 25, 2026. Approximate measurements are indicated.
 
@@ -175,3 +175,15 @@ The WebGL backend understands `{kind:'tube', pts:[[x,y,z], ...], radius, color}`
 Each port may store `fittings[port.id]={type:'straight'|'45'|'90',rotation:<degrees>}`. Angled connectors calculate a normal from the component surface, construct a tangent basis and rotate the 45/90 degree outlet about that normal. Tubes connect to the **free end of the swivel**, not the origin of the port fitting. The component editor exposes the angle and rotation individually for every port, including water blocks. Reservoir top fill/vent ports do not admit circulating tubing. Approximate fitting lengths, orientation and compression/collar shapes are not manufacturer machining references. The cost estimate includes base compression and optional angled adapters.
 
 Regression coverage: `node tests/route-collision-check.mjs`, plus existing WebGL, routing and component suites. Project JSON format is `walnut-loop-v21` with greenfield no-migrations policy.
+
+## v0.22 — flattened GPU block, PCB proxy, and walnut support
+
+GPU: **PowerColor Reaper RX 9070 XT**, Alphacool Core RX 9070 XT Hellhound + Pure, **#14782**. Actual published cooler outside dimensions **197 × 127.33 × 33.35 mm (L × W × H)**; published backplate dimensions **197 × 98.8 × 6 mm**. The exposed PCB is inferred to be approximately **197 × 98.8 × 1.6 mm** but **not manufacturer-measured**. Reference: https://shop.alphacool.com/en/shop/gpu-water-cooling/amd/14782-alphacool-core-rx-9070-xt-hellhound-pure-with-backplate .
+
+GPU world-space default: `pos=[-91,524.275,-120.95]`, `size=[127.33,33.35,197]`. It is horizontal in the X–Z plane with video I/O facing case/rear -Z, PCIe fingers on -X, and two modeled working G1/4 ports on +X at `port.off=[63.665,8,-17]` and `[63.665,8,17]` (34 mm separation, planning approximation). Fitting normals for GPU are +X, not +Y. Additional physical threads in the block terminal are not plumbed in this conceptual model.
+
+The motherboard tray center is `[8.57,492.775,-69.525]`, nominal sheet footprint **276.86 × 323.85 mm**. The ITX board's new X center is **62 mm**, so its right edge meets the tray's right edge (147 mm). The GPU outer block runs X -154.665 to -27.335, leaving a **4.335 mm X gap** to the motherboard left edge at -23. The aluminum tray's left edge is X -129.86. Hence the cooler hangs **24.805 mm beyond the metal tray**, approximately to the left of the rear sheet-metal panel (which extends farther left). An **8 mm walnut platform** under the PCB/backplate is modeled as a conceptual support. The platform needs physical attachment; verify metal flange, backplate dimensions, and fitting clearance in an actual test fit. No automatic fastener design is implied.
+
+`gpuPoseForTray` attaches the GPU to the rear-left region of the tray with a 12 mm rear inset and a nominal 6 mm platform-to-GPU lift. `alignGPUToTray` resets that position. The GPU follows tray movement through `mountedTo='tray'`, while CPU block follows the ITX motherboard. The detailed GPU drawing is handled by `renderGPU` in `assets/part-geometry.js`: walnut support, approximate PCB, backplate, cooling block, right terminal, rear output bracket and left PCIe gold fingers. Collision bounds consider the full water-block envelope; port fitting clearance still needs inspection. The existing route generator passes its major-component collision check in dual mode for all tubing styles with the updated block.
+
+Regression test: `tests/gpu-layout-check.mjs`. Current JSON format: `walnut-loop-v22` (no migrations).
