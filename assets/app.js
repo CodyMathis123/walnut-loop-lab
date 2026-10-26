@@ -28,9 +28,9 @@ const initial=()=>({
     {id:'gpu',name:'PowerColor Reaper RX 9070 XT · Alphacool Core #14782',type:'gpu',
      loop:'gpu',mountedTo:'tray',orientation:'horizontal',pos:[-91,524.275,-120.95],
      size:GPU_BLOCK_MM.slice(),pcbSize:[GPU_BACKPLATE_WIDTH_MM,1.6,197],platformThickness:GPU_PLATFORM_MM,
-     ports:[{id:'in',name:'Right terminal · inlet',off:[GPU_BLOCK_MM[0]/2,8,-17]},
-            {id:'out',name:'Right terminal · outlet',off:[GPU_BLOCK_MM[0]/2,8,17]}],
-     note:'197 × 127.33 × 33.35 mm Alphacool #14782 block on the PowerColor Reaper; 197 × 98.8 mm backplate used as the approximate PCB footprint. GPU horizontal beside ITX board, rear display I/O toward -Z, PCIe edge to the left (-X), both coolant ports on the right (+X). Walnut mounting platform projects left of the tray; actual PCB and clearance measurements remain provisional.'},
+     ports:[{id:'in',name:'Top terminal · inlet',off:[GPU_BLOCK_MM[0]/2-14.265,GPU_BLOCK_MM[1]/2+1,-17]},
+            {id:'out',name:'Top terminal · outlet',off:[GPU_BLOCK_MM[0]/2-14.265,GPU_BLOCK_MM[1]/2+1,17]}],
+     note:'197 × 127.33 × 33.35 mm Alphacool #14782 block on the PowerColor Reaper; 197 × 98.8 mm backplate used as the approximate PCB footprint. GPU horizontal beside ITX board, rear display I/O toward -Z, PCIe edge to the left (-X), both coolant ports on the top (+Y) of the right-side terminal. Walnut mounting platform projects left of the tray; actual PCB and clearance measurements remain provisional.'},
     {id:'res',name:'GPU reservoir · left',type:'res',loop:'gpu',orientation:'vertical',pos:[-125,300,55],size:[72,238,72],ports:[{id:'in',name:'Bottom return',off:[-17,-119,0]},{id:'out',name:'Bottom supply',off:[17,-119,0]},{id:'top',name:'Top fill / vent',off:[0,119,0]}],note:'Left lower chamber, completely clear of the X=0 steel divider. Position and dimensions are provisional.'},
     {id:'pump',name:'GPU pump · left',type:'pump',loop:'gpu',pos:[-125,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'Pump location, inlet and outlet orientation are provisional. Maintain a reliable flooded pump inlet.'},
     {id:'drain',name:'GPU drain · left',type:'drain',loop:'gpu',pos:[-190,65,125],size:[55,26,36],ports:[{id:'in',name:'T branch',off:[-28,0,0]},{id:'out',name:'Capped outlet',off:[28,0,0]}],note:'Low-point drain tee with a capped/closed valve. Schematic mounting position.'},
@@ -865,7 +865,7 @@ function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.p
    'Alphacool #14782 · 197 × 127.33 × 33.35 mm; PCB/backplate proxy 197 × 98.8 mm. '+
    'Left block overhang: '+overhang.toFixed(1)+' mm past metal tray. '+
    'Motherboard edge clearance: '+edgeGap.toFixed(1)+' mm before fittings. '+
-   'Rear I/O −Z · PCIe −X · G1/4 coolant ports +X.';
+   'Rear I/O −Z · PCIe −X · G1/4 coolant ports TOP (+Y).';
  }
  if(isTray){
   const original=initial().parts.find(v=>v.id==='tray').cutout;
