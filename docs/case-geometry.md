@@ -1,6 +1,6 @@
 # Walnut Loop Lab — geometry notes
 
-**Current implementation: v0.26, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.26 format. See the current `README.md` and component builders for active defaults.
+**Current implementation: v0.27, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.27 format. See the current `README.md` and component builders for active defaults.
 
 Updated October 25, 2026. Approximate measurements are indicated.
 
@@ -223,3 +223,7 @@ Only **45° and 90°** hardware elbow angles are supported. The global `allow45`
 The generator tries axis-aligned orthogonal alternatives around obstacles before accepting hard elbows/formed bends. It may insert collision-tested 90° doglegs around 180° route reversals. If a physically realisable set of corner angles cannot be found, that route is flagged instead of faking the hardware. The earlier samples were not designed around discrete fitting inventory and **some stock hard paths are now flagged**; this is expected pending layout/fitting refinement. The tolerance applies to displayed turn geometry, not a manufacturing allowance for bending a tube.
 
 New regression: `tests/corner-angle-check.mjs`. Greenfield format `walnut-loop-v26`.
+
+## v0.27 — physical port labels (current)
+
+`portDescription` derives radiator `Outer` versus `Inner` from each port's X offset relative to the other radiator port and the `FAN_SLOTS` side sign. Outer means toward the left/right cabinet edge and inner means toward the center divider. `portLabel` combines this with `Radiator N · Front/Rear left/right` determined from `part.slot`. Both UI port selectors, route list and component details share these helpers. Other component labels use concise hardware names. Original route identifiers (`rad1.in`, etc.) are unchanged. Default serialized radiator names are `Outer port` and `Inner port` rather than `Near side/Far side/Port A/Port B`. Test: `tests/port-labels-check.mjs`. Current greenfield JSON format `walnut-loop-v27`.
