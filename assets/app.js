@@ -508,7 +508,29 @@ function orthogonalRoute(rt,obstacles){
   }
   reduced.push(p);
  }
- rt.waypoints=reduced.slice(1,-1);
+ // A 180° reversal isn't a real elbow. When space permits, replace it
+ // with three perpendicular 90° turns (a short dogleg).
+ const current=reduced.slice();
+ for(let i=1;i<current.length-1;i++){
+  if(routeTools.cornerAngle(current[i-1],current[i],current[i+1])<177)continue;
+  const a=current[i-1],b=current[i],c=current[i+1],v=sub(b,a);
+  let selected=null;
+  for(const axis of [0,1,2].filter(j=>Math.abs(v[j])<.001)){
+   for(const sign of [1,-1]){
+    for(const width of [48,72,96]){
+     const offset=[0,0,0];offset[axis]=sign*width;
+     const first=add(b,offset),second=add(c,offset);
+     if(!routeTools.collisions([b,first,second,c],obstacles).length){
+      selected=[first,second];break;
+     }
+    }
+    if(selected)break;
+   }
+   if(selected)break;
+  }
+  if(selected){current.splice(i+1,0,...selected);i+=2}
+ }
+ rt.waypoints=current.slice(1,-1);
  delete rt._displayPath;delete rt._geometrySignature;return true;
 }
 function tubingSignature(rt){
