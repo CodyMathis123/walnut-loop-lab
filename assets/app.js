@@ -1119,6 +1119,12 @@ function sampleRoutes(){
    }
   }
  }
+ // Reserve the tight reservoir return runs first. Once these exits are
+ // clear, subsequent radiator/pump/drain runs avoid their occupied space.
+ // This provides complete routes on the stock left/right and dual layouts
+ // without weakening centerline collision tests.
+ links.sort((a,b)=>Number(b.ports[1].startsWith('res')&&b.ports[1].endsWith('.in'))-
+  Number(a.ports[1].startsWith('res')&&a.ports[1].endsWith('.in')));
  project.routes=links.filter(({ports})=>connectablePort(ports[0])&&connectablePort(ports[1]))
   .map(({ports,mode},i)=>({id:'example'+i,from:ports[0],to:ports[1],
    loop:mode,style:chosenStyle,axis:chosenAxis,auto:true,_built:false}));
