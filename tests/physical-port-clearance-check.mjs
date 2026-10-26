@@ -7,7 +7,7 @@ const parts=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'
 const route=readFileSync(new URL('../assets/route-geometry.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 assert.match(html,/Allow 45° fittings/);
-assert.match(html,/assets\/app\.js\?v=0\.25/);
+assert.match(html,/assets\/app\.js\?v=0\.26/);
 const k=()=>({beginPath(){},moveTo(){},lineTo(){},closePath(){},
  stroke(){},fill(){},arc(){},ellipse(){},clearRect(){},fillRect(){},
  setTransform(){},setLineDash(){},fillText(){},measureText(t){return {width:String(t).length*7}}});
@@ -41,7 +41,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  }`,ctx);
  const api=ctx.testAPI;
  ctx.window.WalnutLoopWebGL={active:true,render(){},setActive(){}};
- assert.equal(api.project.format,'walnut-loop-v25');
+ assert.equal(api.project.format,'walnut-loop-v26');
  assert.equal(api.project.allow45,false);
  assert.equal(el('allowAuto45').checked,false);
  const wood=api.routeTools.cabinetBoxes(api.project.case,0);
