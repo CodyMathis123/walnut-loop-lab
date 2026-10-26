@@ -632,8 +632,47 @@ function orthogonalRoute(rt,obstacles){
    i+=2;
   }
  }
+ // Reject paths requiring a diagonal, U-turn fitting, or nonexistent
+ // port direction. Endpoint lead segments are always treated as immutable.
+ if(routeTools.axisIssues(current).length||
+    routeTools.corners(current,'elbow',{},false).some(c=>!c.valid))return false;
  rt.waypoints=current.slice(2,-2);
  delete rt._displayPath;delete rt._geometrySignature;return true;
+}
+// Existing imported/sketched elbows are reconstructed using X/Y/Z runs,
+// not merely angle-snapped. Retain an obstacle warning if no clear arrangement
+// exists, but never leave a diagonal in an accepted hard-elbow path.
+function squareElbowRoute(rt,allowClashes=true){
+ if(!rt||rt.bridge||rt.style!=='elbow')return false;
+ if(!routeTools.axisIssues(routeCenterline(rt)).length&&
+    !routeCorners(rt).some(c=>!c.valid))return true;
+ const before=rt.waypoints?.map(p=>p.slice()),locks=rt.lockedCorners,
+  angles=rt.cornerAngles,blocked=rt.blocked,built=rt._built;
+ let ok=orthogonalRoute(rt,routeObstacles(rt,8,false));
+ if(!ok&&allowClashes)ok=orthogonalRoute(rt,[]);
+ // Corner numbers change when a diagonal becomes several axis-aligned
+ // sections; validate the newly built path, not outdated angle selections.
+ if(!ok||routeTools.axisIssues(routeCenterline(rt)).length||
+    routeTools.corners(routeCenterline(rt),'elbow',{},false)
+     .some(c=>!c.valid)){
+  if(before)rt.waypoints=before;else delete rt.waypoints;
+  rt.lockedCorners=locks;rt.cornerAngles=angles;rt.blocked=blocked;rt._built=built;
+  return false;
+ }
+ // The number of elbow handles may have changed; stale per-index
+ // angle-lock references must not describe unrelated new corners.
+ delete rt.lockedCorners;delete rt.cornerAngles;delete rt.blocked;
+ rt._built=true;selectedWaypoint=-1;
+ return true;
+}
+function squareSelectedRoute(){
+ const rt=project.routes.find(r=>r.id===selectedRoute);
+ if(!rt||rt.style!=='elbow'||rt.bridge)return;
+ if(squareElbowRoute(rt,true)){
+  changeModel();
+  toast(routeGeom(rt).blocked?'Squared to X/Y/Z; check marked clearance problems.':
+   'All straight sections are now parallel to case edges.');
+ }else toast('No valid right-angle path from these fixed port directions. Adjust fittings or component positions.');
 }
 function tubingSignature(rt){
  return JSON.stringify([routeCenterline(rt),rt.style,project.bendRadius]);
@@ -936,14 +975,17 @@ function routeGeom(rt){
  if(!safe&&!routeTools.collisions(pts,obstacles).length&&
    !tubeTubeHits(rt,pts).length)smooth=pts;
  const corners=routeCorners(rt,pts),angleIssues=corners.filter(c=>!c.valid);
+ const axisIssues=rt.style==='elbow'?routeTools.axisIssues(pts):[];
  const actual=[...new Set([
   ...routeTools.collisions(smooth,obstacles),
   ...tubeTubeHits(rt,smooth),
-  ...angleIssues.map(c=>'angle:'+c.index)
+  ...angleIssues.map(c=>'angle:'+c.index),
+  ...axisIssues.map(c=>'off-axis:'+c.index)
  ])];
  const elbows=rt.style==='elbow'?corners.length:0;
- return {pts,smooth,length:lengthOf(smooth),elbows,corners,angleIssues,
-  collisions:actual,blocked:actual.length>0,simplified:!safe&&!actual.length};
+ return {pts,smooth:axisIssues.length?[]:smooth,length:lengthOf(smooth),
+  elbows,corners,angleIssues,axisIssues,collisions:actual,
+  blocked:actual.length>0,simplified:!safe&&!actual.length};
 }
 function renderTube(rt){
  const g=routeGeom(rt);
@@ -1262,7 +1304,11 @@ function sanitizeFittings(){
    if(Number(angle)===45)route.cornerAngles[index]=90;
  }
 }
-function changeModel(){for(const rt of project.routes)if(rt.lockedCorners?.length)enforceLocked90(rt);
+function changeModel(){
+ for(const rt of project.routes){
+  if(rt.style==='elbow'&&!rt.bridge&&!rt.blocked)squareElbowRoute(rt);
+  if(rt.lockedCorners?.length)enforceLocked90(rt);
+ }
  sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
 function refreshCornerControls(rt){
  const panel=$('routeCornerControls'),list=$('cornerList');
@@ -1307,8 +1353,8 @@ function refreshCornerControls(rt){
   if(spec&&alignCornerToAngle(rt,index,spec.angle))changeModel();
  });
 }
-function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?(g.angleIssues.length?'Angle mismatch':'Clearance needed'):Math.round(g.length)+' mm'} · ${g.corners.length} corners</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
- let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=rt.bridge?'Parametric bridge · edit height and exit below':
+function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?(g.axisIssues?.length?'Not case-aligned':g.angleIssues.length?'Angle mismatch':'Clearance needed'):Math.round(g.length)+' mm'} · ${g.corners.length} corners</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
+ let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('squareRoute').disabled=rt.style!=='elbow'||!!rt.bridge;$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=rt.bridge?'Parametric bridge · edit height and exit below':
   (rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points'+
   (rt.lockedCorners?.length?' · '+rt.lockedCorners.length+' locked at 90°':'');$('deletePoint').disabled=selectedWaypoint<0}refreshCornerControls(rt);refreshBridgeControls(rt)}
 function estimate(){
@@ -1341,7 +1387,8 @@ function estimate(){
 function refreshEstimate(){let a=estimate();$('totalLength').textContent=((a.softLen+a.hardLen)/1000).toFixed(2)+' m';$('fittingCount').textContent=a.straight;$('elbowCount').textContent=a.elbow+a.adapter;let money=n=>'$'+n.toFixed(2);$('estimateRows').innerHTML=[['Port compressions',a.straight+' × '+money(project.prices.fit),a.c1],['Tube elbows + port swivels',a.elbow+' tube + '+a.adapter+' angled port × '+money(project.prices.elbow),a.c2],['Soft tubing',a.sf.toFixed(2)+' m',a.c3],['Hard tubing',a.hf.toFixed(2)+' m',a.c4],['Other / adapters','allowance',project.prices.other]].map(([n,detail,v])=>`<tr><td>${n}<small style="display:block;color:#8493a4">${detail}</small></td><td>${money(v)}</td></tr>`).join('');$('costTotal').textContent=money(a.total)}
 // Intentionally no automatic draft persistence during greenfield iteration.
 function persist(){}
-function updateAll(){sceneRevision++;refreshLoopSummary();refreshCase();refreshPortSelect();refreshComponent();refreshRouteList();refreshEstimate();for(let id of ['fit','elbow','soft','hard','waste','other'])$(id==='fit'?'fitPrice':id==='elbow'?'elbowPrice':id==='soft'?'softPrice':id==='hard'?'hardPrice':id==='waste'?'wastePct':'otherCost').value=project.prices[id];$('tubeOD').value=project.tubeOD;$('bendRadius').value=project.bendRadius;for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).classList.toggle('active',project.display[k]);draw()}
+function updateAll(){for(const rt of project.routes)if(rt.style==='elbow'&&!rt.bridge&&!rt.blocked)squareElbowRoute(rt);
+ sceneRevision++;refreshLoopSummary();refreshCase();refreshPortSelect();refreshComponent();refreshRouteList();refreshEstimate();for(let id of ['fit','elbow','soft','hard','waste','other'])$(id==='fit'?'fitPrice':id==='elbow'?'elbowPrice':id==='soft'?'softPrice':id==='hard'?'hardPrice':id==='waste'?'wastePct':'otherCost').value=project.prices[id];$('tubeOD').value=project.tubeOD;$('bendRadius').value=project.bendRadius;for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).classList.toggle('active',project.display[k]);draw()}
 function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}// Greenfield editor: imports are current-format snapshots, never upgraded.
 // Re-opening the page intentionally starts with initial() rather than restoring
 // older drafts. Export JSON explicitly to keep a particular experiment.
@@ -1651,6 +1698,7 @@ function init(){ $('allowAuto45').checked=project.allow45===true;
  $('add90Corner').onclick=addLocked90Corner;
  $('deletePoint').onclick=removeSelectedRoutePoint;
  $('autoRoute').onclick=clearSelectedRoutePoints;
+ $('squareRoute').onclick=squareSelectedRoute;
  $('makeBridge').onclick=makeSelectedBridge;
  $('fitBridge').onclick=fitSelectedBridge;
  $('detachBridge').onclick=()=>{
@@ -1709,7 +1757,7 @@ canvas.addEventListener('pointerdown',e=>{
     if(Math.hypot(v.x-x,v.y-y)<17){
      editableRoute(rt);selectedWaypoint=i-1;
      const current=routeCenterline(rt);
-     const orthogonal=rt.style!=='soft'&&!!routeTools.orthogonalDrag(
+     const orthogonal=rt.style==='elbow'&&!!routeTools.orthogonalDrag(
       current,i+1,[0,0,0]);
      routeDrag={route:rt,index:i-1,orthogonal,
       startPath:orthogonal?current:null,startX:e.clientX,startY:e.clientY};
@@ -1764,7 +1812,7 @@ canvas.addEventListener('pointermove',e=>{
    routeDrag.route.waypoints=next.slice(2,-2);
    sceneRevision++;draw();
   }
- }else if(routeDrag){
+ }else if(routeDrag&&routeDrag.route.style!=='elbow'){
   const wp=routeDrag.route.waypoints?.[routeDrag.index];
   if(wp){const delta=routePointWorldDelta(dx,dy,!!e.shiftKey);
    const before=routeDrag.route.waypoints.map(p=>p.slice());
