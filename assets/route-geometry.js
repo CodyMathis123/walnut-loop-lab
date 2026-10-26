@@ -59,6 +59,21 @@
         max:p.pos.map((v,i)=>v+p.size[i]/2+inflate)};
     });
  }
+ // Per-physical-fan obstacle. A 120 mm square frame occupies the complete
+ // depth of the fan, even when the circular rotor is visually open.
+ // Identifiers distinguish panel-side, inner-side and fan-only units.
+ function fanBoxes(fans,thickness=25.4,extra=12){
+  const t=Number.isFinite(+thickness)&&+thickness>0?+thickness:25.4;
+  return fans.map((fan,index)=>{
+   const pos=fan.pos;
+   const half=[60+extra,60+extra,t/2+extra];
+   return {
+    id:'fan:'+(fan.radiatorId||fan.slot||'free')+
+      ':'+(fan.face||'panel')+':'+(fan.row??index),
+    min:pos.map((n,i)=>n-half[i]),max:pos.map((n,i)=>n+half[i])
+   };
+  });
+ }
  function segmentIntersects(a,b,box){
   let lo=0,hi=1;
   for(let i=0;i<3;i++){
@@ -161,5 +176,5 @@
   const blocked=collisions(candidate,obstacles);
   return {points:blocked.length?null:candidate,blocked,reason:blocked.length?'verification':null,visited};
  }
- window.WalnutLoopRouting={fitting,boxes,collisions,plan,segmentIntersects,simplify};
+ window.WalnutLoopRouting={fitting,boxes,fanBoxes,collisions,plan,segmentIntersects,simplify};
 })();
