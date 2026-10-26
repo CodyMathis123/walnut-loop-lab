@@ -56,7 +56,7 @@ function editor(agent){
 }
 for(const agent of ['Desktop Chrome','iPhone Safari']){
  const {api,node}=editor(agent);
- assert.equal(api.project.format,'walnut-loop-v26');
+ assert.equal(api.project.format,'walnut-loop-v27');
  assert.equal(api.project.allow45,false);
  assert.equal(node('allowAuto45').checked,false);
  assert.deepEqual(Array.from(api.fittingFor('gpu.out').normal),[0,1,0]);
