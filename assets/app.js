@@ -1323,6 +1323,17 @@ function validateImport(p){
    // Imported sketches follow the same rule as interactive routing.
    p.routes.every(route=>{
     if(typeof route?.from!=='string'||typeof route?.to!=='string')return false;
+    if(route.bridge!==undefined){
+     const b=route.bridge;
+     if(!b||typeof b!=='object'||Array.isArray(b)||
+        route.style==='soft'||route.waypoints!==undefined||
+        route.lockedCorners!==undefined||
+        !Number.isFinite(b.exit)||b.exit<0||b.exit>180||
+        !Number.isFinite(b.rise)||b.rise<25||b.rise>260||
+        !['x','z'].includes(b.order)||[route.from,route.to].some(k=>
+         p.parts.find(part=>part.id===k.split('.')[0])?.type!=='radiator'))
+      return false;
+    }
     if(route.lockedCorners!==undefined){
       if(route.style==='soft'||!Array.isArray(route.lockedCorners)||
          !Array.isArray(route.waypoints)||
@@ -1641,7 +1652,10 @@ canvas.addEventListener('pointerdown',e=>{
   }
   if(!routeDrag){
    const hit=nearestRenderedRoute(x,y);
-   if(hit&&!hit.route.bridge){
+   if(hit?.route.bridge){
+    selectedRoute=hit.route.id;selectedWaypoint=-1;
+    refreshRouteList();draw();
+   }else if(hit){
     const target=hit.route;
     // Clicking a tube creates an editable bend at the nearest control segment.
     const seg=nearestRouteSegment(target,x,y);
