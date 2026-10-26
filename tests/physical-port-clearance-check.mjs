@@ -99,7 +99,8 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
   el('styleSelect').value=style;el('axisOrder').value='xzy';
   el('allowAuto45').checked=false;api.sampleRoutes();
   const good=api.project.routes.filter(r=>!r.blocked);
-  assert.ok(good.length>=7,'Stock layout should still have several safe runs');
+  assert.ok(good.length>=(style==='soft'?7:3),
+   'Hard-tube routes with unsupported angles should be rejected, not drawn');
   for(const rt of good){
    const shape=api.routeGeom(rt),f=api.fittingFor(rt.from),t=api.fittingFor(rt.to);
    assert.equal(shape.collisions.length,0,'Approved route must not pass through case/fan/tube');
