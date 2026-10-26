@@ -33,8 +33,10 @@ cpu.fittings.out={type:'90',rotation:90};
 const swivel=routingTools.fitting(cpu,port,16);
 assert.ok(Math.hypot(swivel.tip[0]-ninety.tip[0],swivel.tip[2]-ninety.tip[2])>10);
 cpu.fittings.out={type:'45',rotation:45};
-const fortyFive=routingTools.fitting(cpu,port,16);
+const fortyFive=routingTools.fitting(cpu,port,16,true);
 assert.ok(Math.abs(fortyFive.outward[1]-Math.SQRT1_2)<1e-6);
+ assert.equal(routingTools.fitting(cpu,port,16,false).type,'straight',
+  '45 degree fittings cannot be used with permission off');
 
 function editor(userAgent){
  const controls=new Map(),context2d={beginPath(){},moveTo(){},lineTo(){},closePath(){},
