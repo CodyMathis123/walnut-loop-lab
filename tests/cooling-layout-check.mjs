@@ -10,7 +10,7 @@ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 assert.match(html,/id="loopMode"/);
 assert.match(html,/id="reservoirOrientation"/);
 assert.match(html,/id="radiatorLoop"/);
-assert.match(html,/src="assets\/app\.js\?v=0\.27\.3"/);
+assert.match(html,/src="assets\/app\.js\?v=0\.27\.4"/);
 
 function harness(agent){
  const elements=new Map(),ctx={
