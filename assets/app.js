@@ -461,7 +461,9 @@ function routePoints(rt){
 function planRoute(rt){
  const ends=routeEnds(rt);
  if(!ends)return {points:null,blocked:['invalid-port'],reason:'ports'};
- const blocks=routeObstacles(rt,18);
+ // Preserve 8 mm tube radius plus ~10 mm general clearance. The tray
+ // and motherboard AABBs receive an additional 9 mm in route-geometry.js.
+ const blocks=routeObstacles(rt,10);
  // Route fitting end points first; even the soft-tube example must steer
  // around the motherboard, GPU, tray and other modeled components.
  return routeTools.plan(ends[0],ends[1],blocks);
