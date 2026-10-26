@@ -2,11 +2,11 @@
 
 An interactive, static-site 3D layout planner for a custom walnut PC water-cooling case. The live editor runs on GitHub Pages and uses Three.js/WebGL with Canvas/SVG fallback.
 
-**Status: v0.22 — greenfield prototype.** The design intentionally starts from its current default configuration on every page refresh. **Browser edits are not auto-saved and old browser drafts are discarded.** Use **Export project JSON** only when you want to keep an explicit current-version snapshot; **Import JSON** accepts v0.22-format projects only. There is **no backward-compatibility or automatic migration layer.**
+**Status: v0.23 — greenfield prototype.** The design intentionally starts from its current default configuration on every page refresh. **Browser edits are not auto-saved and old browser drafts are discarded.** Use **Export project JSON** only when you want to keep an explicit current-version snapshot; **Import JSON** accepts v0.23-format projects only. There is **no backward-compatibility or automatic migration layer.**
 
 [Open the live planner](https://codymathis123.github.io/walnut-loop-lab/)
 
-## v0.22 — route clearance, cylindrical tubes, and swivel compression fittings
+## v0.23 — route clearance, cylindrical tubes, and swivel compression fittings
 
 **Automatic route generation now avoids modeled component envelopes**, rather than blindly following an X/Y/Z order through the motherboard, GPU, tray, radiators or pump/reservoir assemblies. A bounded 3D search finds detours with a configurable clearance margin around conservative axis-aligned bounds. When the selected axis order is already clear, it remains unchanged. Generated routes that cannot find a safe path are **flagged in the route list and not drawn**, rather than being depicted through hardware. Manually edited route paths are rechecked; intersections are labeled **Clearance needed** and shown in a warning color so their control points can be repositioned.
 
@@ -22,7 +22,7 @@ The fitting is shown physically on the port, even before a hose is attached. Its
 
 **Collision-scope caveat:** checks cover conservative rectangular envelopes of the major modeled components and tubing diameter, not every walnut rail, fan-blade, bracket hole, other tubing run or real-world bend fabrication limitation. Connections at the source and destination components are exempted from their own body envelopes. If the planner flags a route, adjust placement or edit control points; do not treat a visually clear result as guaranteed physical fit.
 
-## v0.22 — Reaper RX 9070 XT on the tray
+## v0.23 — Reaper RX 9070 XT on the tray
 
 The **PowerColor Reaper RX 9070 XT** is modeled horizontally alongside the Mini-ITX motherboard using the compatible **Alphacool Core RX 9070 XT Hellhound + Pure #14782**. Alphacool's published overall block dimensions are **197 × 127.33 × 33.35 mm (length × width × thickness)**. The **197 × 98.8 mm backplate** is used as a stand-in for the otherwise unconfirmed GPU PCB footprint; the air-cooled shroud dimensions are intentionally *not* used.
 
@@ -33,6 +33,14 @@ The motherboard is right-aligned to the 276.86 mm tray (its right edge meets the
 Selecting the GPU under **Components** displays its measured block dimensions, PCB proxy, platform overhang and motherboard edge gap. Use **Align GPU to rear of tray** to restore its placement. The GPU is attached to the movable tray, so tray shifts also move the GPU and motherboard in concert. Tube routing and compression-fitting normals now use the GPU's **right-facing** (+X) port surfaces rather than upward-facing outlets. Existing CPU/GPU dual or shared loop options are unchanged.
 
 Sources: [Alphacool #14782 technical specifications](https://shop.alphacool.com/en/shop/gpu-water-cooling/amd/14782-alphacool-core-rx-9070-xt-hellhound-pure-with-backplate) and [official compatibility datasheet](https://download.alphacool.com/datasheet/ENG_14782_Alphacool_Core_RX_9070_XT_Hellhound__Pure_with_Backplate_datasheet.pdf).
+
+## v0.23 — fan-aware tubing clearance
+
+Tubing routes now account for **every installed fan frame (120 × 120 mm × configured thickness)**. This includes both push/pull fans on each radiator and bare fans in empty openings. The renderer and collision checker use the same positions, so changing fan counts or radiator presence updates the routing obstacles immediately.
+
+The router uses tube radius plus **2 mm** of fan clearance. This is deliberately tighter than the generic component margin because the radiator ports are roughly 11 mm above the nearest upper fan edges. The endpoint radiator body remains exempt during routing, but its attached fans do not. The generated route and dragged tubing collision warnings both account for fans.
+
+This uses a conservative full-frame envelope; individual fan blade geometry, grills, fasteners and the rear motherboard-tray fan opening (which has no installed fan modeled) are not yet obstacles.
 
 ## Current layout
 
@@ -50,13 +58,13 @@ Sources: [Alphacool #14782 technical specifications](https://shop.alphacool.com/
 
 The motherboard and water block move with the tray when repositioning the assembly. The motherboard can be re-aligned using **Align motherboard + CPU**. The tray is kept **3 mm above the middle support** to avoid intersections; the motherboard has a nominal **6.35 mm standoff clearance**. The radiator's two G1/4-style ports are rendered on the **inward-facing vertical surface** of the upper end tank, not on its top.
 
-## Sample routes and reservoir ports (v0.22)
+## Sample routes and reservoir ports (v0.23)
 
 **Generate example routes** uses the selected **Tube style** and **Auto route order** controls, producing the same topology for soft tubing, hard tubing with rounded bends, or hard tubing with elbows. The example generator follows the chosen cooling mode (dual, right-side shared, or left-side shared).
 
-For either FrozenQ reservoir, the two bottom G1/4 ports are used for coolant return and pump supply. The upper port is **fill/vent only** and is intentionally **not available as a tubing endpoint**. It remains visible in the 3D model so it can be recognized as a fill point. The generator, manual add-route handler and v0.22 import validation all enforce this rule. As before, low-point drains are capped branch tees, not normal flow-through components.
+For either FrozenQ reservoir, the two bottom G1/4 ports are used for coolant return and pump supply. The upper port is **fill/vent only** and is intentionally **not available as a tubing endpoint**. It remains visible in the 3D model so it can be recognized as a fill point. The generator, manual add-route handler and v0.23 import validation all enforce this rule. As before, low-point drains are capped branch tees, not normal flow-through components.
 
-## Configurable loop hardware and 3D tubing editor (v0.22)
+## Configurable loop hardware and 3D tubing editor (v0.23)
 
 **Cooling loops** offers two independent loops (GPU on the left and CPU on the right), or **one shared loop** using *either* the right/primary CPU-side pump/reservoir/drain or the left-side pump/reservoir/drain. In shared mode, the inactive hardware set is hidden; all four installed radiators remain available to the shared loop. Switching layouts clears example tubing paths after confirmation, so the new circuit does not accidentally reuse incompatible connections.
 
@@ -69,7 +77,7 @@ The tubing route editor now supports actual interactive **world-space control po
 - Hold **Shift while dragging** a point to adjust depth; otherwise dragging follows the camera-facing horizontal/vertical directions.
 - **Soft tubing** interpolates a smooth curve through the handles; **hard with bends** rounds corners using the bend-radius input; **hard with elbows** retains sharp turns and counts fittings.
 - Use **+ Bend point**, **Remove point**, or **Reset path** for the selected route. Both connection endpoints stay attached to hardware ports as parts are moved.
-- Bend locations, route style and port endpoints are saved only in an explicitly exported v0.22 JSON snapshot; no browser autosave.
+- Bend locations, route style and port endpoints are saved only in an explicitly exported v0.23 JSON snapshot; no browser autosave.
 
 **Limitations:** Conservative component bounding-box collision avoidance is included, but this is not full CAD collision detection, a physics-based soft hose simulator, or proof of achievable hard-tube bends. Confirm bend radii, port orientation, clearance and priming/drain behavior against real components.
 
@@ -81,7 +89,7 @@ The tubing route editor now supports actual interactive **world-space control po
 - Independently rotate each reservoir between vertical and horizontal; ports rotate with the body.
 - Adjust the tray CPU-backplate opening and align the rear bracket to the walnut window.
 - Generate conceptual tubing routes with low-point capped drain branches. They are *not* validated plumbing or a collision-free routing design.
-- Export a v0.22 JSON snapshot, import a v0.22 snapshot, export a PNG/SVG view, or reset the current sample.
+- Export a v0.23 JSON snapshot, import a v0.23 snapshot, export a PNG/SVG view, or reset the current sample.
 
 **Prototype workflow:** Revisit or refresh to see the newest defaults. Nothing you edited previously will silently override new code changes. If you deliberately export and later import a snapshot, it must belong to the current project format.
 
@@ -108,6 +116,7 @@ node tests/itx-layout-check.mjs
 node tests/tubing-editor-check.mjs
 node tests/route-collision-check.mjs
 node tests/gpu-layout-check.mjs
+node tests/fan-clearance-check.mjs
 node tests/webgl-smoke-check.mjs
 ```
 
