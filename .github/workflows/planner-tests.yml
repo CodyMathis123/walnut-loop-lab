@@ -27,3 +27,5 @@ jobs:
         run: node tests/tubing-editor-check.mjs
       - name: 3D tube clearance, physical compression fittings and swivel orientation
         run: node tests/route-collision-check.mjs
+      - name: Horizontal Alphacool GPU assembly on motherboard tray
+        run: node tests/gpu-layout-check.mjs
