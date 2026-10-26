@@ -576,16 +576,8 @@ function renderTube(rt){
  const chosen=selectedRoute===rt.id;
  const color=g.blocked?'#e66b62':rt.style==='soft'?'#65c9e5':'#cdb7a0';
  const outerRadius=project.tubeOD/2;
- const connectors=[fittingFor(rt.from),fittingFor(rt.to)].filter(Boolean);
  if(sceneQueue){
   sceneQueue.push({kind:'tube',pts:g.smooth,color,radius:outerRadius});
-  // Metal compression nuts and optional swivel angle connectors. Each is a
-  // solid cylinder mesh, unlike the old always-visible 2D polylines.
-  for(const fit of connectors){
-   sceneQueue.push({kind:'tube',pts:fit.points,color:'#a2b2bd',radius:fit.radius});
-   sceneQueue.push({kind:'tube',pts:fit.points.slice(0,2),color:'#d0d8db',
-     radius:fit.radius+2});
-  }
   if(rt.style==='elbow')for(let i=1;i<g.pts.length-1;i++){
    const corner=g.pts[i],before=g.pts[i-1],after=g.pts[i+1];
    const take=Math.min(project.tubeOD*1.2,dist(corner,before)*.4,dist(corner,after)*.4);
@@ -601,9 +593,29 @@ function renderTube(rt){
   stroke(g.smooth,color,width,1);
   stroke(g.smooth,'#ffffff',Math.max(.7,width*.13),.22);
   if(chosen)stroke(g.smooth,'#fff6ca',1.6,1,[6,8]);
-  for(const fit of connectors){
-   stroke(fit.points,'#17222c',width+7,.9);
-   stroke(fit.points,'#bdcbd2',width+3,.99);
+ }
+}
+function renderPortFittings(parts){
+ if(project.display.caseOnly)return;
+ // A manually selected port elbow exists independently from its hose.
+ // Connected ports receive an ordinary compression fitting by default.
+ const endpoints=new Set(project.routes.filter(rt=>!rt.blocked)
+  .flatMap(rt=>[rt.from,rt.to]));
+ for(const part of parts){
+  for(const port of part.ports){
+   const k=part.id+'.'+port.id;
+   if(isFillVentPort(k)||(!endpoints.has(k)&&!part.fittings?.[port.id]))continue;
+   const fitting=fittingFor(k);if(!fitting)continue;
+   if(sceneQueue){
+    sceneQueue.push({kind:'tube',pts:fitting.points,
+     radius:fitting.radius,color:'#879aa5'});
+    sceneQueue.push({kind:'tube',pts:fitting.points.slice(0,2),
+     radius:fitting.radius+2,color:'#ccd3d8'});
+   }else{
+    const width=clamp(fitting.radius*2*screen(fitting.base).sf,3,25);
+    stroke(fitting.points,'#182029',width+3,.95);
+    stroke(fitting.points,'#bfcbd4',width,.99);
+   }
   }
  }
 }
@@ -620,6 +632,7 @@ function draw(){if(!ctx)return;const webgl=window.WalnutLoopWebGL?.active===true
  drawCase();
  parts.forEach(renderPart);
  fans.forEach(renderPhysicalFan);
+ renderPortFittings(parts);
  const visibleIds=new Set(parts.map(p=>p.id));
  if(!project.display.caseOnly)for(const route of project.routes)
   if(visibleIds.has(route.from.split('.')[0])&&visibleIds.has(route.to.split('.')[0]))renderTube(route);
@@ -827,8 +840,34 @@ function refreshFreeBayControls(){
 function changeModel(){sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
 function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?'Clearance needed':Math.round(g.length)+' mm'} · ${g.elbows} elbow${g.elbows===1?'':'s'}</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
  let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=(rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points';$('deletePoint').disabled=selectedWaypoint<0}}
-function estimate(){let tubes=0,straight=0,elbow=0,softLen=0,hardLen=0;let lengths=[];for(let rt of project.routes){let g=routeGeom(rt);tubes++;straight+=2;elbow+=g.elbows;if(rt.style==='soft')softLen+=g.length;else hardLen+=g.length;lengths.push(g.length)}let w=1+project.prices.waste/100;let sf=softLen*w/1000,hf=hardLen*w/1000,c1=straight*project.prices.fit,c2=elbow*project.prices.elbow,c3=sf*project.prices.soft,c4=hf*project.prices.hard,total=c1+c2+c3+c4+project.prices.other;return{total,straight,elbow,softLen,hardLen,sf,hf,c1,c2,c3,c4,lengths}}
-function refreshEstimate(){let a=estimate();$('totalLength').textContent=((a.softLen+a.hardLen)/1000).toFixed(2)+' m';$('fittingCount').textContent=a.straight;$('elbowCount').textContent=a.elbow;let money=n=>'$'+n.toFixed(2);$('estimateRows').innerHTML=[['Port compressions',a.straight+' × '+money(project.prices.fit),a.c1],['Integrated 90° connectors',a.elbow+' × '+money(project.prices.elbow),a.c2],['Soft tubing',a.sf.toFixed(2)+' m',a.c3],['Hard tubing',a.hf.toFixed(2)+' m',a.c4],['Other / adapters','allowance',project.prices.other]].map(([n,detail,v])=>`<tr><td>${n}<small style="display:block;color:#8493a4">${detail}</small></td><td>${money(v)}</td></tr>`).join('');$('costTotal').textContent=money(a.total)}
+function estimate(){
+ let straight=0,elbow=0,adapter=0,softLen=0,hardLen=0;
+ const ports=new Set(project.routes.filter(r=>!r.blocked).flatMap(r=>[r.from,r.to]));
+ for(const p of project.parts.filter(part=>part.visible!==false)){
+  for(const [id,fit] of Object.entries(p.fittings||{})){
+   if(fit.type!=='straight')ports.add(p.id+'.'+id);
+  }
+ }
+ for(const k of ports){
+  if(isFillVentPort(k))continue;
+  straight++;
+  if(fittingFor(k)?.type!=='straight')adapter++;
+ }
+ for(const rt of project.routes){
+  const g=routeGeom(rt);
+  if(g.blocked)continue;
+  elbow+=g.elbows;
+  if(rt.style==='soft')softLen+=g.length;else hardLen+=g.length;
+ }
+ const w=1+project.prices.waste/100;
+ const sf=softLen*w/1000,hf=hardLen*w/1000;
+ const c1=straight*project.prices.fit;
+ const c2=(elbow+adapter)*project.prices.elbow;
+ const c3=sf*project.prices.soft,c4=hf*project.prices.hard;
+ const total=c1+c2+c3+c4+project.prices.other;
+ return {total,straight,elbow,adapter,softLen,hardLen,sf,hf,c1,c2,c3,c4};
+}
+function refreshEstimate(){let a=estimate();$('totalLength').textContent=((a.softLen+a.hardLen)/1000).toFixed(2)+' m';$('fittingCount').textContent=a.straight;$('elbowCount').textContent=a.elbow+a.adapter;let money=n=>'$'+n.toFixed(2);$('estimateRows').innerHTML=[['Port compressions',a.straight+' × '+money(project.prices.fit),a.c1],['Tube elbows + port swivels',a.elbow+' tube + '+a.adapter+' angled port × '+money(project.prices.elbow),a.c2],['Soft tubing',a.sf.toFixed(2)+' m',a.c3],['Hard tubing',a.hf.toFixed(2)+' m',a.c4],['Other / adapters','allowance',project.prices.other]].map(([n,detail,v])=>`<tr><td>${n}<small style="display:block;color:#8493a4">${detail}</small></td><td>${money(v)}</td></tr>`).join('');$('costTotal').textContent=money(a.total)}
 // Intentionally no automatic draft persistence during greenfield iteration.
 function persist(){}
 function updateAll(){sceneRevision++;refreshLoopSummary();refreshCase();refreshPortSelect();refreshComponent();refreshRouteList();refreshEstimate();for(let id of ['fit','elbow','soft','hard','waste','other'])$(id==='fit'?'fitPrice':id==='elbow'?'elbowPrice':id==='soft'?'softPrice':id==='hard'?'hardPrice':id==='waste'?'wastePct':'otherCost').value=project.prices[id];$('tubeOD').value=project.tubeOD;$('bendRadius').value=project.bendRadius;for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).classList.toggle('active',project.display[k]);draw()}
