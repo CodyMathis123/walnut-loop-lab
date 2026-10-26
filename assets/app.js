@@ -508,19 +508,21 @@ function orthogonalRoute(rt,obstacles){
   }
   reduced.push(p);
  }
- // A 180° reversal isn't a real elbow. When space permits, replace it
- // with three perpendicular 90° turns (a short dogleg).
- const current=reduced.slice();
+ // Preserve both locked port leads and route around any full 180°
+ // reversal with three 90° directions, never invent a 180° connector.
+ const current=[pts[0],...reduced,pts[pts.length-1]];
  for(let i=1;i<current.length-1;i++){
   if(routeTools.cornerAngle(current[i-1],current[i],current[i+1])<177)continue;
+  const endLead=i===current.length-2;
   const a=current[i-1],b=current[i],c=current[i+1],v=sub(b,a);
   let selected=null;
   for(const axis of [0,1,2].filter(j=>Math.abs(v[j])<.001)){
    for(const sign of [1,-1]){
     for(const width of [48,72,96]){
      const offset=[0,0,0];offset[axis]=sign*width;
-     const first=add(b,offset),second=add(c,offset);
-     if(!routeTools.collisions([b,first,second,c],obstacles).length){
+     const first=add(endLead?a:b,offset),second=add(endLead?b:c,offset);
+     const candidate=endLead?[a,first,second,b]:[b,first,second,c];
+     if(!routeTools.collisions(candidate,obstacles).length){
       selected=[first,second];break;
      }
     }
@@ -528,9 +530,12 @@ function orthogonalRoute(rt,obstacles){
    }
    if(selected)break;
   }
-  if(selected){current.splice(i+1,0,...selected);i+=2}
+  if(selected){
+   current.splice(endLead?i:i+1,0,...selected);
+   i+=2;
+  }
  }
- rt.waypoints=current.slice(1,-1);
+ rt.waypoints=current.slice(2,-2);
  delete rt._displayPath;delete rt._geometrySignature;return true;
 }
 function tubingSignature(rt){
