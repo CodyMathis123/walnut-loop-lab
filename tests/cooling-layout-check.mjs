@@ -5,11 +5,12 @@ import vm from 'node:vm';
 
 const source=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const geometry=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
+const routing=readFileSync(new URL('../assets/route-geometry.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 assert.match(html,/id="loopMode"/);
 assert.match(html,/id="reservoirOrientation"/);
 assert.match(html,/id="radiatorLoop"/);
-assert.match(html,/src="assets\/app\.js\?v=0\.20"/);
+assert.match(html,/src="assets\/app\.js\?v=0\.21"/);
 
 function harness(agent){
  const elements=new Map(),ctx={
@@ -41,6 +42,7 @@ function harness(agent){
   setTimeout(){return 1},clearTimeout(){}
  });
  vm.runInContext(geometry,context);
+ vm.runInContext(routing,context);
  vm.runInContext(source+'\n;globalThis.__app={initial,project,cpart,renderedParts,effectiveLoop,applyLoopMode,setReservoirOrientation,normalizeImport,sampleRoutes,addRoute,changeModel,portKeys,portPos,routeGeom}',context);
  return {api:context.__app,node,storage,allow:(v)=>allowChange=v};
 }
@@ -168,7 +170,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.equal(api.cpart('res2').orientation,'horizontal');
  // Explicit imports are complete snapshots of this version, without migration.
  const current=api.initial();
- assert.equal(current.format,'walnut-loop-v20');
+ assert.equal(current.format,'walnut-loop-v21');
  current.parts.find(x=>x.id==='drain').pos=[-160,75,90];
  const restored=api.normalizeImport(current);
  assert.deepEqual(Array.from(restored.parts.find(x=>x.id==='drain').pos),[-160,75,90]);
