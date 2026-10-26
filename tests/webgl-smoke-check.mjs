@@ -114,6 +114,21 @@ const tubeMeshes=world.children.filter(m=>m.geometry?.attributes?.position?.arra
 assert.ok(tubeMeshes.length>=3,'Cylinder surface should generate several shaded facets');
 assert.ok(tubeMeshes.every(m=>m.material.depthWrite===true));
 assert.ok(tubeMeshes.some(m=>m.geometry.attributes.position.array.length>=18));
+// Inspect the actual generated ring vertices, not only the existence of a mesh.
+// At both ends the radius must stay 8 mm, even when the line turns 90°.
+const tubeVerts=tubeMeshes.flatMap(m=>{
+ const values=m.geometry.attributes.position.array,all=[];
+ for(let i=0;i<values.length;i+=3)all.push([values[i],values[i+1],values[i+2]]);
+ return all;
+});
+const firstRing=tubeVerts.filter(p=>Math.abs(p[1])<.0001&&Math.abs(p[0])<8.01);
+const finalRing=tubeVerts.filter(p=>Math.abs(p[0]-100)<.0001);
+assert.ok(firstRing.length>=16,'First 16-sided tube ring is present');
+assert.ok(finalRing.length>=16,'Final 16-sided tube ring is present');
+assert.ok(firstRing.every(p=>Math.abs(Math.hypot(p[0],p[2])-8)<.005),
+ 'The start of a bend must not taper');
+assert.ok(finalRing.every(p=>Math.abs(Math.hypot(p[1]-80,p[2])-8)<.005),
+ 'The far end must retain its full diameter after turning');
 
 let exported=false;
 bridge.exportPng(blob=>{assert.equal(blob.test,'PNG');exported=true});
