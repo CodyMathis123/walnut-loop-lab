@@ -1699,7 +1699,7 @@ canvas.addEventListener('pointerdown',e=>{
    selectedRoute=near.route.id;selectedWaypoint=-1;
    routeDrag={route:near.route,bridgeHandle:near.handle.id,
     startPos:near.handle.point.slice(),startBridge:{...near.route.bridge},
-    startX:x,startY:y};
+    startX:e.clientX,startY:e.clientY};
   }
   const rt=project.routes.find(r=>r.id===selectedRoute);
   if(!routeDrag&&rt&&!rt.bridge&&portPos(rt.from)&&portPos(rt.to)){
