@@ -80,6 +80,27 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
   for(const rt of api.project.routes.filter(rt=>rt.blocked))
    assert.ok(api.routeGeom(rt).blocked,'Unroutable tube must be flagged');
  }
+ // Require every sample route to clear neighboring hoses on all
+ // three stock cooling layouts, for each tubing style.
+ for(const side of ['right','left']){
+  api.project.loopMode='single';
+  api.project.singleHardwareSide=side;
+  for(const id of ['res','pump','drain','res2','pump2','drain2']){
+   const p=api.cpart(id);
+   p.visible=side==='right'?id.endsWith('2'):!id.endsWith('2');
+  }
+  for(const style of ['soft','bend','elbow']){
+   node('styleSelect').value=style;
+   node('allowAuto45').checked=false;
+   api.sampleRoutes();
+   assert.equal(api.project.routes.length,9);
+   assert.ok(api.project.routes.every(rt=>!rt.blocked&&!api.routeGeom(rt).blocked),
+    'Single '+side+' '+style+' needs nine non-overlapping tubes');
+  }
+ }
+ api.project.loopMode='dual';
+ for(const id of ['res','pump','drain','res2','pump2','drain2'])
+  api.cpart(id).visible=true;
  node('styleSelect').value='elbow';
  node('allowAuto45').checked=true;
  api.sampleRoutes();
