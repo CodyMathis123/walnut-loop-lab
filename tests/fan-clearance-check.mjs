@@ -9,8 +9,8 @@ const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const geom=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const routing=readFileSync(new URL('../assets/route-geometry.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-assert.match(html,/assets\/app\.js\?v=0\.26/);
-assert.match(html,/route-geometry\.js\?v=0\.26/);
+assert.match(html,/assets\/app\.js\?v=0\.27/);
+assert.match(html,/route-geometry\.js\?v=0\.27/);
 function editor(userAgent){
  let index=0,commands=[];
  const nodes=new Map(),ctx2={beginPath(){},moveTo(){},lineTo(){},
