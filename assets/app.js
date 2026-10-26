@@ -521,7 +521,9 @@ function generateRoutePath(rt){
  if(original.length>=2&&!routeTools.collisions(original,obstacles).length&&
     !tubeTubeHits(rt,original).length){
   delete rt.waypoints;delete rt.blocked;rt._built=true;
-  return true;
+  // A soft curve may bow into another hose despite clear control points.
+  if(!routeGeom(rt).blocked)return true;
+  rt._built=false;
  }
  const planned=planRoute(rt);
  if(planned.points){
