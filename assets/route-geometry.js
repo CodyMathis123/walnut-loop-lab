@@ -74,6 +74,68 @@
    };
   });
  }
+ // Match the case renderer's continuous front/rear walnut panels, including
+ // the four fan cutouts and the two upper windows. Route around SOLID wood;
+ // the apertures themselves remain open (fans have separate collision boxes).
+ function cabinetBoxes(c,extra=8){
+  const half=(c.width-2*c.doors)/2,depth=c.depth,wood=c.wood;
+  const holeW=c.fanOpeningWidth,holeH=c.fanOpeningHeight;
+  const bottom=c.fanOpeningBottom,top=bottom+holeH;
+  const hx=half-c.fanOpeningSide-holeW/2;
+  const windowW=Math.max(0,2*half-2*c.windowSide);
+  const windowTop=c.height-c.windowTop;
+  const windowBottom=windowTop-c.windowHeight;
+  const apertures=[
+   ...[-1,1].map(sign=>({x0:sign*hx-holeW/2,x1:sign*hx+holeW/2,
+    y0:bottom,y1:top})),
+   ...(windowW>0?[{x0:-windowW/2,x1:windowW/2,
+     y0:windowBottom,y1:windowTop}]:[])
+  ];
+  const tile=(id,x0,x1,y0,y1,z0,z1)=>{
+   if(x1-x0<.01||y1-y0<.01)return null;
+   return {id,min:[x0-extra,y0-extra,z0-extra],
+    max:[x1+extra,y1+extra,z1+extra]};
+  };
+  const boxes=[];
+  const levels=[0,c.height,...apertures.flatMap(h=>[h.y0,h.y1])]
+   .sort((a,b)=>a-b).filter((v,i,arr)=>i===0||v-arr[i-1]>.01);
+  for(const sign of [-1,1]){
+   const z0=sign===-1?-depth/2:depth/2-wood,z1=z0+wood;
+   for(let i=1;i<levels.length;i++){
+    const y0=levels[i-1],y1=levels[i],mid=(y0+y1)/2;
+    const holes=apertures.filter(h=>h.y0<=mid&&h.y1>=mid)
+     .map(h=>[h.x0,h.x1]).sort((a,b)=>a[0]-b[0]);
+    let x0=-half;
+    for(const [start,end] of holes){
+     const box=tile('wood:'+sign+':'+i+':'+boxes.length,x0,start,y0,y1,z0,z1);
+     if(box)boxes.push(box);
+     x0=Math.max(x0,end);
+    }
+    const box=tile('wood:'+sign+':'+i+':'+boxes.length,x0,half,y0,y1,z0,z1);
+    if(box)boxes.push(box);
+   }
+  }
+  const rw=c.railWidth||50.8,rt=c.railThickness||wood;
+  const sideX=half-rw/2;
+  for(const [id,x,y] of [
+   ['bottom-left',-sideX,(c.lowerRailTop||rt)-rt/2],
+   ['bottom-middle',0,(c.lowerRailTop||rt)-rt/2],
+   ['bottom-right',sideX,(c.lowerRailTop||rt)-rt/2],
+   ['middle',0,c.divider-rt/2],
+   ['top-left',-sideX,c.height-rt/2],
+   ['top-right',sideX,c.height-rt/2]
+  ]){
+   boxes.push({id:'rail:'+id,min:[x-rw/2-extra,y-rt/2-extra,-depth/2+wood-extra],
+    max:[x+rw/2+extra,y+rt/2+extra,depth/2-wood+extra]});
+  }
+  // The lower partition separates the two radiator banks. Shared loops
+  // must cross above its upper edge, never through the solid steel plate.
+  const y0=c.lowerRailTop||rt,y1=c.divider-rt;
+  if(y1>y0)boxes.push({id:'steel:divider',
+   min:[-1-extra,y0-extra,-depth/2+wood-extra],
+   max:[1+extra,y1+extra,depth/2-wood+extra]});
+  return boxes;
+ }
  function segmentIntersects(a,b,box){
   let lo=0,hi=1;
   for(let i=0;i<3;i++){
@@ -246,5 +308,5 @@
   const blocked=collisions(candidate,obstacles);
   return {points:blocked.length?null:candidate,blocked,reason:blocked.length?'verification':null,visited};
  }
- window.WalnutLoopRouting={fitting,boxes,fanBoxes,tubeBoxes,tubeCollisions,distanceSegments,collisions,plan,segmentIntersects,simplify};
+ window.WalnutLoopRouting={fitting,boxes,fanBoxes,cabinetBoxes,tubeBoxes,tubeCollisions,distanceSegments,collisions,plan,segmentIntersects,simplify};
 })();
