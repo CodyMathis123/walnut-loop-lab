@@ -9,7 +9,7 @@ const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 for(const id of ['addPoint','deletePoint','autoRoute','pointCount','singleHardwareSide']){
  assert.ok(html.includes('id="'+id+'"'),'Missing route control '+id);
 }
-assert.match(html,/assets\/app\.js\?v=0\.23/);
+assert.match(html,/assets\/app\.js\?v=0\.24/);
 
 function setup(userAgent){
  let counter=0;
@@ -100,7 +100,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.equal(api.routePoints(rt).length,initial.length);
  // Hardware modes should not move or alter prior route waypoint types.
  assert.equal(typeof api.routePointWorldDelta(15,-10,false)[1],'number');
- const projectJson=JSON.stringify({...api.project,format:'walnut-loop-v23'});
+ const projectJson=JSON.stringify({...api.project,format:'walnut-loop-v24'});
  assert.ok(projectJson.includes('"routes"'));
 }
 console.log('Tubing pointer drag, edit handles, styles, shift depth and reset passed.');
