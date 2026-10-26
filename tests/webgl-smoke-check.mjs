@@ -105,6 +105,16 @@ assert.ok(Math.abs((camera.right-camera.left)-1000/zoom)<.0001);
 assert.ok(Math.abs(camera.position.x-(2200*Math.sin(.58)*Math.cos(.24)))<.0001);
 assert.ok(Math.abs(camera.position.y-(355+2200*Math.sin(.24)))<.0001);
 
+// Actual cylindrical tube meshes must become depth-tested triangle geometry,
+ // not WebGL lines that can visibly pass in front of solid hardware.
+bridge.render([{kind:'tube',
+ pts:[[0,0,0],[0,80,0],[100,80,0]],radius:8,color:'#65c9e5'}],
+ view,{...frame,revision:5});
+const tubeMeshes=world.children.filter(m=>m.geometry?.attributes?.position?.array?.length>0);
+assert.ok(tubeMeshes.length>=3,'Cylinder surface should generate several shaded facets');
+assert.ok(tubeMeshes.every(m=>m.material.depthWrite===true));
+assert.ok(tubeMeshes.some(m=>m.geometry.attributes.position.array.length>=18));
+
 let exported=false;
 bridge.exportPng(blob=>{assert.equal(blob.test,'PNG');exported=true});
 assert.ok(exported);
