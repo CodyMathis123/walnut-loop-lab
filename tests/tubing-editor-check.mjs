@@ -4,11 +4,12 @@ import {readFileSync} from 'node:fs';
 import vm from 'node:vm';
 const code=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const geo=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
+const routing=readFileSync(new URL('../assets/route-geometry.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 for(const id of ['addPoint','deletePoint','autoRoute','pointCount','singleHardwareSide']){
  assert.ok(html.includes('id="'+id+'"'),'Missing route control '+id);
 }
-assert.match(html,/assets\/app\.js\?v=0\.20/);
+assert.match(html,/assets\/app\.js\?v=0\.21/);
 
 function setup(userAgent){
  let counter=0;
@@ -35,6 +36,7 @@ function setup(userAgent){
   devicePixelRatio:1,console,localStorage:{getItem(){return null},removeItem(){}},
   confirm(){return true},setTimeout(){return 1},clearTimeout(){}});
  vm.runInContext(geo,context);
+ vm.runInContext(routing,context);
  vm.runInContext(code+`
  globalThis.testAPI={
   project,cpart,portPos,screen,draw,addRoute,routePoints,routeGeom,
@@ -98,7 +100,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.equal(api.routePoints(rt).length,initial.length);
  // Hardware modes should not move or alter prior route waypoint types.
  assert.equal(typeof api.routePointWorldDelta(15,-10,false)[1],'number');
- const projectJson=JSON.stringify({...api.project,format:'walnut-loop-v20'});
+ const projectJson=JSON.stringify({...api.project,format:'walnut-loop-v21'});
  assert.ok(projectJson.includes('"routes"'));
 }
 console.log('Tubing pointer drag, edit handles, styles, shift depth and reset passed.');
