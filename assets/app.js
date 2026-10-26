@@ -11,13 +11,13 @@ const GPU_BLOCK_MM=[127.33,33.35,197];
 const GPU_BACKPLATE_WIDTH_MM=98.8, GPU_PLATFORM_MM=8, GPU_RISER_MM=6;
 const BOARD_SOCKET_OFFSET=[18,0,-6];
 const initial=()=>({
-  format:'walnut-loop-v26',
+  format:'walnut-loop-v27',
   case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:209.55,fanThickness:25.4},
   parts:[
-    {id:'rad1',name:'Radiator 1',type:'radiator',fans:{panel:3,inner:3},slot:'front-right',loop:'cpu',pos:[146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Radiator 1 starts on the front/right opening with three fans on each face. Port height and offsets follow provisional supplied measurements.'},
-    {id:'rad2',name:'Radiator 2',type:'radiator',fans:{panel:3,inner:3},slot:'rear-right',loop:'cpu',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[-31.75,190,-33]},{id:'out',name:'Far side',off:[31.75,190,-33]}],note:'Radiator 2 starts on the rear/right opening with three fans on each face. Radiator depth and mounting can be calibrated later.'},
-    {id:'rad3',name:'Radiator 3',type:'radiator',fans:{panel:3,inner:3},slot:'front-left',loop:'gpu',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,-33]},{id:'out',name:'Port B',off:[31.75,190,-33]}],note:'Front-left radiator with three 120 mm fans on each side.'},
-    {id:'rad4',name:'Radiator 4',type:'radiator',fans:{panel:3,inner:3},slot:'rear-left',loop:'gpu',pos:[-146,273.55,-180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,33]},{id:'out',name:'Port B',off:[31.75,190,33]}],note:'Rear-left radiator with three 120 mm fans on each side.'},
+    {id:'rad1',name:'Radiator 1',type:'radiator',fans:{panel:3,inner:3},slot:'front-right',loop:'cpu',pos:[146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Outer port',off:[31.75,190,-33]},{id:'out',name:'Inner port',off:[-31.75,190,-33]}],note:'Radiator 1 starts on the front/right opening with three fans on each face. Port height and offsets follow provisional supplied measurements.'},
+    {id:'rad2',name:'Radiator 2',type:'radiator',fans:{panel:3,inner:3},slot:'rear-right',loop:'cpu',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Outer port',off:[-31.75,190,-33]},{id:'out',name:'Inner port',off:[31.75,190,-33]}],note:'Radiator 2 starts on the rear/right opening with three fans on each face. Radiator depth and mounting can be calibrated later.'},
+    {id:'rad3',name:'Radiator 3',type:'radiator',fans:{panel:3,inner:3},slot:'front-left',loop:'gpu',pos:[-146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Outer port',off:[-31.75,190,-33]},{id:'out',name:'Inner port',off:[31.75,190,-33]}],note:'Front-left radiator with three 120 mm fans on each side.'},
+    {id:'rad4',name:'Radiator 4',type:'radiator',fans:{panel:3,inner:3},slot:'rear-left',loop:'gpu',pos:[-146,273.55,-180],size:[135,380,60],ports:[{id:'in',name:'Outer port',off:[-31.75,190,33]},{id:'out',name:'Inner port',off:[31.75,190,33]}],note:'Rear-left radiator with three 120 mm fans on each side.'},
     {id:'tray',name:'Mountain Mods ATX tray + 120 rear panel',type:'tray',pos:[8.57,492.775,-69.525],size:[276.86,1.65,323.85],cutout:{x:46,z:-96,width:120,depth:100},ports:[],note:'Mountain Mods ATXTOAB tray (10.9 × 12.75 in) and 120MOTRAY-BW rear I/O/PCI/fan panel. 1.65 mm aluminum. Rear panel geometry is an informed visual approximation.'},
     {id:'mobo',name:'GIGABYTE X570 I AORUS PRO WIFI · mock',type:'mobo',mountedTo:'tray',
      loop:'cpu',pos:[62.00,500.75,-136.45],size:[170,1.6,170],
@@ -96,7 +96,44 @@ function effectiveLoop(part){
 function portLoop(port){const p=cpart(port.split('.')[0]);return p?effectiveLoop(p):null}
 function loopHardware(mode){return {res:mode==='cpu'?'res2':'res',pump:mode==='cpu'?'pump2':'pump',drain:mode==='cpu'?'drain2':'drain'}}
 function portPos(k){let [id,pid]=k.split('.');let p=cpart(id),q=p&&p.ports.find(x=>x.id===pid);return p&&p.visible!==false&&q?add(p.pos,q.off):null}
-function portLabel(k){let [id,pid]=k.split('.');let p=cpart(id),q=p&&p.ports.find(x=>x.id===pid);return p&&q?p.name+' · '+q.name:k}
+// Display labels are derived from the *current mounting slot and port X
+// positions*, not the radiator's original number or editable port names.
+// 'Outer' is closest to that side of the cabinet; 'Inner' faces the divider.
+function portDescription(part,port){
+ if(part.type==='radiator'){
+  const slot=FAN_SLOTS.find(s=>s.id===part.slot);
+  if(!slot)return 'Port '+(part.ports.indexOf(port)+1)+' (unmounted)';
+  const other=part.ports.find(p=>p!==port);
+  const difference=other?(port.off[0]-other.off[0])*slot.side:0;
+  if(Math.abs(difference)<.01)return 'Port '+(part.ports.indexOf(port)+1);
+  return difference>0
+   ?'Outer port ('+(slot.side>0?'right':'left')+' edge)'
+   :'Inner port (toward center)';
+ }
+ if(part.type==='cpu')return port.id==='in'?'Inlet':'Outlet';
+ if(part.type==='gpu')return port.id==='in'?'Top inlet':'Top outlet';
+ if(part.type==='pump')return port.id==='in'?'Inlet':'Outlet';
+ return port.name;
+}
+function portLabel(k){
+ const [id,pid]=k.split('.'),part=cpart(id);
+ const port=part?.ports?.find(p=>p.id===pid);
+ if(!part||!port)return k;
+ const detail=portDescription(part,port);
+ if(part.type==='radiator'){
+  const slot=FAN_SLOTS.find(s=>s.id===part.slot);
+  const location=slot
+   ?(slot.end===1?'Front':'Rear')+' '+(slot.side>0?'right':'left')
+   :'Unmounted';
+  return 'Radiator '+part.id.replace(/^rad/,'')+' · '+location+' · '+detail;
+ }
+ if(part.type==='cpu')return 'CPU block · '+detail;
+ if(part.type==='gpu')return 'GPU block · '+detail;
+ if(part.type==='res')return (part.id==='res'?'Left':'Right')+' reservoir · '+detail;
+ if(part.type==='pump')return (part.id==='pump'?'Left':'Right')+' pump · '+detail;
+ if(part.type==='drain')return (part.id==='drain'?'Left':'Right')+' drain · '+detail;
+ return part.name+' · '+detail;
+}
 // All reservoir ports remain visible, but the top fitting is a fill/vent
 // opening and is deliberately NOT available for normal tubing routes.
 function isFillVentPort(k){
@@ -1007,7 +1044,7 @@ function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.p
  comp.pos[j]=Number(e.target.value)||0;
  moveAttachedParts(comp.id,sub(comp.pos,before));
  changeModel();if(['radiator','tray','mobo'].includes(comp.type))refreshComponent()});$('size'+i).addEventListener('change',e=>{comp.size[j]=Math.max(1,Number(e.target.value)||1);if(comp.type==='radiator'&&j===2)repositionRadiatorDepth(comp);changeModel();refreshComponent()})}$('componentNote').textContent=comp.note;
- $('portInfo').innerHTML=comp.ports.length?'<strong>Port positions (relative offsets):</strong><div class="help">Click a port dot in the viewer, or adjust its offsets below.</div>'+comp.ports.map((p,i)=>`<div class="help" style="margin:8px 0 3px">${p.name}: <b>${key(comp,p.id)}</b></div><div class="grid3">${p.off.map((v,j)=>`<div class="field"><label>${axes[j]} offset</label><input type="number" step="1" data-port="${i}" data-axis="${j}" value="${v}"></div>`).join('')}</div>
+ $('portInfo').innerHTML=comp.ports.length?'<strong>Port positions (relative offsets):</strong><div class="help">Click a port dot in the viewer, or adjust its offsets below.</div>'+comp.ports.map((p,i)=>`<div class="help" style="margin:8px 0 3px">${portDescription(comp,p)}: <b>${key(comp,p.id)}</b></div><div class="grid3">${p.off.map((v,j)=>`<div class="field"><label>${axes[j]} offset</label><input type="number" step="1" data-port="${i}" data-axis="${j}" value="${v}"></div>`).join('')}</div>
  ${comp.type==='res'&&p.id==='top'
   ?'<p class="help">Fill / vent port — no circulating tubing connection</p>'
   :`<div class="grid2" style="margin-top:6px">
@@ -1143,7 +1180,7 @@ function normalizeImport(p){
  return JSON.parse(JSON.stringify(p));
 }
 function validateImport(p){
- if(!p||p.format!=='walnut-loop-v26'||!p.case||!p.display||!p.prices||
+ if(!p||p.format!=='walnut-loop-v27'||!p.case||!p.display||!p.prices||
     !Array.isArray(p.parts)||!Array.isArray(p.routes)||
     !['dual','single'].includes(p.loopMode))return false;
  const required=initial().parts.map(part=>part.id);
@@ -1289,7 +1326,7 @@ function init(){ $('allowAuto45').checked=project.allow45===true;
  };enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();syncLoopHardwareVisibility();
  // v0.18 intentionally discards old browser drafts; no automatic restore.
  try{localStorage.removeItem('walnutLoopLab05')}catch(e){}
- $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v26'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
+ $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v27'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
     window.WalnutLoopWebGL.exportPng(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)});
     return;
   }if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
