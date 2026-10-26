@@ -1266,7 +1266,9 @@ function refreshCornerControls(rt){
  });
 }
 function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?(g.angleIssues.length?'Angle mismatch':'Clearance needed'):Math.round(g.length)+' mm'} · ${g.corners.length} corners</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
- let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=(rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points'+(rt.lockedCorners?.length?' · '+rt.lockedCorners.length+' locked at 90°':'');$('deletePoint').disabled=selectedWaypoint<0}refreshCornerControls(rt)}
+ let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=rt.bridge?'Parametric bridge · edit height and exit below':
+  (rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points'+
+  (rt.lockedCorners?.length?' · '+rt.lockedCorners.length+' locked at 90°':'');$('deletePoint').disabled=selectedWaypoint<0}refreshCornerControls(rt);refreshBridgeControls(rt)}
 function estimate(){
  let straight=0,elbow=0,adapter=0,softLen=0,hardLen=0;
  const ports=new Set(project.routes.filter(r=>!r.blocked).flatMap(r=>[r.from,r.to]));
@@ -1578,7 +1580,10 @@ function init(){ $('allowAuto45').checked=project.allow45===true;
  }
  $('showCoolingBtn').onclick=()=>{showCoolingModel();changeModel();toast('Cooling assemblies visible. Select a radiator to edit fans.');};$('componentVisible').onchange=e=>{let part=cpart(selection);if(!part)return;part.visible=e.target.checked;project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;changeModel()};$('wallThickness').onchange=e=>{project.case.wood=clamp(Number(e.target.value),1,80);changeModel()};$('syncRads').onclick=()=>{syncMeasuredRadiators();showCoolingModel();persist();refreshComponent();changeModel();toast('Aligned installed radiators to front/back panel cutouts.');};$('dividerHeight').onchange=e=>{project.case.divider=clamp(Number(e.target.value),50,project.case.height-50);changeModel()};$('centerComponent').onclick=()=>{let p=cpart(selection);if(p)view.target=p.pos.slice();draw()};
  for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).onclick=()=>{project.display[k]=!project.display[k];$(id).classList.toggle('active',project.display[k]);changeModel()};
- $('addRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,$('styleSelect').value,$('axisOrder').value);$('populateRoutes').onclick=sampleRoutes;
+ $('addRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,$('styleSelect').value,$('axisOrder').value);
+ $('addBridgeRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,
+  $('styleSelect').value==='bend'?'bend':'elbow',$('axisOrder').value,'bridge');
+ $('populateRoutes').onclick=sampleRoutes;
  $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){
  if(e.target.value==='soft'&&rt.bridge)detachRadiatorBridge(rt);
  rt.style=e.target.value;
@@ -1588,6 +1593,28 @@ function init(){ $('allowAuto45').checked=project.allow45===true;
  $('add90Corner').onclick=addLocked90Corner;
  $('deletePoint').onclick=removeSelectedRoutePoint;
  $('autoRoute').onclick=clearSelectedRoutePoints;
+ $('makeBridge').onclick=makeSelectedBridge;
+ $('fitBridge').onclick=fitSelectedBridge;
+ $('detachBridge').onclick=()=>{
+  const rt=project.routes.find(r=>r.id===selectedRoute);
+  if(rt&&detachRadiatorBridge(rt)){changeModel();toast('Converted bridge to manual bend points.')}
+ };
+ for(const [id,field,low,high] of [
+  ['bridgeExit','exit',0,180],['bridgeRise','rise',25,260]
+ ]){
+  $(id).onchange=e=>{
+   const rt=project.routes.find(r=>r.id===selectedRoute);
+   if(!rt?.bridge)return;
+   const n=Number(e.target.value);
+   if(Number.isFinite(n))rt.bridge[field]=clamp(n,low,high);
+   changeModel();
+  };
+ }
+ $('bridgeOrder').onchange=e=>{
+  const rt=project.routes.find(r=>r.id===selectedRoute);
+  if(!rt?.bridge)return;
+  rt.bridge.order=e.target.value==='z'?'z':'x';changeModel();
+ };
  $('tubeOD').onchange=e=>{project.tubeOD=clamp(Number(e.target.value)||16,8,25);changeModel()};$('bendRadius').onchange=e=>{project.bendRadius=clamp(Number(e.target.value)||35,8,150);changeModel()};
  for(let [id,k] of [['fitPrice','fit'],['elbowPrice','elbow'],['softPrice','soft'],['hardPrice','hard'],['wastePct','waste'],['otherCost','other']])$(id).onchange=e=>{project.prices[k]=Math.max(0,Number(e.target.value)||0);changeModel()};
  $('rendererBtn').onclick=()=>{window.WalnutLoopWebGL?.setActive(false);enableRenderer(isSvgMode?'canvas':'svg')};
