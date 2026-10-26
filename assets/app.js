@@ -453,8 +453,12 @@ function routeObstacles(rt,margin=10){
  return [
   ...routeTools.boxes(project.parts,
    [rt.from.split('.')[0],rt.to.split('.')[0]],clearance),
+  // End-tank port centers are only 11 mm above the top fan frame in this
+  // measured mockup. Use tube radius + 2 mm fan clearance rather than the
+  // larger general-purpose component margin; otherwise legitimate radiator
+  // connections start inside an inflated fan box and cannot be routed.
   ...routeTools.fanBoxes(installedFans(),project.case.fanThickness||25.4,
-   clearance)
+   project.tubeOD/2+2)
  ];
 }
 function routePoints(rt){
