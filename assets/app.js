@@ -445,10 +445,19 @@ function routeEnds(rt){
  const a=fittingFor(rt.from),b=fittingFor(rt.to);
  return a&&b?[a.tip,b.tip]:null;
 }
+function tubingSignature(rt){
+ return JSON.stringify([routePoints(rt),rt.style,project.bendRadius]);
+}
 function tubingShape(rt){
+ if(rt._displayPath&&rt._geometrySignature===tubingSignature(rt))
+  return rt._displayPath.map(p=>p.slice());
  const pts=routePoints(rt);
  return rt.style==='soft'?softPolyline(pts):
    rt.style==='bend'?roundPolyline(pts,project.bendRadius):pts;
+}
+function rememberTubePath(rt,shape){
+ rt._geometrySignature=tubingSignature(rt);
+ rt._displayPath=shape.map(p=>p.slice());
 }
 function otherTubePaths(rt){
  return project.routes.filter(other=>other!==rt&&!other.blocked&&
@@ -522,7 +531,8 @@ function generateRoutePath(rt){
     !tubeTubeHits(rt,original).length){
   delete rt.waypoints;delete rt.blocked;rt._built=true;
   // A soft curve may bow into another hose despite clear control points.
-  if(!routeGeom(rt).blocked)return true;
+  const geometry=routeGeom(rt);
+  if(!geometry.blocked){rememberTubePath(rt,geometry.smooth);return true}
   rt._built=false;
  }
  const planned=planRoute(rt);
@@ -531,7 +541,7 @@ function generateRoutePath(rt){
   delete rt.blocked;rt._built=true;
   // The actual 3D tube must clear the other routed centerlines too.
   const verification=routeGeom(rt);
-  if(!verification.blocked)return true;
+  if(!verification.blocked){rememberTubePath(rt,verification.smooth);return true}
  }
  rt._built=false;
  rt.blocked=planned.reason||'collision';
@@ -627,8 +637,7 @@ function routeGeom(rt){
  // Broad tube AABBs are used to steer auto routing, but only exact
  // centerline separation decides whether a drawn tube collides.
  const pts=routePoints(rt),obstacles=routeObstacles(rt,8,false);
- let smooth=rt.style==='soft'?softPolyline(pts):
-  rt.style==='bend'?roundPolyline(pts,project.bendRadius):pts;
+ let smooth=tubingShape(rt);
  // Tight curves can bow beyond otherwise-clear control points. Never silently
  // render that curve through a component; display the safe path instead.
  const clashes=routeTools.collisions(smooth,obstacles);
