@@ -454,6 +454,13 @@ function planRoute(rt){
  return routeTools.plan(ends[0],ends[1],blocks);
 }
 function generateRoutePath(rt){
+ const original=routePoints(rt),obstacles=routeObstacles(rt,18);
+ // Prefer the user's selected X/Y/Z order whenever it already clears
+ // component envelopes; detour only the paths that actually need it.
+ if(original.length>=2&&!routeTools.collisions(original,obstacles).length){
+  delete rt.waypoints;delete rt.blocked;
+  return true;
+ }
  const planned=planRoute(rt);
  if(planned.points){
   rt.waypoints=planned.points.slice(1,-1);
@@ -511,7 +518,7 @@ function insertRoutePoint(rt,segmentIndex,t=.5){
  const wp=editableRoute(rt);
  const pts=routePoints(rt),i=clamp(segmentIndex,0,pts.length-2);
  const point=mix(pts[i],pts[i+1],t);
- wp.splice(i,0,point);selectedRoute=rt.id;selectedWaypoint=i;
+ wp.splice(i,0,point);delete rt.blocked;selectedRoute=rt.id;selectedWaypoint=i;
  return point;
 }
 function addSelectedRoutePoint(){
@@ -530,7 +537,7 @@ function removeSelectedRoutePoint(){
 }
 function clearSelectedRoutePoints(){
  const rt=project.routes.find(r=>r.id===selectedRoute);if(!rt)return;
- delete rt.waypoints;selectedWaypoint=-1;changeModel();
+ delete rt.waypoints;delete rt.blocked;selectedWaypoint=-1;generateRoutePath(rt);changeModel();
 }
 function drawRouteHandles(){
  const rt=project.routes.find(r=>r.id===selectedRoute);
@@ -565,9 +572,9 @@ function routeGeom(rt){
 }
 function renderTube(rt){
  const g=routeGeom(rt);
- if(g.smooth.length<2||g.blocked)return;
+ if(g.smooth.length<2||rt.blocked)return;
  const chosen=selectedRoute===rt.id;
- const color=rt.style==='soft'?'#65c9e5':'#cdb7a0';
+ const color=g.blocked?'#e66b62':rt.style==='soft'?'#65c9e5':'#cdb7a0';
  const outerRadius=project.tubeOD/2;
  const connectors=[fittingFor(rt.from),fittingFor(rt.to)].filter(Boolean);
  if(sceneQueue){
@@ -579,9 +586,15 @@ function renderTube(rt){
    sceneQueue.push({kind:'tube',pts:fit.points.slice(0,2),color:'#d0d8db',
      radius:fit.radius+2});
   }
-  if(rt.style==='elbow')for(let i=1;i<g.pts.length-1;i++)
-   sceneQueue.push({kind:'tube',pts:[g.pts[i-1],g.pts[i],g.pts[i+1]],
+  if(rt.style==='elbow')for(let i=1;i<g.pts.length-1;i++){
+   const corner=g.pts[i],before=g.pts[i-1],after=g.pts[i+1];
+   const take=Math.min(project.tubeOD*1.2,dist(corner,before)*.4,dist(corner,after)*.4);
+   if(take<1)continue;
+   sceneQueue.push({kind:'tube',pts:[
+    mix(corner,before,take/dist(corner,before)),corner,
+    mix(corner,after,take/dist(corner,after))],
     radius:outerRadius+1.8,color:'#899ba6'});
+  }
  }else{
   const width=clamp(project.tubeOD*screen([0,0,0]).sf,3,26);
   stroke(g.smooth,'#101820',width+3,.95);
