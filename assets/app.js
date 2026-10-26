@@ -1213,7 +1213,8 @@ function sanitizeFittings(){
    if(Number(angle)===45)route.cornerAngles[index]=90;
  }
 }
-function changeModel(){sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
+function changeModel(){for(const rt of project.routes)if(rt.lockedCorners?.length)enforceLocked90(rt);
+ sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
 function refreshCornerControls(rt){
  const panel=$('routeCornerControls'),list=$('cornerList');
  panel.style.display=rt&&rt.style!=='soft'?'block':'none';
