@@ -1686,8 +1686,23 @@ canvas.addEventListener('pointerdown',e=>{
  isDragging=true;dragMoved=false;last=[e.clientX,e.clientY];routeDrag=null;
  const [x,y]=canvasPoint(e);
  if(!project.display.caseOnly&&e.button!==2){
+  // A 90-degree joint is a draggable handle for the linked bridge.
+  const near=project.routes.filter(r=>r.bridge&&portPos(r.from)&&portPos(r.to))
+   .flatMap(r=>bridgeHandles(r).map(h=>{
+    const v=screen(h.point),distance=Math.hypot(v.x-x,v.y-y);
+    return {route:r,handle:h,distance};
+   }))
+   .filter(h=>h.distance<19)
+   .sort((a,b)=>a.distance-b.distance||
+    Number(b.route.id===selectedRoute)-Number(a.route.id===selectedRoute))[0];
+  if(near){
+   selectedRoute=near.route.id;selectedWaypoint=-1;
+   routeDrag={route:near.route,bridgeHandle:near.handle.id,
+    startPos:near.handle.point.slice(),startBridge:{...near.route.bridge},
+    startX:x,startY:y};
+  }
   const rt=project.routes.find(r=>r.id===selectedRoute);
-  if(rt&&!rt.bridge&&portPos(rt.from)&&portPos(rt.to)){
+  if(!routeDrag&&rt&&!rt.bridge&&portPos(rt.from)&&portPos(rt.to)){
    const pts=routePoints(rt);
    for(let i=1;i<pts.length-1;i++){
     const v=screen(pts[i]);
@@ -1722,7 +1737,21 @@ canvas.addEventListener('pointermove',e=>{
  if(!isDragging)return;
  const dx=e.clientX-last[0],dy=e.clientY-last[1];
  if(Math.abs(dx)+Math.abs(dy)>1)dragMoved=true;
- if(routeDrag){
+ if(routeDrag?.bridgeHandle){
+  const result=bridgeScreenDelta(routeDrag,
+   e.clientX-routeDrag.startX,e.clientY-routeDrag.startY,!!e.shiftKey);
+  if(result){
+   const next=routeTools.dragRadiatorBridge(fittingLeads(routeDrag.route),
+    routeDrag.startBridge,routeDrag.bridgeHandle,result.exit,result.rise);
+   if(next){
+    routeDrag.route.bridge=next;
+    $('bridgeExit').value=next.exitA??next.exit;
+    $('bridgeExitB').value=next.exitB??next.exit;
+    $('bridgeRise').value=next.rise;
+    sceneRevision++;draw();
+   }
+  }
+ }else if(routeDrag){
   const wp=routeDrag.route.waypoints?.[routeDrag.index];
   if(wp){const delta=routePointWorldDelta(dx,dy,!!e.shiftKey);
    const before=routeDrag.route.waypoints.map(p=>p.slice());
@@ -1740,7 +1769,13 @@ canvas.addEventListener('pointermove',e=>{
 });
 canvas.addEventListener('pointerup',e=>{
  const edited=!!routeDrag;routeDrag=null;isDragging=false;
- if(edited){changeModel();return}
+ if(edited){
+  changeModel();
+  if(!routeGeom(project.routes.find(r=>r.id===selectedRoute)).blocked)return;
+  if(project.routes.find(r=>r.id===selectedRoute)?.bridge)
+   toast('Elbows remain at 90°. This position needs more clearance.');
+  return;
+ }
  if(dragMoved)return;
  const [x,y]=canvasPoint(e);
  const closest=hitPorts.filter(p=>Math.hypot(p.x-x,p.y-y)<15)
