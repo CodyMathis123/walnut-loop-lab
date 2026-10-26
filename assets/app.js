@@ -841,8 +841,16 @@ function removeSelectedRoutePoint(){
  const rt=project.routes.find(r=>r.id===selectedRoute);
  if(!rt||selectedWaypoint<0)return;
  const wp=editableRoute(rt);if(selectedWaypoint>=wp.length)return;
+ const previous=wp.map(p=>p.slice()),locks=(rt.lockedCorners||[]).slice(),
+  angles={...(rt.cornerAngles||{})};
  shiftCornerConstraints(rt,selectedWaypoint,-1);
- wp.splice(selectedWaypoint,1);selectedWaypoint=-1;changeModel();
+ wp.splice(selectedWaypoint,1);
+ if(!enforceLocked90(rt)){
+  rt.waypoints=previous;rt.lockedCorners=locks;rt.cornerAngles=angles;
+  toast('Cannot remove that point without breaking a locked 90° corner.');
+  return;
+ }
+ selectedWaypoint=-1;changeModel();
 }
 function clearSelectedRoutePoints(){
  const rt=project.routes.find(r=>r.id===selectedRoute);if(!rt)return;
@@ -1305,7 +1313,14 @@ function validateImport(p){
    // Imported sketches follow the same rule as interactive routing.
    p.routes.every(route=>{
     if(typeof route?.from!=='string'||typeof route?.to!=='string')return false;
-    if(route.cornerAngles!==undefined){
+    if(route.lockedCorners!==undefined){
+      if(route.style==='soft'||!Array.isArray(route.lockedCorners)||
+         !Array.isArray(route.waypoints)||
+         new Set(route.lockedCorners).size!==route.lockedCorners.length||
+         route.lockedCorners.some(i=>!Number.isInteger(i)||i<0||i>=route.waypoints.length||
+           Number(route.cornerAngles?.[i+2])!==90))return false;
+     }
+     if(route.cornerAngles!==undefined){
      if(!route.cornerAngles||typeof route.cornerAngles!=='object'||Array.isArray(route.cornerAngles))return false;
      const permitted=route.style==='elbow'
       ?(p.allow45===true?[45,90]:[90]):route.style==='bend'?routeTools.BEND_ANGLES:[];
@@ -1474,7 +1489,7 @@ function init(){ $('allowAuto45').checked=project.allow45===true;
  $('showCoolingBtn').onclick=()=>{showCoolingModel();changeModel();toast('Cooling assemblies visible. Select a radiator to edit fans.');};$('componentVisible').onchange=e=>{let part=cpart(selection);if(!part)return;part.visible=e.target.checked;project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;changeModel()};$('wallThickness').onchange=e=>{project.case.wood=clamp(Number(e.target.value),1,80);changeModel()};$('syncRads').onclick=()=>{syncMeasuredRadiators();showCoolingModel();persist();refreshComponent();changeModel();toast('Aligned installed radiators to front/back panel cutouts.');};$('dividerHeight').onchange=e=>{project.case.divider=clamp(Number(e.target.value),50,project.case.height-50);changeModel()};$('centerComponent').onclick=()=>{let p=cpart(selection);if(p)view.target=p.pos.slice();draw()};
  for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).onclick=()=>{project.display[k]=!project.display[k];$(id).classList.toggle('active',project.display[k]);changeModel()};
  $('addRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,$('styleSelect').value,$('axisOrder').value);$('populateRoutes').onclick=sampleRoutes;
- $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.style=e.target.value;changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;selectedWaypoint=-1;changeModel()};
+ $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.style=e.target.value;if(rt.style==='soft'){delete rt.lockedCorners;delete rt.cornerAngles}changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;selectedWaypoint=-1;changeModel()};
  $('addPoint').onclick=addSelectedRoutePoint;
  $('add90Corner').onclick=addLocked90Corner;
  $('deletePoint').onclick=removeSelectedRoutePoint;
