@@ -41,7 +41,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  }`,ctx);
  const api=ctx.testAPI;
  ctx.window.WalnutLoopWebGL={active:true,render(){},setActive(){}};
- assert.equal(api.project.format,'walnut-loop-v26');
+ assert.equal(api.project.format,'walnut-loop-v27');
  assert.equal(api.project.allow45,false);
  assert.equal(el('allowAuto45').checked,false);
  const wood=api.routeTools.cabinetBoxes(api.project.case,0);
