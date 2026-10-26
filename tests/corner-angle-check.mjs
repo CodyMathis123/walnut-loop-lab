@@ -61,7 +61,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  vm.runInContext(app+'\n;globalThis.__test={project,cpart,routeGeom,routeCorners,routeCenterline,routeTools,alignCornerToAngle,refreshCornerControls,sampleRoutes}',ctx);
  const a=ctx.__test;
  ctx.window.WalnutLoopWebGL={active:true,render(){},setActive(){}};
- assert.equal(a.project.format,'walnut-loop-v26');
+ assert.equal(a.project.format,'walnut-loop-v27');
  const rt={id:'corner_test',from:'cpu.out',to:'gpu.in',style:'elbow',axis:'xzy',
   waypoints:[[45,600,-150],[10,600,-150]]};
  a.project.routes.push(rt);
