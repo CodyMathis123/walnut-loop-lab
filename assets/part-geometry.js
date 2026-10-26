@@ -309,7 +309,8 @@
   for(const dx of [-39,39])for(const dz of [-88,0,88])
    stroke(circle3([pcbCenterX+dx,top+.4,z+dz],2.3,'y',12),
      '#c5bca6',1.1,.85);
-  // Terminal on the right (+X) long edge, holding two accessible G1/4 ports.
+  // The terminal occupies the right portion of the upper block, with the
+  // two actual coolant threads on its TOP (+Y) face. The fittings exit up.
   const terminalW=fullWidth-pcbW;
   const terminalCenterX=left+pcbW+terminalW/2;
   box({pos:[terminalCenterX,blockBottom+20,z],size:[terminalW,25,69]},
@@ -318,9 +319,9 @@
   // Other physical ports are treated as capped in this planning model.
   for(const port of part.ports||[]){
    const at=[x+port.off[0],y+port.off[1],z+port.off[2]];
-   polygon(circle3(at,9,'x',24).slice(0,-1),'#899aa1');
-   stroke(circle3(at,9,'x',24),'#c6d4d6',1.7);
-   stroke(circle3(at,5.5,'x',24),'#0b1821',1.3);
+   polygon(circle3(at,9,'y',24).slice(0,-1),'#899aa1');
+   stroke(circle3(at,9,'y',24),'#c6d4d6',1.7);
+   stroke(circle3(at,5.5,'y',24),'#0b1821',1.3);
   }
   // Rear metal bracket, display connectors all facing -Z.
   const bracketZ=rear-2;
