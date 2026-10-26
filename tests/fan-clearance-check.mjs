@@ -33,7 +33,7 @@ function editor(userAgent){
   localStorage:{getItem(){return null},removeItem(){}},devicePixelRatio:1,
   console,confirm(){return true},setTimeout(){return 1},clearTimeout(){}});
  vm.runInContext(geom,context);vm.runInContext(routing,context);
- vm.runInContext(app+`\\n;globalThis.__api={
+ vm.runInContext(app+`\n;globalThis.__api={
   project,cpart,installedFans,attachedFans,freeBayFans,routeTools,
   routeObstacles,routeGeom,routePoints,sampleRoutes,draw,changeModel
  }`,context);
