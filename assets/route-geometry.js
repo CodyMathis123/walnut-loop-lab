@@ -92,6 +92,76 @@
    for(const box of obstacles)if(segmentIntersects(points[i-1],points[i],box))hits.add(box.id);
   return [...hits];
  }
+ // Narrow capsule approximation for automatic routing: use short AABB
+ // slices around previously installed tube centerlines. This avoids the
+ // enormous false-positive envelopes from long diagonal tube segments.
+ function tubeBoxes(routes,radius=8,clearance=2){
+  const pad=Math.max(1,radius)+Math.max(0,clearance);
+  const output=[];
+  for(const item of routes){
+   const pts=item.points||[],id=item.id,skip=item.skip||[];
+   for(let i=1;i<pts.length;i++){
+    const a=pts[i-1],b=pts[i],L=dist(a,b),pieces=Math.max(1,Math.ceil(L/30));
+    for(let n=0;n<pieces;n++){
+     const lo=n/pieces,hi=(n+1)/pieces;
+     const p=a.map((v,j)=>v+(b[j]-v)*lo);
+     const q=a.map((v,j)=>v+(b[j]-v)*hi);
+     const center=p.map((v,j)=>(v+q[j])/2);
+     // An existing tee branch may share its first few centimetres
+     // with the new route. That junction is deliberately exempt.
+     if(skip.some(point=>dist(center,point)<55))continue;
+     output.push({id:'tube:'+id+':'+i+':'+n,
+      min:p.map((v,j)=>Math.min(v,q[j])-pad),
+      max:p.map((v,j)=>Math.max(v,q[j])+pad)});
+    }
+   }
+  }
+  return output;
+ }
+ // Closest approach between two finite centerline segments (including
+ // degenerate segments). Used for final actual tube/tube verification.
+ function distanceSegments(p0,p1,q0,q1){
+  const u=sub(p1,p0),v=sub(q1,q0),w=sub(p0,q0);
+  const a=dot(u,u),b=dot(u,v),c=dot(v,v),d=dot(u,w),e=dot(v,w);
+  const D=a*c-b*b,EPS=1e-10;
+  let sN,sD=D,tN,tD=D;
+  if(a<EPS&&c<EPS)return {distance:dist(p0,q0),p:p0,q:q0};
+  if(a<EPS){sN=0;sD=1;tN=e;tD=c}
+  else if(c<EPS){tN=0;tD=1;sN=-d;sD=a}
+  else{
+   if(D<EPS){sN=0;sD=1;tN=e;tD=c}
+   else{sN=b*e-c*d;tN=a*e-b*d;
+    if(sN<0){sN=0;tN=e;tD=c}
+    else if(sN>sD){sN=sD;tN=e+b;tD=c}
+   }
+  }
+  if(tN<0){tN=0;if(-d<0)sN=0;else if(-d>a)sN=sD;else{sN=-d;sD=a}}
+  else if(tN>tD){tN=tD;if(-d+b<0)sN=0;else if(-d+b>a)sN=sD;else{sN=-d+b;sD=a}}
+  const sc=Math.abs(sN)<EPS?0:sN/sD,tc=Math.abs(tN)<EPS?0:tN/tD;
+  const p=add(p0,u.map(n=>n*sc)),q=add(q0,v.map(n=>n*tc));
+  return {distance:dist(p,q),p,q};
+ }
+ function tubeCollisions(candidate,others,radius=8,clearance=2){
+  if(candidate.points?.length<2)return [];
+  const threshold=radius*2+clearance,hit=new Set();
+  for(const item of others){
+   const points=item.points||[];
+   if(points.length<2)continue;
+   outer:for(let i=1;i<candidate.points.length;i++)
+    for(let j=1;j<points.length;j++){
+     const d=distanceSegments(candidate.points[i-1],candidate.points[i],
+      points[j-1],points[j]);
+     if(d.distance>=threshold-1e-7)continue;
+     const junction=(candidate.shared||[]).some(point=>
+      dist(d.p,point)<55&&dist(d.q,point)<55&&
+      (item.ports||[]).some(port=>candidate.ports?.includes(port)));
+     if(junction)continue;
+     hit.add('tube:'+item.id);
+     break outer;
+    }
+  }
+  return [...hit];
+ }
  function simplify(points,obstacles){
   if(points.length<3)return points;
   const reduced=[points[0]];let i=0;
@@ -176,5 +246,5 @@
   const blocked=collisions(candidate,obstacles);
   return {points:blocked.length?null:candidate,blocked,reason:blocked.length?'verification':null,visited};
  }
- window.WalnutLoopRouting={fitting,boxes,fanBoxes,collisions,plan,segmentIntersects,simplify};
+ window.WalnutLoopRouting={fitting,boxes,fanBoxes,tubeBoxes,tubeCollisions,distanceSegments,collisions,plan,segmentIntersects,simplify};
 })();
