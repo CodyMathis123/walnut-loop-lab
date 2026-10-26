@@ -764,8 +764,35 @@ function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.p
  comp.pos[j]=Number(e.target.value)||0;
  moveAttachedParts(comp.id,sub(comp.pos,before));
  changeModel();if(['radiator','tray','mobo'].includes(comp.type))refreshComponent()});$('size'+i).addEventListener('change',e=>{comp.size[j]=Math.max(1,Number(e.target.value)||1);if(comp.type==='radiator'&&j===2)repositionRadiatorDepth(comp);changeModel();refreshComponent()})}$('componentNote').textContent=comp.note;
- $('portInfo').innerHTML=comp.ports.length?'<strong>Port positions (relative offsets):</strong><div class="help">Click a port dot in the viewer, or adjust its offsets below.</div>'+comp.ports.map((p,i)=>`<div class="help" style="margin:8px 0 3px">${p.name}: <b>${key(comp,p.id)}</b></div><div class="grid3">${p.off.map((v,j)=>`<div class="field"><label>${axes[j]} offset</label><input type="number" step="1" data-port="${i}" data-axis="${j}" value="${v}"></div>`).join('')}</div>`).join(''):'<span class="help">This component has no modeled water ports.</span>';
- $('portInfo').querySelectorAll('input').forEach(el=>el.addEventListener('change',e=>{comp.ports[+e.target.dataset.port].off[+e.target.dataset.axis]=Number(e.target.value)||0;changeModel()}));draw()}
+ $('portInfo').innerHTML=comp.ports.length?'<strong>Port positions (relative offsets):</strong><div class="help">Click a port dot in the viewer, or adjust its offsets below.</div>'+comp.ports.map((p,i)=>`<div class="help" style="margin:8px 0 3px">${p.name}: <b>${key(comp,p.id)}</b></div><div class="grid3">${p.off.map((v,j)=>`<div class="field"><label>${axes[j]} offset</label><input type="number" step="1" data-port="${i}" data-axis="${j}" value="${v}"></div>`).join('')}</div>
+ <div class="grid2" style="margin-top:6px">
+ <div class="field"><label>Compression fitting</label>
+ <select data-fit-port="${p.id}">
+ <option value="straight" ${(comp.fittings?.[p.id]?.type||'straight')==='straight'?'selected':''}>Straight</option>
+ <option value="45" ${comp.fittings?.[p.id]?.type==='45'?'selected':''}>45° swivel</option>
+ <option value="90" ${comp.fittings?.[p.id]?.type==='90'?'selected':''}>90° swivel</option>
+ </select></div>
+ <div class="field"><label>Swivel rotation (°)</label>
+ <input type="number" min="-360" max="360" step="15" data-fit-rotation="${p.id}"
+ value="${comp.fittings?.[p.id]?.rotation||0}"></div></div>`).join(''):'<span class="help">This component has no modeled water ports.</span>';
+ $('portInfo').querySelectorAll('input[data-port]').forEach(el=>el.addEventListener('change',e=>{
+ comp.ports[+e.target.dataset.port].off[+e.target.dataset.axis]=Number(e.target.value)||0;changeModel()
+ }));
+ const updateFitting=(portId,update)=>{
+  comp.fittings=comp.fittings||{};
+  comp.fittings[portId]={type:'straight',rotation:0,...comp.fittings[portId],...update};
+  // The exit point moves with the fitting. Existing explicit route handles
+  // remain where placed and retain their attachment to the fitting tip.
+  changeModel();
+ };
+ $('portInfo').querySelectorAll('select[data-fit-port]').forEach(el=>el.addEventListener('change',e=>{
+  updateFitting(e.target.dataset.fitPort,{type:e.target.value});
+ }));
+ $('portInfo').querySelectorAll('input[data-fit-rotation]').forEach(el=>el.addEventListener('change',e=>{
+  const n=Number(e.target.value);
+  if(Number.isFinite(n))updateFitting(e.target.dataset.fitRotation,{rotation:clamp(n,-360,360)});
+ }));
+ draw()}
 function refreshFreeBayControls(){
  const root=$('freeBayControls');
  const available=FAN_SLOTS.filter(slot=>!project.parts.some(
