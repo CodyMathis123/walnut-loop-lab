@@ -94,6 +94,49 @@ if (!button || !viewport || !editor) {
       output.push(point[0], point[1], point[2]);
     }
 
+    // Build actual radial 3D tubing meshes from world-space centerlines.
+    // Faceted light/dark strips give a readable cylindrical finish without
+    // requiring shadow maps or adding any CDN dependencies.
+    function tubeMesh(pts, radius, baseColor, faces) {
+      if (!Array.isArray(pts) || pts.length < 2 || radius <= 0) return;
+      const clean = pts.filter((p, i) => i === 0 || p.some((v, j) => Math.abs(v - pts[i - 1][j]) > 0.001));
+      if (clean.length < 2) return;
+      const N = 10,ring = [];
+      const cross = (a,b) => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+      const unit = a => {const l = Math.hypot(...a) || 1;return a.map(v => v/l);};
+      const difference = (a,b) => a.map((v,i) => v-b[i]);
+      for (let i=0; i<clean.length; i++) {
+        const previous=clean[Math.max(0,i-1)], next=clean[Math.min(clean.length-1,i+1)];
+        const tangent=unit(difference(next,previous));
+        const reference=Math.abs(tangent[1])<0.87?[0,1,0]:[1,0,0];
+        const u=unit(cross(tangent,reference)),v=unit(cross(tangent,u));
+        const points=[];
+        for(let j=0;j<N;j++){
+          const a=2*Math.PI*j/N;
+          points.push(clean[i].map((component,k)=>component+
+            radius*(u[k]*Math.cos(a)+v[k]*Math.sin(a))));
+        }
+        ring.push(points);
+      }
+      const mix=(col,f)=>{
+        if(!/^#[0-9a-f]{6}$/i.test(col))return '#a1b2bc';
+        const ints=[1,3,5].map(i=>parseInt(col.slice(i,i+2),16));
+        return '#'+ints.map(n=>Math.max(0,Math.min(255,Math.round(n*f)))
+          .toString(16).padStart(2,'0')).join('');
+      };
+      for(let i=1;i<ring.length;i++)for(let j=0;j<N;j++){
+        const k=(j+1)%N;
+        const color=mix(baseColor,0.66+0.34*(Math.cos(j*2*Math.PI/N)*.5+.5));
+        const out=bucket(faces,color);
+        for(const p of [ring[i-1][j],ring[i-1][k],ring[i][k],
+                        ring[i-1][j],ring[i][k],ring[i][j]])pushVertex(out,p);
+      }
+      for(const end of [0,ring.length-1])for(let j=1;j<N-1;j++){
+        const out=bucket(faces,mix(baseColor,0.78));
+        for(const p of [ring[end][0],ring[end][j],ring[end][j+1]])pushVertex(out,p);
+      }
+    }
+
     function buildMeshes(commands, project) {
       releaseWorld();
       const faces = new Map(), lines = new Map();
@@ -101,7 +144,10 @@ if (!button || !viewport || !editor) {
       for (const item of commands) {
         if (!Array.isArray(item.pts) || item.pts.length < 2) continue;
 
-        if (item.kind === 'face' && item.pts.length >= 3) {
+        if (item.kind === 'tube' && item.pts.length >= 2) {
+          tubeMesh(item.pts, Number(item.radius) || 6,
+            item.color || '#73c9dc', faces);
+        } else if (item.kind === 'face' && item.pts.length >= 3) {
           // Solid panel strips and box faces are planar convex polygons.
           const color = item.fill || '#7c8490';
           if (parseCssColor(color).opacity <= 0.001) continue;
