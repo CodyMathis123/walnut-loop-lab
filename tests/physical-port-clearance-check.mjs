@@ -29,7 +29,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  const document={getElementById:el,createElement:()=>el('e'+(++counter)),
   createElementNS:()=>el('s'+(++counter))};
  const ctx=vm.createContext({document,window:{},navigator:{userAgent:agent},
-  devicePixelRatio:1,console,confirm(){return true},
+  devicePixelRatio:1,console:{log(){},warn(){},error(e){throw e}},confirm(){return true},
   localStorage:{getItem(){return null},removeItem(){}},
   setTimeout(){return 1},clearTimeout(){}});
  vm.runInContext(parts,ctx);vm.runInContext(route,ctx);
