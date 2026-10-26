@@ -9,7 +9,7 @@ const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const geometry=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const routing=readFileSync(new URL('../assets/route-geometry.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-assert.match(html,/src="assets\/app\.js\?v=0\.27\.2"/);
+assert.match(html,/src="assets\/app\.js\?v=0\.27\.3"/);
 assert.match(html,/id="alignBoardBtn"/);
 assert.match(html,/id="alignBoardSelectedBtn"/);
 
