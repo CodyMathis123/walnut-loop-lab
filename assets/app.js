@@ -6,7 +6,7 @@ const TRAY_CLEARANCE_MM=3;
 const ITX_STANDOFF_MM=6.35, CPU_SOCKET_CLEAR_MM=6;
 const BOARD_SOCKET_OFFSET=[18,0,-6];
 const initial=()=>({
-  format:'walnut-loop-v20',
+  format:'walnut-loop-v21',
   case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:209.55,fanThickness:25.4},
   parts:[
     {id:'rad1',name:'Radiator 1',type:'radiator',fans:{panel:3,inner:3},slot:'front-right',loop:'cpu',pos:[146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Radiator 1 starts on the front/right opening with three fans on each face. Port height and offsets follow provisional supplied measurements.'},
@@ -417,7 +417,54 @@ function drawCase(){
  if(project.display.fans)renderFanOpenings();
 }
 
-function routePoints(rt){let a=portPos(rt.from),b=portPos(rt.to);if(!a||!b)return [];if(Array.isArray(rt.waypoints))return [a,...rt.waypoints.map(p=>p.slice()),b];let way=[a];let current=a.slice();for(let axis of (rt.axis||'xzy')){let i={x:0,y:1,z:2}[axis];if(Math.abs(b[i]-current[i])>.01){current=current.slice();current[i]=b[i];way.push(current)}}if(dist(way[way.length-1],b)>.01)way.push(b);return way}
+const routeTools=window.WalnutLoopRouting;
+function fittingFor(k){
+ const [id,pid]=k.split('.');
+ const part=cpart(id),port=part?.ports?.find(p=>p.id===pid);
+ return part&&port?routeTools.fitting(part,port,project.tubeOD):null;
+}
+function routeEnds(rt){
+ const a=fittingFor(rt.from),b=fittingFor(rt.to);
+ return a&&b?[a.tip,b.tip]:null;
+}
+function routeObstacles(rt,margin=10){
+ return routeTools.boxes(project.parts,[rt.from.split('.')[0],rt.to.split('.')[0]],project.tubeOD/2+margin);
+}
+function routePoints(rt){
+ const ends=routeEnds(rt);
+ if(!ends)return [];
+ const [a,b]=ends;
+ if(Array.isArray(rt.waypoints))return [a,...rt.waypoints.map(p=>p.slice()),b];
+ let way=[a],current=a.slice();
+ for(const axis of (rt.axis||'xzy')){
+  const i={x:0,y:1,z:2}[axis];
+  if(Math.abs(b[i]-current[i])>.01){
+   current=current.slice();current[i]=b[i];way.push(current);
+  }
+ }
+ if(dist(way[way.length-1],b)>.01)way.push(b);
+ return way;
+}
+function planRoute(rt){
+ const ends=routeEnds(rt);
+ if(!ends)return {points:null,blocked:['invalid-port'],reason:'ports'};
+ const blocks=routeObstacles(rt,18);
+ // Route fitting end points first; even the soft-tube example must steer
+ // around the motherboard, GPU, tray and other modeled components.
+ return routeTools.plan(ends[0],ends[1],blocks);
+}
+function generateRoutePath(rt){
+ const planned=planRoute(rt);
+ if(planned.points){
+  rt.waypoints=planned.points.slice(1,-1);
+  delete rt.blocked;
+  return true;
+ }
+ rt.blocked=planned.reason||'collision';
+ // Leave no unsafe geometry to render.
+ rt.waypoints=[];
+ return false;
+}
 // A waypoint is a true world-space 3D coordinate; endpoints remain attached
 // to real hardware ports. Existing automatic routes become editable on demand.
 function editableRoute(rt){
@@ -501,8 +548,52 @@ function drawRouteHandles(){
 function roundPolyline(pts,R){if(pts.length<3)return pts;let out=[pts[0]];for(let i=1;i<pts.length-1;i++){let a=pts[i-1],b=pts[i],c=pts[i+1],u=sub(a,b),v=sub(c,b),L1=len(u),L2=len(v);if(L1<.1||L2<.1){out.push(b);continue}let radius=Math.min(R,L1*.44,L2*.44),p=mix(b,a,radius/L1),q=mix(b,c,radius/L2);out.push(p);for(let j=1;j<=11;j++){let t=j/12;out.push(add(add(scale(p,(1-t)*(1-t)),scale(b,2*(1-t)*t)),scale(q,t*t)))}out.push(q)}out.push(pts[pts.length-1]);return out}
 function softPolyline(pts){if(pts.length<2)return pts;let out=[];for(let i=0;i<pts.length-1;i++){let a=pts[Math.max(0,i-1)],b=pts[i],c=pts[i+1],d=pts[Math.min(pts.length-1,i+2)];let L=dist(b,c),sag=Math.min(28,L*.095);for(let j=0;j<=16;j++){if(i>0&&j===0)continue;let t=j/16,t2=t*t,t3=t2*t;let p=[0,1,2].map(k=>.5*((2*b[k])+(-a[k]+c[k])*t+(2*a[k]-5*b[k]+4*c[k]-d[k])*t2+(-a[k]+3*b[k]-3*c[k]+d[k])*t3));p[1]-=sag*Math.sin(Math.PI*t);out.push(p)}}return out}
 function lengthOf(pts){let v=0;for(let i=1;i<pts.length;i++)v+=dist(pts[i],pts[i-1]);return v}
-function routeGeom(rt){let pts=routePoints(rt),smooth=rt.style==='soft'?softPolyline(pts):rt.style==='bend'?roundPolyline(pts,project.bendRadius):pts;let elbows=rt.style==='elbow'?Math.max(0,pts.length-2):0;return{pts,smooth,length:lengthOf(smooth),elbows}}
-function renderTube(rt){let g=routeGeom(rt);if(g.smooth.length<2)return;let isSelected=selectedRoute===rt.id;let color=rt.style==='soft'?'#73d9f5':'#e3bc88';let width=clamp(project.tubeOD*screen([0,0,0]).sf*.62,3,20);stroke(g.smooth,'#060e16',width+3,.8);stroke(g.smooth,color,width,.90);stroke(g.smooth,'#ffffff',Math.max(.7,width*.17),.22);if(isSelected)stroke(g.smooth,'#fff6ca',1.6,1,[6,8]);if(rt.style==='elbow')for(let i=1;i<g.pts.length-1;i++){let v=screen(g.pts[i]);ctx.fillStyle='#e6e9ea';ctx.strokeStyle='#4c5963';ctx.lineWidth=2;ctx.beginPath();ctx.arc(v.x,v.y,width*.85+3,0,Math.PI*2);ctx.fill();ctx.stroke()}}
+function routeGeom(rt){
+ if(rt.blocked)return {pts:[],smooth:[],length:0,elbows:0,collisions:[],blocked:true};
+ const pts=routePoints(rt),obstacles=routeObstacles(rt,8);
+ let smooth=rt.style==='soft'?softPolyline(pts):
+  rt.style==='bend'?roundPolyline(pts,project.bendRadius):pts;
+ // Tight curves can bow beyond otherwise-clear control points. Never silently
+ // render that curve through a component; display the safe path instead.
+ const clashes=routeTools.collisions(smooth,obstacles);
+ const safe=!clashes.length;
+ if(!safe&&routeTools.collisions(pts,obstacles).length===0)smooth=pts;
+ const actual=routeTools.collisions(smooth,obstacles);
+ const elbows=rt.style==='elbow'?Math.max(0,pts.length-2):0;
+ return {pts,smooth,length:lengthOf(smooth),elbows,collisions:actual,
+  blocked:actual.length>0,simplified:!safe&&!actual.length};
+}
+function renderTube(rt){
+ const g=routeGeom(rt);
+ if(g.smooth.length<2||g.blocked)return;
+ const chosen=selectedRoute===rt.id;
+ const color=rt.style==='soft'?'#65c9e5':'#cdb7a0';
+ const outerRadius=project.tubeOD/2;
+ const connectors=[fittingFor(rt.from),fittingFor(rt.to)].filter(Boolean);
+ if(sceneQueue){
+  sceneQueue.push({kind:'tube',pts:g.smooth,color,radius:outerRadius});
+  // Metal compression nuts and optional swivel angle connectors. Each is a
+  // solid cylinder mesh, unlike the old always-visible 2D polylines.
+  for(const fit of connectors){
+   sceneQueue.push({kind:'tube',pts:fit.points,color:'#a2b2bd',radius:fit.radius});
+   sceneQueue.push({kind:'tube',pts:fit.points.slice(0,2),color:'#d0d8db',
+     radius:fit.radius+2});
+  }
+  if(rt.style==='elbow')for(let i=1;i<g.pts.length-1;i++)
+   sceneQueue.push({kind:'tube',pts:[g.pts[i-1],g.pts[i],g.pts[i+1]],
+    radius:outerRadius+1.8,color:'#899ba6'});
+ }else{
+  const width=clamp(project.tubeOD*screen([0,0,0]).sf,3,26);
+  stroke(g.smooth,'#101820',width+3,.95);
+  stroke(g.smooth,color,width,1);
+  stroke(g.smooth,'#ffffff',Math.max(.7,width*.13),.22);
+  if(chosen)stroke(g.smooth,'#fff6ca',1.6,1,[6,8]);
+  for(const fit of connectors){
+   stroke(fit.points,'#17222c',width+7,.9);
+   stroke(fit.points,'#bdcbd2',width+3,.99);
+  }
+ }
+}
 function labelAt(p,text,color='#dbe6eb',shift=0){let v=screen(p);ctx.font='600 12px system-ui';let tw=ctx.measureText(text).width;let x=v.x+10,y=v.y-9-shift;ctx.fillStyle='#111a22d9';ctx.fillRect(x-4,y-13,tw+8,19);ctx.fillStyle=color;ctx.fillText(text,x,y)}
 function draw(){if(!ctx)return;const webgl=window.WalnutLoopWebGL?.active===true;let rect=$('viewport').getBoundingClientRect();W=Math.max(1,rect.width);H=Math.max(1,rect.height);const dd=Math.min(devicePixelRatio||1,2);if(canvas.width!==Math.round(W*dd)||canvas.height!==Math.round(H*dd)){canvas.width=Math.round(W*dd);canvas.height=Math.round(H*dd);canvas.style.width=W+'px';canvas.style.height=H+'px'}dpr=dd;ctx.setTransform(dd,0,0,dd,0,0);ctx.clearRect(0,0,W,H);hitPorts=[];hitParts=[];
  // The depth-tested renderer has its own grid. Keep the original for 2D fallback.
@@ -694,7 +785,7 @@ function refreshFreeBayControls(){
  }));
 }
 function changeModel(){sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
-function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${Math.round(g.length)} mm · ${g.elbows} elbow${g.elbows===1?'':'s'}</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
+function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?'Clearance needed':Math.round(g.length)+' mm'} · ${g.elbows} elbow${g.elbows===1?'':'s'}</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
  let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=(rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points';$('deletePoint').disabled=selectedWaypoint<0}}
 function estimate(){let tubes=0,straight=0,elbow=0,softLen=0,hardLen=0;let lengths=[];for(let rt of project.routes){let g=routeGeom(rt);tubes++;straight+=2;elbow+=g.elbows;if(rt.style==='soft')softLen+=g.length;else hardLen+=g.length;lengths.push(g.length)}let w=1+project.prices.waste/100;let sf=softLen*w/1000,hf=hardLen*w/1000,c1=straight*project.prices.fit,c2=elbow*project.prices.elbow,c3=sf*project.prices.soft,c4=hf*project.prices.hard,total=c1+c2+c3+c4+project.prices.other;return{total,straight,elbow,softLen,hardLen,sf,hf,c1,c2,c3,c4,lengths}}
 function refreshEstimate(){let a=estimate();$('totalLength').textContent=((a.softLen+a.hardLen)/1000).toFixed(2)+' m';$('fittingCount').textContent=a.straight;$('elbowCount').textContent=a.elbow;let money=n=>'$'+n.toFixed(2);$('estimateRows').innerHTML=[['Port compressions',a.straight+' × '+money(project.prices.fit),a.c1],['Integrated 90° connectors',a.elbow+' × '+money(project.prices.elbow),a.c2],['Soft tubing',a.sf.toFixed(2)+' m',a.c3],['Hard tubing',a.hf.toFixed(2)+' m',a.c4],['Other / adapters','allowance',project.prices.other]].map(([n,detail,v])=>`<tr><td>${n}<small style="display:block;color:#8493a4">${detail}</small></td><td>${money(v)}</td></tr>`).join('');$('costTotal').textContent=money(a.total)}
@@ -709,7 +800,7 @@ function normalizeImport(p){
  return JSON.parse(JSON.stringify(p));
 }
 function validateImport(p){
- if(!p||p.format!=='walnut-loop-v20'||!p.case||!p.display||!p.prices||
+ if(!p||p.format!=='walnut-loop-v21'||!p.case||!p.display||!p.prices||
     !Array.isArray(p.parts)||!Array.isArray(p.routes)||
     !['dual','single'].includes(p.loopMode))return false;
  const required=initial().parts.map(part=>part.id);
@@ -784,7 +875,10 @@ function addRoute(from,to,style,axis){
  }
  if(!connectablePort(from)||!connectablePort(to)||from===to){
   toast('Select two different, valid ports.');return
- }if(project.loopMode==='dual'&&portLoop(from)!==portLoop(to)){toast('GPU and CPU loops are separate; select ports in the same loop.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);project.routes.push({id,from,to,style,axis,loop:portLoop(from)});selectedRoute=id;selectedWaypoint=-1;changeModel();toast('Route added. Select it in the list to change style.');}
+ }if(project.loopMode==='dual'&&portLoop(from)!==portLoop(to)){toast('GPU and CPU loops are separate; select ports in the same loop.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);const route={id,from,to,style,axis,loop:portLoop(from)};
+ const safe=generateRoutePath(route);
+ project.routes.push(route);selectedRoute=id;selectedWaypoint=-1;
+ changeModel();toast(safe?'Route added with component clearance.':'No clear automatic path. Adjust component positions or add points.');}
 function sampleRoutes(){
  if(project.routes.length&&!confirm('Replace existing routes with '+project.loopMode+'-loop examples?'))return;
  const links=[];
@@ -816,16 +910,17 @@ function sampleRoutes(){
  project.routes=links.filter(({ports})=>connectablePort(ports[0])&&connectablePort(ports[1]))
   .map(({ports,mode},i)=>({id:'example'+i,from:ports[0],to:ports[1],
    loop:mode,style:chosenStyle,axis:chosenAxis}));
+ const unresolved=project.routes.filter(rt=>!generateRoutePath(rt)).length;
  selectedRoute=null;selectedWaypoint=-1;changeModel();
- toast('Loaded '+project.routes.length+' '+(
-  chosenStyle==='soft'?'soft-tube':chosenStyle==='bend'?'hard-bend':'hard-elbow'
- )+' sample runs; reservoir top fill/vent ports stay free.');
+ toast('Generated '+(project.routes.length-unresolved)+' clearance-aware '+chosenStyle+
+  ' routes'+(unresolved?' · '+unresolved+' need manual placement (not drawn)':'')+
+  '; fill/vent ports stay free.');
 }
 function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoom;view.target=[0,345,0];view.pan=[0,0];for(let id of ['isoBtn','frontBtn','sideBtn','topBtn'])$(id).classList.remove('active');draw()}
 function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();syncLoopHardwareVisibility();
  // v0.18 intentionally discards old browser drafts; no automatic restore.
  try{localStorage.removeItem('walnutLoopLab05')}catch(e){}
- $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v20'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
+ $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v21'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
     window.WalnutLoopWebGL.exportPng(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)});
     return;
   }if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
