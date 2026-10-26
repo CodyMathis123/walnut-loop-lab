@@ -71,7 +71,8 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
   assert.equal(api.cpart('cpu').fittings?.out?.type||'straight','straight');
   assert.equal(api.cpart('gpu').fittings?.out?.type||'straight','straight');
   const valid=api.project.routes.filter(rt=>!rt.blocked);
-  assert.ok(valid.length>=7,'Enough valid example tubes should remain');
+  assert.ok(valid.length>=(style==='soft'?7:3),
+   'Only physically achievable hard-elbow and formed-bend routes count as valid');
   for(const rt of valid){
    const g=api.routeGeom(rt);
    assert.equal(g.collisions.length,0,'Accepted route intersects tube or component '+rt.from);
@@ -94,8 +95,9 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
    node('allowAuto45').checked=false;
    api.sampleRoutes();
    assert.equal(api.project.routes.length,9);
-   assert.ok(api.project.routes.filter(rt=>!rt.blocked&&!api.routeGeom(rt).blocked).length>=6,
-    'Single '+side+' '+style+' must retain feasible tubes and flag obstructed ones');
+   assert.ok(api.project.routes.filter(rt=>!rt.blocked&&!api.routeGeom(rt).blocked).length>=
+    (style==='soft'?6:3),
+    'Single '+side+' '+style+' must flag invalid physical angles instead of inventing elbows');
   }
  }
  api.project.loopMode='dual';
