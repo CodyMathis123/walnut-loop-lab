@@ -149,10 +149,14 @@
    Math.abs(Math.abs(v[2])-1)<1e-6;
   if(a.type!=='straight'||b.type!=='straight'||
      !normal(a.outward)||!normal(b.outward))return null;
-  const exit=clamp(Number(config.exit)||0,0,180);
+  const defaultExit=Number.isFinite(Number(config.exit))?Number(config.exit):35;
+  const exitA=clamp(Number.isFinite(Number(config.exitA))?
+   Number(config.exitA):defaultExit,0,180);
+  const exitB=clamp(Number.isFinite(Number(config.exitB))?
+   Number(config.exitB):defaultExit,0,180);
   const rise=clamp(Number(config.rise)||0,25,260);
-  const start=add(depart,a.outward.map(n=>n*exit));
-  const finish=add(approach,b.outward.map(n=>n*exit));
+  const start=add(depart,a.outward.map(n=>n*exitA));
+  const finish=add(approach,b.outward.map(n=>n*exitB));
   const y=Math.max(start[1],finish[1])+rise;
   const left=[start[0],y,start[2]];
   const right=[finish[0],y,finish[2]];
@@ -171,6 +175,43 @@
    if(angle>1.5&&Math.abs(angle-90)>.001)return null;
   }
   return points;
+ }
+ // A bridge elbow is a handle onto dependent tube lengths, not a freely
+ // positioned XYZ point. There are four 90-degree joints on the risers.
+ function radiatorBridgeHandles(leads,config={}){
+  if(!radiatorBridge(leads,config))return [];
+  const {a,b,depart,approach}=leads;
+  const baseline=Number.isFinite(Number(config.exit))?Number(config.exit):35;
+  const aExit=clamp(config.exitA==null?baseline:Number(config.exitA),0,180);
+  const bExit=clamp(config.exitB==null?baseline:Number(config.exitB),0,180);
+  const bottomA=add(depart,a.outward.map(n=>n*aExit));
+  const bottomB=add(approach,b.outward.map(n=>n*bExit));
+  const topY=Math.max(bottomA[1],bottomB[1])+
+   clamp(Number(config.rise)||0,25,260);
+  return [
+   {id:'a-exit',point:bottomA,kind:'exit',side:'a'},
+   {id:'a-top',point:[bottomA[0],topY,bottomA[2]],kind:'top',side:'a'},
+   {id:'b-top',point:[bottomB[0],topY,bottomB[2]],kind:'top',side:'b'},
+   {id:'b-exit',point:bottomB,kind:'exit',side:'b'}
+  ];
+ }
+ // Changing a handle slides its entire upright parallel to itself. The top
+ // two corners share ONE horizontal plane; changing either top joint changes
+ // the heights of both risers. Each port-side exit slides independently.
+ // All adjoining segments are rebuilt, so no diagonal is ever introduced.
+ function dragRadiatorBridge(leads,config,handleId,exitDelta=0,riseDelta=0){
+  const handles=radiatorBridgeHandles(leads,config);
+  const handle=handles.find(h=>h.id===handleId);
+  if(!handle)return null;
+  const next={...config};
+  const base=Number.isFinite(Number(config.exit))?Number(config.exit):35;
+  const key=handle.side==='a'?'exitA':'exitB';
+  const before=Number.isFinite(Number(config[key]))?
+   Number(config[key]):base;
+  next[key]=clamp(before+(Number(exitDelta)||0),0,180);
+  if(handle.kind==='top')next.rise=clamp(
+   (Number(config.rise)||95)+(Number(riseDelta)||0),25,260);
+  return radiatorBridge(leads,next)?next:null;
  }
  // Angle is the physical deflection of a tube (0°=straight, 90°=elbow).
  // Every non-collinear corner must have a supported part/bend selected.
@@ -413,5 +454,5 @@
   const blocked=collisions(candidate,obstacles);
   return {points:blocked.length?null:candidate,blocked,reason:blocked.length?'verification':null,visited};
  }
- window.WalnutLoopRouting={radiatorBridge,fitting,boxes,fanBoxes,cabinetBoxes,tubeBoxes,tubeCollisions,distanceSegments,cornerAngle,corners,snapCorner,orthogonalize,ELBOW_ANGLES,BEND_ANGLES,collisions,plan,segmentIntersects,simplify};
+ window.WalnutLoopRouting={radiatorBridge,radiatorBridgeHandles,dragRadiatorBridge,fitting,boxes,fanBoxes,cabinetBoxes,tubeBoxes,tubeCollisions,distanceSegments,cornerAngle,corners,snapCorner,orthogonalize,ELBOW_ANGLES,BEND_ANGLES,collisions,plan,segmentIntersects,simplify};
 })();
