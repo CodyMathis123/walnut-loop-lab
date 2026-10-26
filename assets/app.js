@@ -4,9 +4,15 @@ const add=(a,b)=>a.map((x,i)=>x+b[i]),sub=(a,b)=>a.map((x,i)=>x-b[i]),scale=(a,s
 // Small clearance avoids coplanar intersections between the walnut rail and tray.
 const TRAY_CLEARANCE_MM=3;
 const ITX_STANDOFF_MM=6.35, CPU_SOCKET_CLEAR_MM=6;
+// Alphacool Core RX 9070 XT Hellhound/Pure #14782 datasheet measurements.
+// Left tray edge overhang is intentional: the planned walnut cover/platform
+// supports the GPU assembly and its rear display-output bracket.
+const GPU_BLOCK_MM=[127.33,33.35,197];
+const GPU_BACKPLATE_WIDTH_MM=98.8, GPU_PLATFORM_MM=8, GPU_RISER_MM=6;
+const GPU_TRAY_LEFT_SHIFT_MM=0;
 const BOARD_SOCKET_OFFSET=[18,0,-6];
 const initial=()=>({
-  format:'walnut-loop-v21',
+  format:'walnut-loop-v22',
   case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:209.55,fanThickness:25.4},
   parts:[
     {id:'rad1',name:'Radiator 1',type:'radiator',fans:{panel:3,inner:3},slot:'front-right',loop:'cpu',pos:[146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Radiator 1 starts on the front/right opening with three fans on each face. Port height and offsets follow provisional supplied measurements.'},
@@ -15,12 +21,17 @@ const initial=()=>({
     {id:'rad4',name:'Radiator 4',type:'radiator',fans:{panel:3,inner:3},slot:'rear-left',loop:'gpu',pos:[-146,273.55,-180],size:[135,380,60],ports:[{id:'in',name:'Port A',off:[-31.75,190,33]},{id:'out',name:'Port B',off:[31.75,190,33]}],note:'Rear-left radiator with three 120 mm fans on each side.'},
     {id:'tray',name:'Mountain Mods ATX tray + 120 rear panel',type:'tray',pos:[8.57,492.775,-69.525],size:[276.86,1.65,323.85],cutout:{x:46,z:-96,width:120,depth:100},ports:[],note:'Mountain Mods ATXTOAB tray (10.9 × 12.75 in) and 120MOTRAY-BW rear I/O/PCI/fan panel. 1.65 mm aluminum. Rear panel geometry is an informed visual approximation.'},
     {id:'mobo',name:'GIGABYTE X570 I AORUS PRO WIFI · mock',type:'mobo',mountedTo:'tray',
-     loop:'cpu',pos:[54.00,500.75,-136.45],size:[170,1.6,170],
+     loop:'cpu',pos:[62.00,500.75,-136.45],size:[170,1.6,170],
      socketOffset:[18,0,-6],ports:[],
      note:'170 mm Mini-ITX AM4 mock inspired by GIGABYTE reference. Rear I/O toward −Z, PCIe left, two DIMMs toward front (+Z); socket center is approximate.'},
     {id:'cpu',name:'CPU water block · AM4 socket',type:'cpu',loop:'cpu',mountedTo:'mobo',
-     pos:[72.00,519.05,-142.45],size:[65,23,65],ports:[{id:'in',name:'In',off:[-16,17,0]},{id:'out',name:'Out',off:[16,17,0]}],note:'CPU/AM4 block location follows schematic motherboard positioning; no measurements yet.'},
-    {id:'gpu',name:'RX 9070 XT / water block (draft)',type:'gpu',loop:'gpu',pos:[-151,527,-45],size:[112,29,290],ports:[{id:'in',name:'In',off:[48,11,-25]},{id:'out',name:'Out',off:[48,11,25]}],note:'Separate horizontal GPU location is only a planning placeholder.'},
+     pos:[80.00,519.05,-142.45],size:[65,23,65],ports:[{id:'in',name:'In',off:[-16,17,0]},{id:'out',name:'Out',off:[16,17,0]}],note:'CPU/AM4 block location follows schematic motherboard positioning; no measurements yet.'},
+    {id:'gpu',name:'PowerColor Reaper RX 9070 XT · Alphacool Core #14782',type:'gpu',
+     loop:'gpu',mountedTo:'tray',orientation:'horizontal',pos:[-91,524.275,-120.95],
+     size:GPU_BLOCK_MM.slice(),pcbSize:[GPU_BACKPLATE_WIDTH_MM,1.6,197],platformThickness:GPU_PLATFORM_MM,
+     ports:[{id:'in',name:'Right terminal · inlet',off:[GPU_BLOCK_MM[0]/2,8,-17]},
+            {id:'out',name:'Right terminal · outlet',off:[GPU_BLOCK_MM[0]/2,8,17]}],
+     note:'197 × 127.33 × 33.35 mm Alphacool #14782 block on the PowerColor Reaper; 197 × 98.8 mm backplate used as the approximate PCB footprint. GPU horizontal beside ITX board, rear display I/O toward -Z, PCIe edge to the left (-X), both coolant ports on the right (+X). Walnut mounting platform projects left of the tray; actual PCB and clearance measurements remain provisional.'},
     {id:'res',name:'GPU reservoir · left',type:'res',loop:'gpu',orientation:'vertical',pos:[-125,300,55],size:[72,238,72],ports:[{id:'in',name:'Bottom return',off:[-17,-119,0]},{id:'out',name:'Bottom supply',off:[17,-119,0]},{id:'top',name:'Top fill / vent',off:[0,119,0]}],note:'Left lower chamber, completely clear of the X=0 steel divider. Position and dimensions are provisional.'},
     {id:'pump',name:'GPU pump · left',type:'pump',loop:'gpu',pos:[-125,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'Pump location, inlet and outlet orientation are provisional. Maintain a reliable flooded pump inlet.'},
     {id:'drain',name:'GPU drain · left',type:'drain',loop:'gpu',pos:[-190,65,125],size:[55,26,36],ports:[{id:'in',name:'T branch',off:[-28,0,0]},{id:'out',name:'Capped outlet',off:[28,0,0]}],note:'Low-point drain tee with a capped/closed valve. Schematic mounting position.'},
@@ -133,7 +144,7 @@ function flushScene(){
  }
 }
 function renderedParts(){
- return project.display.caseOnly?[]:project.parts.filter(p=>p.visible!==false&&(p.type==='radiator'||p.type==='tray'||p.type==='mobo'||p.type==='cpu'||['res','pump','drain'].includes(p.type)||project.display.internals));
+ return project.display.caseOnly?[]:project.parts.filter(p=>p.visible!==false&&(p.type==='radiator'||p.type==='tray'||p.type==='mobo'||p.type==='cpu'||p.type==='gpu'||['res','pump','drain'].includes(p.type)||project.display.internals));
 }
 function showInternals(enabled){
  project.display.internals=enabled;
@@ -220,6 +231,8 @@ function renderPart(p){
  if(p.type==='tray'&&drawParts?.renderTray)drawParts.renderTray(p,geometryAPI);
  else if(p.type==='mobo'&&drawParts?.renderMotherboard)
   drawParts.renderMotherboard(p,geometryAPI);
+ else if(p.type==='gpu'&&drawParts?.renderGPU)
+  drawParts.renderGPU(p,geometryAPI);
  else if(p.type==='res'&&drawParts?.renderReservoir)drawParts.renderReservoir(p,geometryAPI);
  else if(p.type==='radiator'&&drawParts?.renderRadiator)
   drawParts.renderRadiator(p,geometryAPI);
@@ -664,10 +677,29 @@ function refreshCase(){let fields=[['width','Outside width'],['height','Outside 
 // back face 6 mm inward of the inner walnut wall. Preserve other parts.
 // ITX bracket/CPU assembly. Geometry is measured from the adjustable tray.
 function boardPoseForTray(tray,board){
- const x=tray.pos[0]+tray.size[0]/2-8-board.size[0]/2;
+ const x=tray.pos[0]+tray.size[0]/2-board.size[0]/2;
  const z=tray.pos[2]-tray.size[2]/2+10+board.size[2]/2;
  const y=tray.pos[1]+tray.size[1]/2+ITX_STANDOFF_MM+board.size[1]/2;
  return [x,y,z];
+}
+function gpuPoseForTray(tray,gpu){
+ // rear bracket face coincides with the tray rear mounting flange.
+ const rear=tray.pos[2]-tray.size[2]/2;
+ const x=tray.pos[0]-99.57; // X = -91 mm on the measured default tray
+ const y=tray.pos[1]+tray.size[1]/2+
+   (gpu.platformThickness||GPU_PLATFORM_MM)+GPU_RISER_MM+gpu.size[1]/2;
+ const z=rear+12+gpu.size[2]/2;
+ return [x,y,z];
+}
+function alignGPUToTray(){
+ const tray=cpart('tray'),gpu=cpart('gpu'),board=cpart('mobo');
+ if(!tray||!gpu)return;
+ const planned=gpuPoseForTray(tray,gpu);
+ gpu.pos=planned;gpu.mountedTo='tray';
+ changeModel();refreshComponent();
+ const left=planned[0]-gpu.size[0]/2;
+ const platformOverhang=Math.max(0,tray.pos[0]-tray.size[0]/2-left);
+ toast('GPU placed on left walnut platform; '+platformOverhang.toFixed(1)+' mm extends beyond the metal tray.');
 }
 function socketBlockPose(board,cpu){
  const off=board.socketOffset||BOARD_SOCKET_OFFSET;
@@ -773,6 +805,11 @@ function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.p
  const isTray=comp.type==='tray';
  $('trayCutoutControls').style.display=isTray?'block':'none';
  $('motherboardControls').style.display=comp.type==='mobo'?'block':'none';
+ $('gpuMountControls').style.display=comp.type==='gpu'?'block':'none';
+ if(comp.type==='gpu')$('gpuMountSummary').textContent=
+  'Alphacool #14782 · '+comp.size[2].toFixed(0)+' × '+comp.size[0].toFixed(2)+
+  ' × '+comp.size[1].toFixed(2)+' mm (length × width × thickness); PCB proxy 197 × 98.8 mm. '+ 
+  'Rear I/O -Z · PCIe -X · coolant ports +X.';
  if(isTray){
   const original=initial().parts.find(v=>v.id==='tray').cutout;
   comp.cutout={...original,...comp.cutout};
@@ -881,7 +918,7 @@ function normalizeImport(p){
  return JSON.parse(JSON.stringify(p));
 }
 function validateImport(p){
- if(!p||p.format!=='walnut-loop-v21'||!p.case||!p.display||!p.prices||
+ if(!p||p.format!=='walnut-loop-v22'||!p.case||!p.display||!p.prices||
     !Array.isArray(p.parts)||!Array.isArray(p.routes)||
     !['dual','single'].includes(p.loopMode))return false;
  const required=initial().parts.map(part=>part.id);
@@ -1001,7 +1038,7 @@ function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoo
 function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();syncLoopHardwareVisibility();
  // v0.18 intentionally discards old browser drafts; no automatic restore.
  try{localStorage.removeItem('walnutLoopLab05')}catch(e){}
- $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v21'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
+ $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v22'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
     window.WalnutLoopWebGL.exportPng(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)});
     return;
   }if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
@@ -1010,6 +1047,7 @@ function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!n
  $('alignTrayBtn').onclick=alignTrayToRearWindow;
  $('alignBoardBtn').onclick=alignMotherboardToTray;
  $('alignBoardSelectedBtn').onclick=alignMotherboardToTray;
+ $('alignGpuBtn').onclick=alignGPUToTray;
  $('loopMode').onchange=e=>applyLoopMode(e.target.value);
  $('singleHardwareSide').onchange=e=>applyLoopMode('single',{side:e.target.value});
  $('reservoirOrientation').onchange=e=>{
