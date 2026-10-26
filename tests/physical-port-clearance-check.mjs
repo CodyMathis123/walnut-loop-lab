@@ -33,7 +33,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
   localStorage:{getItem(){return null},removeItem(){}},
   setTimeout(){return 1},clearTimeout(){}});
  vm.runInContext(parts,ctx);vm.runInContext(route,ctx);
- vm.runInContext(js+`\\n;globalThis.testAPI={
+ vm.runInContext(js+`\n;globalThis.testAPI={
   project,cpart,routeGeom,routeObstacles,routeCenterline,routePoints,
   fittingFor,sampleRoutes,refreshComponent,sanitizeFittings,normalizeImport,
   initial,routeTools,fittingLeads
