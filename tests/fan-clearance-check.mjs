@@ -43,7 +43,7 @@ function editor(userAgent){
 }
 for(const agent of ['Desktop Chrome','iPhone Safari']){
  const {api,ui,commands}=editor(agent);
- assert.equal(api.project.format,'walnut-loop-v26');
+ assert.equal(api.project.format,'walnut-loop-v27');
  assert.equal(api.installedFans().length,24);
  const pushPull=api.installedFans();
  assert.equal(pushPull.filter(f=>f.face==='panel').length,12);
