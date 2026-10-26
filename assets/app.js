@@ -650,8 +650,11 @@ function squareElbowRoute(rt,allowClashes=true){
   angles=rt.cornerAngles,blocked=rt.blocked,built=rt._built;
  let ok=orthogonalRoute(rt,routeObstacles(rt,8,false));
  if(!ok&&allowClashes)ok=orthogonalRoute(rt,[]);
+ // Corner numbers change when a diagonal becomes several axis-aligned
+ // sections; validate the newly built path, not outdated angle selections.
  if(!ok||routeTools.axisIssues(routeCenterline(rt)).length||
-    routeCorners(rt).some(c=>!c.valid)){
+    routeTools.corners(routeCenterline(rt),'elbow',{},false)
+     .some(c=>!c.valid)){
   if(before)rt.waypoints=before;else delete rt.waypoints;
   rt.lockedCorners=locks;rt.cornerAngles=angles;rt.blocked=blocked;rt._built=built;
   return false;
