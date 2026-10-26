@@ -1371,6 +1371,8 @@ function validateImport(p){
         route.style==='soft'||route.waypoints!==undefined||
         route.lockedCorners!==undefined||
         !Number.isFinite(b.exit)||b.exit<0||b.exit>180||
+        ['exitA','exitB'].some(k=>b[k]!==undefined&&
+         (!Number.isFinite(b[k])||b[k]<0||b[k]>180))||
         !Number.isFinite(b.rise)||b.rise<25||b.rise>260||
         !['x','z'].includes(b.order)||[route.from,route.to].some(k=>
          p.parts.find(part=>part.id===k.split('.')[0])?.type!=='radiator'))
@@ -1452,6 +1454,8 @@ function canBridgePorts(from,to){
 function configureBridge(rt,config={exit:35,rise:95,order:'x'}){
  if(!canBridgePorts(rt.from,rt.to))return false;
  rt.bridge={exit:clamp(Number(config.exit)||0,0,180),
+  ...(config.exitA!=null?{exitA:clamp(Number(config.exitA),0,180)}:{}),
+  ...(config.exitB!=null?{exitB:clamp(Number(config.exitB),0,180)}:{}),
   rise:clamp(Number(config.rise)||95,25,260),
   order:config.order==='z'?'z':'x'};
  if(rt.style==='soft')rt.style='elbow';
@@ -1489,7 +1493,7 @@ function fitSelectedBridge(){
  const exits=[...new Set([original.exit,15,25,40,60,90])];
  let found=null;
  outer:for(const rise of candidates)for(const exit of exits)for(const order of ['x','z']){
-  rt.bridge={exit,rise,order};
+  rt.bridge={exit,rise,order,exitA:exit,exitB:exit};
   const g=routeGeom(rt);
   if(!g.blocked){found={...rt.bridge};break outer}
  }
@@ -1504,7 +1508,8 @@ function refreshBridgeControls(rt){
  $('routePointControls').style.display=enabled?'none':'block';
  $('makeBridge').disabled=!rt||!canBridgePorts(rt.from,rt.to);
  if(!enabled)return;
- $('bridgeExit').value=rt.bridge.exit;
+ $('bridgeExit').value=rt.bridge.exitA??rt.bridge.exit;
+ $('bridgeExitB').value=rt.bridge.exitB??rt.bridge.exit;
  $('bridgeRise').value=rt.bridge.rise;
  $('bridgeOrder').value=rt.bridge.order;
  const g=routeGeom(rt);
@@ -1653,7 +1658,8 @@ function init(){ $('allowAuto45').checked=project.allow45===true;
   if(rt&&detachRadiatorBridge(rt)){changeModel();toast('Converted bridge to manual bend points.')}
  };
  for(const [id,field,low,high] of [
-  ['bridgeExit','exit',0,180],['bridgeRise','rise',25,260]
+  ['bridgeExit','exitA',0,180],['bridgeExitB','exitB',0,180],
+  ['bridgeRise','rise',25,260]
  ]){
   $(id).onchange=e=>{
    const rt=project.routes.find(r=>r.id===selectedRoute);
