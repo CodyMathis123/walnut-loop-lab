@@ -783,6 +783,32 @@ function nearestRenderedRoute(x,y){
  }
  return candidate;
 }
+// Translate screen-space pointer travel into axis-specific millimeters.
+// An orthographic projection lets dragging follow the visible world-axis
+// direction instead of the camera plane's arbitrary XYZ movement.
+function bridgeScreenDelta(drag,dx,dy,shift=false){
+ const rt=drag.route,h=bridgeHandles(rt).find(x=>x.id===drag.bridgeHandle);
+ if(!h)return null;
+ const leads=fittingLeads(rt),normal=(h.side==='a'?leads.a:leads.b).outward;
+ const anchor=drag.startPos,p=screen(anchor);
+ const axis=v=>{
+  const q=screen(add(anchor,scale(v,100)));
+  return [(q.x-p.x)/100,(q.y-p.y)/100];
+ };
+ const exitAxis=axis(normal),upAxis=axis([0,1,0]);
+ const dot2=(a,b)=>a[0]*b[0]+a[1]*b[1],move=[dx,dy];
+ const exitSquared=dot2(exitAxis,exitAxis),
+  upSquared=dot2(upAxis,upAxis),det=exitAxis[0]*upAxis[1]-exitAxis[1]*upAxis[0];
+ const sf=Math.max(.1,p.sf||1);
+ // Shift+vertical is a depth escape hatch when looking head-on at a port.
+ if(shift)return {exit:-dy/sf,rise:0};
+ if(h.kind==='top'&&Math.abs(det)>.018){
+  return {exit:(dx*upAxis[1]-dy*upAxis[0])/det,
+   rise:(exitAxis[0]*dy-exitAxis[1]*dx)/det};
+ }
+ return {exit:exitSquared>.0225?dot2(move,exitAxis)/exitSquared:0,
+  rise:h.kind==='top'&&upSquared>.0225?dot2(move,upAxis)/upSquared:0};
+}
 function routePointWorldDelta(dx,dy,shift=false){
  const sf=screen([0,0,0]).sf||1,yaw=view.yaw,pitch=view.pitch;
  if(shift){
@@ -861,10 +887,26 @@ function clearSelectedRoutePoints(){
  delete rt.waypoints;delete rt.blocked;delete rt.lockedCorners;
  delete rt.cornerAngles;selectedWaypoint=-1;generateRoutePath(rt);changeModel();
 }
+function bridgeHandles(rt){
+ return rt?.bridge?routeTools.radiatorBridgeHandles(fittingLeads(rt),rt.bridge):[];
+}
 function drawRouteHandles(){
  const rt=project.routes.find(r=>r.id===selectedRoute);
- if(rt?.bridge)return;
  if(!rt||project.display.caseOnly||!portPos(rt.from)||!portPos(rt.to))return;
+ if(rt.bridge){
+  // Four individually draggable 90-degree elbows. Their dependent tubing
+  // segments are regenerated from the parametric bridge on every move.
+  for(const h of bridgeHandles(rt)){
+   const v=screen(h.point),selected=routeDrag?.route===rt&&
+    routeDrag?.bridgeHandle===h.id;
+   ctx.beginPath();ctx.arc(v.x,v.y,selected?11:9,0,Math.PI*2);
+   ctx.fillStyle=selected?'#fff0aa':h.kind==='top'?'#edc071':'#79d7e4';
+   ctx.strokeStyle='#172c37';ctx.lineWidth=3;ctx.fill();ctx.stroke();
+   ctx.beginPath();ctx.arc(v.x,v.y,2.4,0,Math.PI*2);
+   ctx.fillStyle='#172c37';ctx.fill();
+  }
+  return;
+ }
  const pts=routePoints(rt);
  // Open circles for two fixed endpoints, draggable gold circles for bends.
  pts.forEach((point,i)=>{
@@ -1329,6 +1371,8 @@ function validateImport(p){
         route.style==='soft'||route.waypoints!==undefined||
         route.lockedCorners!==undefined||
         !Number.isFinite(b.exit)||b.exit<0||b.exit>180||
+        ['exitA','exitB'].some(k=>b[k]!==undefined&&
+         (!Number.isFinite(b[k])||b[k]<0||b[k]>180))||
         !Number.isFinite(b.rise)||b.rise<25||b.rise>260||
         !['x','z'].includes(b.order)||[route.from,route.to].some(k=>
          p.parts.find(part=>part.id===k.split('.')[0])?.type!=='radiator'))
@@ -1410,6 +1454,8 @@ function canBridgePorts(from,to){
 function configureBridge(rt,config={exit:35,rise:95,order:'x'}){
  if(!canBridgePorts(rt.from,rt.to))return false;
  rt.bridge={exit:clamp(Number(config.exit)||0,0,180),
+  ...(config.exitA!=null?{exitA:clamp(Number(config.exitA),0,180)}:{}),
+  ...(config.exitB!=null?{exitB:clamp(Number(config.exitB),0,180)}:{}),
   rise:clamp(Number(config.rise)||95,25,260),
   order:config.order==='z'?'z':'x'};
  if(rt.style==='soft')rt.style='elbow';
@@ -1447,7 +1493,7 @@ function fitSelectedBridge(){
  const exits=[...new Set([original.exit,15,25,40,60,90])];
  let found=null;
  outer:for(const rise of candidates)for(const exit of exits)for(const order of ['x','z']){
-  rt.bridge={exit,rise,order};
+  rt.bridge={exit,rise,order,exitA:exit,exitB:exit};
   const g=routeGeom(rt);
   if(!g.blocked){found={...rt.bridge};break outer}
  }
@@ -1462,7 +1508,8 @@ function refreshBridgeControls(rt){
  $('routePointControls').style.display=enabled?'none':'block';
  $('makeBridge').disabled=!rt||!canBridgePorts(rt.from,rt.to);
  if(!enabled)return;
- $('bridgeExit').value=rt.bridge.exit;
+ $('bridgeExit').value=rt.bridge.exitA??rt.bridge.exit;
+ $('bridgeExitB').value=rt.bridge.exitB??rt.bridge.exit;
  $('bridgeRise').value=rt.bridge.rise;
  $('bridgeOrder').value=rt.bridge.order;
  const g=routeGeom(rt);
@@ -1611,7 +1658,8 @@ function init(){ $('allowAuto45').checked=project.allow45===true;
   if(rt&&detachRadiatorBridge(rt)){changeModel();toast('Converted bridge to manual bend points.')}
  };
  for(const [id,field,low,high] of [
-  ['bridgeExit','exit',0,180],['bridgeRise','rise',25,260]
+  ['bridgeExit','exitA',0,180],['bridgeExitB','exitB',0,180],
+  ['bridgeRise','rise',25,260]
  ]){
   $(id).onchange=e=>{
    const rt=project.routes.find(r=>r.id===selectedRoute);
@@ -1638,14 +1686,33 @@ canvas.addEventListener('pointerdown',e=>{
  isDragging=true;dragMoved=false;last=[e.clientX,e.clientY];routeDrag=null;
  const [x,y]=canvasPoint(e);
  if(!project.display.caseOnly&&e.button!==2){
+  // A 90-degree joint is a draggable handle for the linked bridge.
+  const near=project.routes.filter(r=>r.bridge&&portPos(r.from)&&portPos(r.to))
+   .flatMap(r=>bridgeHandles(r).map(h=>{
+    const v=screen(h.point),distance=Math.hypot(v.x-x,v.y-y);
+    return {route:r,handle:h,distance};
+   }))
+   .filter(h=>h.distance<19)
+   .sort((a,b)=>a.distance-b.distance||
+    Number(b.route.id===selectedRoute)-Number(a.route.id===selectedRoute))[0];
+  if(near){
+   selectedRoute=near.route.id;selectedWaypoint=-1;
+   routeDrag={route:near.route,bridgeHandle:near.handle.id,
+    startPos:near.handle.point.slice(),startBridge:{...near.route.bridge},
+    startX:e.clientX,startY:e.clientY};
+  }
   const rt=project.routes.find(r=>r.id===selectedRoute);
-  if(rt&&!rt.bridge&&portPos(rt.from)&&portPos(rt.to)){
+  if(!routeDrag&&rt&&!rt.bridge&&portPos(rt.from)&&portPos(rt.to)){
    const pts=routePoints(rt);
    for(let i=1;i<pts.length-1;i++){
     const v=screen(pts[i]);
     if(Math.hypot(v.x-x,v.y-y)<17){
      editableRoute(rt);selectedWaypoint=i-1;
-     routeDrag={route:rt,index:i-1};
+     const current=routeCenterline(rt);
+     const orthogonal=rt.style!=='soft'&&!!routeTools.orthogonalDrag(
+      current,i+1,[0,0,0]);
+     routeDrag={route:rt,index:i-1,orthogonal,
+      startPath:orthogonal?current:null,startX:e.clientX,startY:e.clientY};
      break;
     }
    }
@@ -1674,7 +1741,30 @@ canvas.addEventListener('pointermove',e=>{
  if(!isDragging)return;
  const dx=e.clientX-last[0],dy=e.clientY-last[1];
  if(Math.abs(dx)+Math.abs(dy)>1)dragMoved=true;
- if(routeDrag){
+ if(routeDrag?.bridgeHandle){
+  const result=bridgeScreenDelta(routeDrag,
+   e.clientX-routeDrag.startX,e.clientY-routeDrag.startY,!!e.shiftKey);
+  if(result){
+   const next=routeTools.dragRadiatorBridge(fittingLeads(routeDrag.route),
+    routeDrag.startBridge,routeDrag.bridgeHandle,result.exit,result.rise);
+   if(next){
+    routeDrag.route.bridge=next;
+    $('bridgeExit').value=next.exitA??next.exit;
+    $('bridgeExitB').value=next.exitB??next.exit;
+    $('bridgeRise').value=next.rise;
+    sceneRevision++;draw();
+   }
+  }
+ }else if(routeDrag?.orthogonal){
+  const delta=routePointWorldDelta(
+   e.clientX-routeDrag.startX,e.clientY-routeDrag.startY,!!e.shiftKey);
+  const next=routeTools.orthogonalDrag(routeDrag.startPath,
+   routeDrag.index+2,delta);
+  if(next){
+   routeDrag.route.waypoints=next.slice(2,-2);
+   sceneRevision++;draw();
+  }
+ }else if(routeDrag){
   const wp=routeDrag.route.waypoints?.[routeDrag.index];
   if(wp){const delta=routePointWorldDelta(dx,dy,!!e.shiftKey);
    const before=routeDrag.route.waypoints.map(p=>p.slice());
@@ -1692,7 +1782,13 @@ canvas.addEventListener('pointermove',e=>{
 });
 canvas.addEventListener('pointerup',e=>{
  const edited=!!routeDrag;routeDrag=null;isDragging=false;
- if(edited){changeModel();return}
+ if(edited){
+  changeModel();
+  if(!routeGeom(project.routes.find(r=>r.id===selectedRoute)).blocked)return;
+  if(project.routes.find(r=>r.id===selectedRoute)?.bridge)
+   toast('Elbows remain at 90°. This position needs more clearance.');
+  return;
+ }
  if(dragMoved)return;
  const [x,y]=canvasPoint(e);
  const closest=hitPorts.filter(p=>Math.hypot(p.x-x,p.y-y)<15)
