@@ -6,8 +6,8 @@ const routing=readFileSync(new URL('../assets/route-geometry.js',import.meta.url
 const parts=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-assert.match(html,/route-geometry\.js\?v=0\.25/);
-assert.match(html,/assets\/app\.js\?v=0\.25/);
+assert.match(html,/route-geometry\.js\?v=0\.26/);
+assert.match(html,/assets\/app\.js\?v=0\.26/);
 const w={};vm.runInNewContext(routing,{window:w});
 const routingTools=w.WalnutLoopRouting;
 assert.ok(routingTools?.plan&&routingTools.fitting&&routingTools.collisions);
@@ -102,6 +102,6 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  const route=api.project.routes[0];
  assert.ok(route);
  if(!route.blocked)assert.deepEqual(Array.from(api.routePoints(route)[0]),Array.from(second));
- assert.equal(api.project.format,'walnut-loop-v25');
+ assert.equal(api.project.format,'walnut-loop-v26');
 }
 console.log('Collision detours, 3D tubing samples, and rotatable 45/90 port fittings passed.');
