@@ -71,6 +71,18 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
   '45 disabled globally, including manually configured fittings');
  api.sanitizeFittings();
  assert.equal(cpu.fittings.in.type,'straight');
+ // This is a permission toggle for EVERY port, not an auto-fitting command.
+ el('componentSelect').onchange({target:{value:'cpu'}});
+ assert.ok(!el('portInfo').innerHTML.includes('value="45"'));
+ el('allowAuto45').checked=true;
+ el('allowAuto45').onchange({target:{checked:true}});
+ assert.equal(api.project.allow45,true);
+ assert.ok(el('portInfo').innerHTML.includes('value="45"'),
+  'All component ports expose 45° when globally enabled');
+ assert.equal(cpu.fittings.out.type,'90','Enabling cannot replace selected 90°');
+ el('allowAuto45').checked=false;
+ el('allowAuto45').onchange({target:{checked:false}});
+ assert.ok(!el('portInfo').innerHTML.includes('value="45"'));
  // Component control must not show a forbidden 45-degree option.
  const routeName={from:'cpu.out',to:'rad1.in',style:'elbow',axis:'xzy'};
  const poly=api.routeCenterline(routeName);
