@@ -83,8 +83,8 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  // Soft paths must remain curved; elbows and rounded bends use same control points.
  rt.style='soft';assert.ok(api.routeGeom(rt).smooth.length>rt.waypoints.length+2);
  rt.style='bend';assert.ok(api.routeGeom(rt).smooth.length>=rt.waypoints.length+2);
- rt.style='elbow';assert.equal(api.routeGeom(rt).elbows,rt.waypoints.length);
- assert.equal(api.routeGeom(rt).pts.length,rt.waypoints.length+2);
+ rt.style='elbow';assert.equal(api.routeGeom(rt).elbows,rt.waypoints.length+2);
+ assert.equal(api.routeGeom(rt).pts.length,rt.waypoints.length+4);
  const originalPoints=JSON.stringify(rt.waypoints);
  // Shift+drag is a depth-plane edit.
  api.selectRoute(rt.id);
