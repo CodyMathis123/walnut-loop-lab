@@ -15,9 +15,9 @@
     ?[0,0,Math.sign(port.off[2])||1]:[0,Math.sign(port.off[1])||1,0]);
   if(part.type==='radiator')return [0,0,Math.sign(port.off[2])||1];
   if(part.type==='cpu')return [0,1,0];
-  // The horizontal Reaper terminal presents both hose ports on its right
-  // long edge (+X); do not route tubing vertically from this block.
-  if(part.type==='gpu')return [Math.sign(port.off[0])||1,0,0];
+  // The horizontal Reaper has two hose ports on the top (+Y) of the
+  // right-hand terminal, both pointing upward.
+  if(part.type==='gpu')return [0,1,0];
   const ratios=port.off.map((x,i)=>Math.abs(x)/Math.max(1,part.size[i]/2));
   const i=ratios.indexOf(Math.max(...ratios));
   return [0,1,2].map(j=>j===i?(Math.sign(port.off[i])||1):0);
