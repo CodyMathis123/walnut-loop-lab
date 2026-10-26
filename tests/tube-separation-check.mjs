@@ -7,7 +7,7 @@ const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const components=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 assert.match(html,/id="allowAuto45"/);
-assert.match(html,/assets\/app\.js\?v=0\.25/);
+assert.match(html,/assets\/app\.js\?v=0\.26/);
 const window={};
 vm.runInNewContext(moduleText,{window});
 const geom=window.WalnutLoopRouting;
@@ -56,7 +56,7 @@ function editor(agent){
 }
 for(const agent of ['Desktop Chrome','iPhone Safari']){
  const {api,node}=editor(agent);
- assert.equal(api.project.format,'walnut-loop-v25');
+ assert.equal(api.project.format,'walnut-loop-v26');
  assert.equal(api.project.allow45,false);
  assert.equal(node('allowAuto45').checked,false);
  assert.deepEqual(Array.from(api.fittingFor('gpu.out').normal),[0,1,0]);
