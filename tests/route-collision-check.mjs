@@ -80,7 +80,8 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
    assert.equal(g.collisions.length,0,'Accepted route penetrated a component or tube: '+rt.from+' -> '+rt.to);
    assert.equal(api.routeTools.collisions(g.smooth,api.routeObstacles(rt,8,false)).length,0);
   }
-  assert.ok(api.project.routes.filter(r=>!r.blocked).length>=6,'Several sample routes must remain feasible');
+  assert.ok(api.project.routes.filter(r=>!r.blocked).length >=
+   (style==='soft'?7:3),'Physically valid examples remain; incompatible elbow angles must be flagged');
   const tubes=commands().filter(item=>item.kind==='tube');
   assert.ok(tubes.length>20,'Default sample must produce 3D tubes and compression fittings');
   assert.ok(tubes.some(t=>t.radius===api.project.tubeOD/2));
