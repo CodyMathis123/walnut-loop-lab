@@ -37,5 +37,7 @@ jobs:
         run: node tests/physical-port-clearance-check.mjs
       - name: Per-corner elbow hardware and hard-tube bend angle validation
         run: node tests/corner-angle-check.mjs
+      - name: Parametric all-90-degree radiator bridge and route editor controls
+        run: node tests/radiator-bridge-check.mjs
       - name: Radiator and component dropdown port labels
         run: node tests/port-labels-check.mjs
