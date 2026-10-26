@@ -117,7 +117,7 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  assert.equal(model.project.parts.filter(p=>p.type==='radiator'&&p.visible!==false).length,4);
  assert.equal(model.project.parts.filter(p=>p.type==='radiator').reduce((n,p)=>n+model.attachedFans(p).length,0),24);
  // Only snapshots from the current prototype format are accepted.
- const snapshot={...model.initial(),format:'walnut-loop-v26'};
+ const snapshot={...model.initial(),format:'walnut-loop-v27'};
  snapshot.parts.find(p=>p.id==='tray').pos[0]=44;
  const imported=model.normalizeImport(snapshot);
  assert.equal(imported.parts.find(p=>p.id==='tray').pos[0],44);
