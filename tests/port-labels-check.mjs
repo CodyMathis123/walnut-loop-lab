@@ -38,7 +38,7 @@ function editor(userAgent){
   localStorage:{getItem(){return null},removeItem(){}},devicePixelRatio:1,
   console,confirm(){return true},setTimeout(){return 1},clearTimeout(){}});
  vm.runInContext(parts,context);vm.runInContext(routes,context);
- vm.runInContext(app+'\n;globalThis.__ui={project,cpart,portLabel,portDescription,portKeys,refreshPortSelect,alignRadiatorToOpening}',context);
+ vm.runInContext(app+'\n;globalThis.__ui={project,cpart,portLabel,portDescription,portKeys,refreshPortSelect,alignRadiatorToOpening,selectComponent(id){selection=id;refreshComponent();}}',context);
  return {api:context.__ui,controls:node,context};
 }
 for(const agent of ['Desktop Chrome','iPhone Safari']){
@@ -81,7 +81,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.equal(api.portLabel('gpu.out'),'GPU block · Top outlet');
  assert.equal(api.portLabel('pump.in'),'Left pump · Inlet');
  assert.equal(api.portLabel('res2.in'),'Right reservoir · Bottom return');
- vm.runInContext("selection='rad1';refreshComponent()",context);
+ api.selectComponent('rad1');
  assert.match(controls('portInfo').innerHTML,/Outer port \(right edge\)/);
  assert.match(controls('portInfo').innerHTML,/Inner port \(toward center\)/);
  assert.doesNotMatch(controls('portInfo').innerHTML,/Near side|Far side|Port A|Port B/);
