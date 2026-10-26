@@ -467,7 +467,7 @@ function tubeTubeHits(rt,points){
  return routeTools.tubeCollisions({id:rt.id,points,
   ports:[rt.from,rt.to],shared},others,project.tubeOD/2,2);
 }
-function routeObstacles(rt,margin=10){
+function routeObstacles(rt,margin=10,includeTubes=true){
  const clearance=project.tubeOD/2+margin;
  // Do not skip the fans attached to an endpoint radiator. Their full 120 mm
  // square and physical thickness still occupy space around the radiator's
@@ -481,7 +481,7 @@ function routeObstacles(rt,margin=10){
   // connections start inside an inflated fan box and cannot be routed.
   ...routeTools.fanBoxes(installedFans(),project.case.fanThickness||25.4,
    project.tubeOD/2+2),
-  ...routeTools.tubeBoxes(otherTubePaths(rt),project.tubeOD,2)
+  ...(includeTubes?routeTools.tubeBoxes(otherTubePaths(rt),project.tubeOD,2):[])
  ];
 }
 function routePoints(rt){
@@ -510,7 +510,7 @@ function planRoute(rt){
  return routeTools.plan(ends[0],ends[1],blocks);
 }
 function generateRoutePath(rt){
- const original=routePoints(rt),obstacles=routeObstacles(rt,18);
+ const original=routePoints(rt),obstacles=routeObstacles(rt,18,false);
  // Prefer the user's selected X/Y/Z order whenever it already clears
  // component envelopes; detour only the paths that actually need it.
  if(original.length>=2&&!routeTools.collisions(original,obstacles).length&&
@@ -617,7 +617,9 @@ function softPolyline(pts){if(pts.length<2)return pts;let out=[];for(let i=0;i<p
 function lengthOf(pts){let v=0;for(let i=1;i<pts.length;i++)v+=dist(pts[i],pts[i-1]);return v}
 function routeGeom(rt){
  if(rt.blocked)return {pts:[],smooth:[],length:0,elbows:0,collisions:[],blocked:true};
- const pts=routePoints(rt),obstacles=routeObstacles(rt,8);
+ // Broad tube AABBs are used to steer auto routing, but only exact
+ // centerline separation decides whether a drawn tube collides.
+ const pts=routePoints(rt),obstacles=routeObstacles(rt,8,false);
  let smooth=rt.style==='soft'?softPolyline(pts):
   rt.style==='bend'?roundPolyline(pts,project.bendRadius):pts;
  // Tight curves can bow beyond otherwise-clear control points. Never silently
