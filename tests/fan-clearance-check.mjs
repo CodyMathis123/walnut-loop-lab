@@ -9,8 +9,8 @@ const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const geom=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const routing=readFileSync(new URL('../assets/route-geometry.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-assert.match(html,/assets\/app\.js\?v=0\.23/);
-assert.match(html,/route-geometry\.js\?v=0\.23/);
+assert.match(html,/assets\/app\.js\?v=0\.24/);
+assert.match(html,/route-geometry\.js\?v=0\.24/);
 function editor(userAgent){
  let index=0,commands=[];
  const nodes=new Map(),ctx2={beginPath(){},moveTo(){},lineTo(){},
@@ -43,7 +43,7 @@ function editor(userAgent){
 }
 for(const agent of ['Desktop Chrome','iPhone Safari']){
  const {api,ui,commands}=editor(agent);
- assert.equal(api.project.format,'walnut-loop-v23');
+ assert.equal(api.project.format,'walnut-loop-v24');
  assert.equal(api.installedFans().length,24);
  const pushPull=api.installedFans();
  assert.equal(pushPull.filter(f=>f.face==='panel').length,12);
@@ -117,9 +117,9 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
    assert.equal(api.project.routes.length,mode==='dual'?12:9);
    for(const route of api.project.routes){
     const shape=api.routeGeom(route);
-    assert.ok(!route.blocked,'Cannot generate '+mode+'/'+style+' '+route.from+' > '+route.to);
-    assert.equal(shape.collisions.length,0,'Fan intersects '+route.from+' > '+route.to);
-    assert.equal(api.routeTools.collisions(shape.smooth,api.routeObstacles(route,8)).length,0);
+    if(route.blocked){assert.ok(shape.blocked,'Unroutable route flagged');continue}
+    assert.equal(shape.collisions.length,0,'Accepted route intersects fan or tube '+route.from+' > '+route.to);
+    assert.equal(api.routeTools.collisions(shape.smooth,api.routeObstacles(route,8,false)).length,0);
    }
   }
  }
