@@ -783,6 +783,32 @@ function nearestRenderedRoute(x,y){
  }
  return candidate;
 }
+// Translate screen-space pointer travel into axis-specific millimeters.
+// An orthographic projection lets dragging follow the visible world-axis
+// direction instead of the camera plane's arbitrary XYZ movement.
+function bridgeScreenDelta(drag,dx,dy,shift=false){
+ const rt=drag.route,h=bridgeHandles(rt).find(x=>x.id===drag.bridgeHandle);
+ if(!h)return null;
+ const leads=fittingLeads(rt),normal=(h.side==='a'?leads.a:leads.b).outward;
+ const anchor=drag.startPos,p=screen(anchor);
+ const axis=v=>{
+  const q=screen(add(anchor,scale(v,100)));
+  return [(q.x-p.x)/100,(q.y-p.y)/100];
+ };
+ const exitAxis=axis(normal),upAxis=axis([0,1,0]);
+ const dot2=(a,b)=>a[0]*b[0]+a[1]*b[1],move=[dx,dy];
+ const exitSquared=dot2(exitAxis,exitAxis),
+  upSquared=dot2(upAxis,upAxis),det=exitAxis[0]*upAxis[1]-exitAxis[1]*upAxis[0];
+ const sf=Math.max(.1,p.sf||1);
+ // Shift+vertical is a depth escape hatch when looking head-on at a port.
+ if(shift)return {exit:-dy/sf,rise:0};
+ if(h.kind==='top'&&Math.abs(det)>.018){
+  return {exit:(dx*upAxis[1]-dy*upAxis[0])/det,
+   rise:(exitAxis[0]*dy-exitAxis[1]*dx)/det};
+ }
+ return {exit:exitSquared>.0225?dot2(move,exitAxis)/exitSquared:0,
+  rise:h.kind==='top'&&upSquared>.0225?dot2(move,upAxis)/upSquared:0};
+}
 function routePointWorldDelta(dx,dy,shift=false){
  const sf=screen([0,0,0]).sf||1,yaw=view.yaw,pitch=view.pitch;
  if(shift){
@@ -861,10 +887,26 @@ function clearSelectedRoutePoints(){
  delete rt.waypoints;delete rt.blocked;delete rt.lockedCorners;
  delete rt.cornerAngles;selectedWaypoint=-1;generateRoutePath(rt);changeModel();
 }
+function bridgeHandles(rt){
+ return rt?.bridge?routeTools.radiatorBridgeHandles(fittingLeads(rt),rt.bridge):[];
+}
 function drawRouteHandles(){
  const rt=project.routes.find(r=>r.id===selectedRoute);
- if(rt?.bridge)return;
  if(!rt||project.display.caseOnly||!portPos(rt.from)||!portPos(rt.to))return;
+ if(rt.bridge){
+  // Four individually draggable 90-degree elbows. Their dependent tubing
+  // segments are regenerated from the parametric bridge on every move.
+  for(const h of bridgeHandles(rt)){
+   const v=screen(h.point),selected=routeDrag?.route===rt&&
+    routeDrag?.bridgeHandle===h.id;
+   ctx.beginPath();ctx.arc(v.x,v.y,selected?11:9,0,Math.PI*2);
+   ctx.fillStyle=selected?'#fff0aa':h.kind==='top'?'#edc071':'#79d7e4';
+   ctx.strokeStyle='#172c37';ctx.lineWidth=3;ctx.fill();ctx.stroke();
+   ctx.beginPath();ctx.arc(v.x,v.y,2.4,0,Math.PI*2);
+   ctx.fillStyle='#172c37';ctx.fill();
+  }
+  return;
+ }
  const pts=routePoints(rt);
  // Open circles for two fixed endpoints, draggable gold circles for bends.
  pts.forEach((point,i)=>{
