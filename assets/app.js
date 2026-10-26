@@ -9,7 +9,6 @@ const ITX_STANDOFF_MM=6.35, CPU_SOCKET_CLEAR_MM=6;
 // supports the GPU assembly and its rear display-output bracket.
 const GPU_BLOCK_MM=[127.33,33.35,197];
 const GPU_BACKPLATE_WIDTH_MM=98.8, GPU_PLATFORM_MM=8, GPU_RISER_MM=6;
-const GPU_TRAY_LEFT_SHIFT_MM=0;
 const BOARD_SOCKET_OFFSET=[18,0,-6];
 const initial=()=>({
   format:'walnut-loop-v22',
@@ -808,10 +807,18 @@ function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.p
  $('trayCutoutControls').style.display=isTray?'block':'none';
  $('motherboardControls').style.display=comp.type==='mobo'?'block':'none';
  $('gpuMountControls').style.display=comp.type==='gpu'?'block':'none';
- if(comp.type==='gpu')$('gpuMountSummary').textContent=
-  'Alphacool #14782 · '+comp.size[2].toFixed(0)+' × '+comp.size[0].toFixed(2)+
-  ' × '+comp.size[1].toFixed(2)+' mm (length × width × thickness); PCB proxy 197 × 98.8 mm. '+ 
-  'Rear I/O -Z · PCIe -X · coolant ports +X.';
+ if(comp.type==='gpu'){
+  const tray=cpart('tray'),mobo=cpart('mobo');
+  const overhang=tray?Math.max(0,(tray.pos[0]-tray.size[0]/2)-
+     (comp.pos[0]-comp.size[0]/2)):0;
+  const edgeGap=mobo?mobo.pos[0]-mobo.size[0]/2-
+    (comp.pos[0]+comp.size[0]/2):0;
+  $('gpuMountSummary').textContent=
+   'Alphacool #14782 · 197 × 127.33 × 33.35 mm; PCB/backplate proxy 197 × 98.8 mm. '+
+   'Left block overhang: '+overhang.toFixed(1)+' mm past metal tray. '+
+   'Motherboard edge clearance: '+edgeGap.toFixed(1)+' mm before fittings. '+
+   'Rear I/O −Z · PCIe −X · G1/4 coolant ports +X.';
+ }
  if(isTray){
   const original=initial().parts.find(v=>v.id==='tray').cutout;
   comp.cutout={...original,...comp.cutout};
