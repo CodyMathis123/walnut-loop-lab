@@ -96,11 +96,13 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.ok(Math.abs(rt.waypoints[0][2]-point[2])>.1 ||
   Math.abs(rt.waypoints[0][0]-point[0])>.1,'Shift must edit depth');
  assert.notEqual(JSON.stringify(rt.waypoints),originalPoints);
- // A selected bend becomes a permanently constrained 90-degree corner.
+ // Formed-bend mode retains the old per-corner lock feature; hard elbow
+ // mode instead enforces axial runs globally and has no independent lock.
+ rt.style='bend';
  api.selectRoute(rt.id);
  node('add90Corner').onclick();
  assert.equal(rt.lockedCorners.length,1,'New fixed 90 button must create a lock');
- assert.equal(rt.style,'elbow');
+ assert.equal(rt.style,'bend');
  const i=rt.lockedCorners[0];
  const angle=()=>{
   const pts=api.routeCenterline(rt),j=rt.lockedCorners[0]+2;
