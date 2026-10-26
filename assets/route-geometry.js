@@ -136,6 +136,42 @@
    max:[1+extra,y1+extra,depth/2-wood+extra]});
   return boxes;
  }
+ // A parameterized bridge is assembled entirely from axis-aligned runs.
+ // Unlike iterative corner snapping, its turns are EXACT right angles by
+ // construction and recompute from live fitting tips after hardware moves.
+ function radiatorBridge(leads,config={}){
+  if(!leads)return null;
+  const {a,b,depart,approach}=leads;
+  if(!a||!b||!depart||!approach)return null;
+  // Side-facing straight radiator ports only. A 90° swivel must be
+  // explicitly modeled as fitting geometry, not silently overridden here.
+  const normal=v=>Math.abs(v[0])<1e-6&&Math.abs(v[1])<1e-6&&
+   Math.abs(Math.abs(v[2])-1)<1e-6;
+  if(a.type!=='straight'||b.type!=='straight'||
+     !normal(a.outward)||!normal(b.outward))return null;
+  const exit=clamp(Number(config.exit)||0,0,180);
+  const rise=clamp(Number(config.rise)||0,25,260);
+  const start=add(depart,a.outward.map(n=>n*exit));
+  const finish=add(approach,b.outward.map(n=>n*exit));
+  const y=Math.max(start[1],finish[1])+rise;
+  const left=[start[0],y,start[2]];
+  const right=[finish[0],y,finish[2]];
+  // The upper crossbar is X/Z manhattan geometry, never a diagonal.
+  const middle=[];
+  if(Math.abs(left[0]-right[0])>.001&&Math.abs(left[2]-right[2])>.001){
+   middle.push(config.order==='z'?[left[0],y,right[2]]:[right[0],y,left[2]]);
+  }
+  const points=[a.tip,depart,start,left,...middle,right,finish,approach,b.tip]
+   .filter((p,i,all)=>i===0||dist(p,all[i-1])>.001);
+  // A bridge must have a real upper crossbar, not a coincident
+  // up-and-down run, and no degenerate or reversing segments.
+  if(dist(left,right)<10||points.length<5)return null;
+  for(let i=1;i<points.length-1;i++){
+   const angle=cornerAngle(points[i-1],points[i],points[i+1]);
+   if(angle>1.5&&Math.abs(angle-90)>.001)return null;
+  }
+  return points;
+ }
  // Angle is the physical deflection of a tube (0°=straight, 90°=elbow).
  // Every non-collinear corner must have a supported part/bend selected.
  const ELBOW_ANGLES=[90,45], BEND_ANGLES=[90,60,45,30,22.5];
@@ -377,5 +413,5 @@
   const blocked=collisions(candidate,obstacles);
   return {points:blocked.length?null:candidate,blocked,reason:blocked.length?'verification':null,visited};
  }
- window.WalnutLoopRouting={fitting,boxes,fanBoxes,cabinetBoxes,tubeBoxes,tubeCollisions,distanceSegments,cornerAngle,corners,snapCorner,orthogonalize,ELBOW_ANGLES,BEND_ANGLES,collisions,plan,segmentIntersects,simplify};
+ window.WalnutLoopRouting={radiatorBridge,fitting,boxes,fanBoxes,cabinetBoxes,tubeBoxes,tubeCollisions,distanceSegments,cornerAngle,corners,snapCorner,orthogonalize,ELBOW_ANGLES,BEND_ANGLES,collisions,plan,segmentIntersects,simplify};
 })();
