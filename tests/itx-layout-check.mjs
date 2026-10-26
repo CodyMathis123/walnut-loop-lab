@@ -7,8 +7,9 @@ import vm from 'node:vm';
 
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const geometry=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
+const routing=readFileSync(new URL('../assets/route-geometry.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-assert.match(html,/src="assets\/app\.js\?v=0\.20"/);
+assert.match(html,/src="assets\/app\.js\?v=0\.21"/);
 assert.match(html,/id="alignBoardBtn"/);
 assert.match(html,/id="alignBoardSelectedBtn"/);
 
@@ -34,6 +35,7 @@ function harness(userAgent){
    devicePixelRatio:1,confirm(){return true},console,
    setTimeout(){return 1},clearTimeout(){}});
  vm.runInContext(geometry,context);
+ vm.runInContext(routing,context);
  vm.runInContext(app+'\n;globalThis.__app={project,cpart,draw,initial,normalizeImport,boardPoseForTray,socketBlockPose,moveAttachedParts,alignTrayToRearWindow,alignMotherboardToTray,syncMeasuredRadiators,changeModel}',context);
  let scene=[];
  context.window.WalnutLoopWebGL={active:true,render(queue){scene=queue.slice()},setActive(){}};
