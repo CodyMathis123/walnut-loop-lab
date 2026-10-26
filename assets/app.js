@@ -449,9 +449,13 @@ function routeEnds(rt){
 function fittingLeads(rt){
  const a=fittingFor(rt.from),b=fittingFor(rt.to);
  if(!a||!b)return null;
- const length=Math.max(32,project.tubeOD*2.3);
- return {a,b,depart:add(a.tip,scale(a.outward,length)),
-  approach:add(b.tip,scale(b.outward,length))};
+ // Reservoir bottoms sit close above the DDC pumps; give those fittings
+ // their short straight socket exit without driving the lead into the pump.
+ const leadLength=k=>cpart(k.split('.')[0])?.type==='res'
+   ?Math.max(12,project.tubeOD*.7)
+   :Math.max(30,project.tubeOD*2);
+ return {a,b,depart:add(a.tip,scale(a.outward,leadLength(rt.from))),
+  approach:add(b.tip,scale(b.outward,leadLength(rt.to)))};
 }
 // Fixed straight sections beyond both compression fittings. A tube may only
 // leave a straight outlet along its normal, or a 90° elbow along its rotation.
