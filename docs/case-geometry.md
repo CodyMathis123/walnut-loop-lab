@@ -1,6 +1,6 @@
 # Walnut Loop Lab — geometry notes
 
-**Current implementation: v0.18, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.18 format. See the current `README.md` and component builders for active defaults.
+**Current implementation: v0.21, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.21 format. See the current `README.md` and component builders for active defaults.
 
 Updated October 25, 2026. Approximate measurements are indicated.
 
@@ -163,3 +163,15 @@ Tubing routes optionally store an array of three-dimensional `waypoints`. Endpoi
 ## v0.20 — selected sample tube style and fill/vent-only reservoir top port
 
 Sample tubing generation now reads the current `styleSelect` and `axisOrder` controls. All emitted sample routes use that tubing style (`soft`, `bend`, or `elbow`) and axis order, for either dual loop or selected right/left shared hardware location. The two bottom reservoir ports `in` (return) and `out` (pump feed) participate in the circuit. The top port `top` remains modeled and visible but cannot be selected as a route endpoint, including through mouse hit-testing, manual route addition or imported current-format snapshots. It is reserved for filling/venting without a connected hose in this design. The project JSON format is `walnut-loop-v20`; no legacy migrations.
+
+## v0.21 — obstacle-aware automatic tubing and compression fittings
+
+The new `assets/route-geometry.js` module defines inflated AABBs for visible major component bodies, tests 3D line segments for intersections, and finds alternate paths using bounded, axis-neighbor A* when a direct/axis-order path intersects a component. It uses **real mm coordinates** and the selected tube outer diameter plus an approximate clearance margin. The current 3D obstacles include motherboard, tray, CPU/GPU blocks, radiators, reservoirs, pumps and drains. Other hoses and cabinet rails are **not** collision primitives yet. Source/destination body envelopes are excluded from the corresponding run; this is an approximate clearance planner, not physical CAD validation.
+
+If search fails or cannot find a suitable endpoint, the route is marked `blocked` and not rendered. Generated manual waypoints override the old simple axis-order route. A manually changed or curved path that penetrates modeled boxes is shown in red with a 'Clearance needed' label; users can adjust drag handles. The automatic route generator preserves selected `axis` on unobstructed paths.
+
+The WebGL backend understands `{kind:'tube', pts:[[x,y,z], ...], radius, color}` commands from the existing scene bridge. Each produces a radial triangular cylinder mesh rendered with GPU per-pixel depth testing. No added Three.js dependencies or build step. The Canvas/SVG renderer retains its legacy stroke fallback.
+
+Each port may store `fittings[port.id]={type:'straight'|'45'|'90',rotation:<degrees>}`. Angled connectors calculate a normal from the component surface, construct a tangent basis and rotate the 45/90 degree outlet about that normal. Tubes connect to the **free end of the swivel**, not the origin of the port fitting. The component editor exposes the angle and rotation individually for every port, including water blocks. Reservoir top fill/vent ports do not admit circulating tubing. Approximate fitting lengths, orientation and compression/collar shapes are not manufacturer machining references. The cost estimate includes base compression and optional angled adapters.
+
+Regression coverage: `node tests/route-collision-check.mjs`, plus existing WebGL, routing and component suites. Project JSON format is `walnut-loop-v21` with greenfield no-migrations policy.
