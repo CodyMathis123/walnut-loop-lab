@@ -1,6 +1,6 @@
 # Walnut Loop Lab — geometry notes
 
-**Current implementation: v0.22, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.22 format. See the current `README.md` and component builders for active defaults.
+**Current implementation: v0.23, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.23 format. See the current `README.md` and component builders for active defaults.
 
 Updated October 25, 2026. Approximate measurements are indicated.
 
@@ -187,3 +187,7 @@ The motherboard tray center is `[8.57,492.775,-69.525]`, nominal sheet footprint
 `gpuPoseForTray` attaches the GPU to the rear-left region of the tray with a 12 mm rear inset and a nominal 6 mm platform-to-GPU lift. `alignGPUToTray` resets that position. The GPU follows tray movement through `mountedTo='tray'`, while CPU block follows the ITX motherboard. The detailed GPU drawing is handled by `renderGPU` in `assets/part-geometry.js`: walnut support, approximate PCB, backplate, cooling block, right terminal, rear output bracket and left PCIe gold fingers. Collision bounds consider the full water-block envelope; port fitting clearance still needs inspection. The existing route generator passes its major-component collision check in dual mode for all tubing styles with the updated block.
 
 Regression test: `tests/gpu-layout-check.mjs`. Current JSON format: `walnut-loop-v22` (no migrations).
+
+## v0.23 — fan collision bounds
+
+The function `installedFans()` is the common source for drawing and colliding actual fan assemblies. Every panel and inner fan on visible radiators, as well as fan-only units in open bays, gets a distinct padded `120 × 120 × case.fanThickness` mm AABB through `WalnutLoopRouting.fanBoxes`. IDs include radiator/slot, face, row. `routeObstacles` uses these for automatic and manual routes and **does not exempt fans attached to a radiator endpoint**. Fan collision inflation is `tubeOD/2 + 2 mm`, slightly tighter than general-purpose component inflation because measured radiator end-tank ports are close to top-row fan frames. Changing fan counts, removing a radiator, or configuring free-bay fans updates obstacles. This is a simplified envelope, not blade/grill CAD. Test: `tests/fan-clearance-check.mjs`.
