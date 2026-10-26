@@ -170,7 +170,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.equal(api.cpart('res2').orientation,'horizontal');
  // Explicit imports are complete snapshots of this version, without migration.
  const current=api.initial();
- assert.equal(current.format,'walnut-loop-v26');
+ assert.equal(current.format,'walnut-loop-v27');
  current.parts.find(x=>x.id==='drain').pos=[-160,75,90];
  const restored=api.normalizeImport(current);
  assert.deepEqual(Array.from(restored.parts.find(x=>x.id==='drain').pos),[-160,75,90]);
