@@ -103,6 +103,6 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  const route=api.project.routes[0];
  assert.ok(route);
  if(!route.blocked)assert.deepEqual(Array.from(api.routePoints(route)[0]),Array.from(second));
- assert.equal(api.project.format,'walnut-loop-v26');
+ assert.equal(api.project.format,'walnut-loop-v27');
 }
 console.log('Collision detours, 3D tubing samples, and rotatable 45/90 port fittings passed.');
