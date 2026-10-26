@@ -1,6 +1,6 @@
 # Walnut Loop Lab — geometry notes
 
-**Current implementation: v0.25, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.25 format. See the current `README.md` and component builders for active defaults.
+**Current implementation: v0.26, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.26 format. See the current `README.md` and component builders for active defaults.
 
 Updated October 25, 2026. Approximate measurements are indicated.
 
@@ -213,3 +213,13 @@ Port fitting geometry consists of an axial stem and (for 90°/45°) a circular a
 The WebGL renderer now builds 16-sided radial rings with continuous parallel-transport frames to maintain consistent physical tube diameter through turns. The smoke test measures tube radius numerically on either side of a 90° route.
 
 Test: `tests/physical-port-clearance-check.mjs`. Greenfield JSON format `walnut-loop-v25`.
+
+## v0.26 — per-corner elbow fitting angles and hard-tube bend presets (current)
+
+Only **45° and 90°** hardware elbow angles are supported. The global `allow45` control governs *port adapters and inline elbow parts*; when off, a stored inline elbow 45° preference is normalized to 90°, and imports containing forbidden elbow 45° choices are rejected. This does **not** restrict **formed tube bends**, which have preset turn angles `[22.5,30,45,60,90]` degrees. Soft tubing remains free-form.
+
+`WalnutLoopRouting.cornerAngle(a,b,c)` computes geometric deflection in 3D. `corners(points,style,choices,allow45,tolerance=3)` derives measured/selected angle and validates within ±3°. Choices are persisted on each route as `route.cornerAngles[centerlineIndex]`. The route editor shows actual and selected angle per corner, flags unsupported turns as **Angle mismatch**, and provides **Align corner** to move an internal waypoint to the desired angle in the existing turn plane; port lead anchors cannot be moved. An elbow is drawn and counted only when its geometrical deflection corresponds to the selected hardware fitting. Explicit stored hard bend angles are similarly checked against the real turn. Route collision/validity checks include these angular constraints.
+
+The generator tries axis-aligned orthogonal alternatives around obstacles before accepting hard elbows/formed bends. It may insert collision-tested 90° doglegs around 180° route reversals. If a physically realisable set of corner angles cannot be found, that route is flagged instead of faking the hardware. The earlier samples were not designed around discrete fitting inventory and **some stock hard paths are now flagged**; this is expected pending layout/fitting refinement. The tolerance applies to displayed turn geometry, not a manufacturing allowance for bending a tube.
+
+New regression: `tests/corner-angle-check.mjs`. Greenfield format `walnut-loop-v26`.
