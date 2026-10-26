@@ -16,7 +16,8 @@ assert.deepEqual(Array.from(routingTools.collisions([[-100,0,0],[100,0,0]],[obst
 const detour=routingTools.plan([-100,0,0],[100,0,0],[obstacle]);
 assert.ok(detour.points&&detour.points.length>=3);
 assert.equal(routingTools.collisions(detour.points,[obstacle]).length,0);
-assert.ok(detour.points.some(p=>Math.abs(p[1])>7||Math.abs(p[2])>45));
+assert.ok(detour.points.some(p=>Math.abs(p[1])>=7||Math.abs(p[2])>=45),
+ 'Route must follow the inflated AABB boundary or bypass it');
 
 const cpu={id:'cpu',type:'cpu',pos:[100,500,0],size:[65,23,65],fittings:{},
  ports:[{id:'out',off:[16,17,0]}]};
