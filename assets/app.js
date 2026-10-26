@@ -11,7 +11,7 @@ const GPU_BLOCK_MM=[127.33,33.35,197];
 const GPU_BACKPLATE_WIDTH_MM=98.8, GPU_PLATFORM_MM=8, GPU_RISER_MM=6;
 const BOARD_SOCKET_OFFSET=[18,0,-6];
 const initial=()=>({
-  format:'walnut-loop-v22',
+  format:'walnut-loop-v23',
   case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:209.55,fanThickness:25.4},
   parts:[
     {id:'rad1',name:'Radiator 1',type:'radiator',fans:{panel:3,inner:3},slot:'front-right',loop:'cpu',pos:[146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Radiator 1 starts on the front/right opening with three fans on each face. Port height and offsets follow provisional supplied measurements.'},
@@ -193,7 +193,7 @@ function attachedFans(r){
   const count=clamp(Math.round(Number(spec[face])||0),0,3);
   const z=r.pos[2]+slot.end*(face==='panel'?1:-1)*(r.size[2]/2+t/2);
   for(const row of fanRows(count))
-   result.push({radiatorId:r.id,pos:[x,y+row*120,z]});
+   result.push({radiatorId:r.id,slot:slot.id,face,row,pos:[x,y+row*120,z]});
  }
  return result;
 }
@@ -205,9 +205,15 @@ function freeBayFans(){
   const count=clamp(Math.round(Number(project.fanOnly?.[slot.id])||0),0,3);
   const b=bayGeometry(slot);
   for(const row of fanRows(count))
-   result.push({pos:[b.centX,b.cy+row*120,b.fanZ]});
+   result.push({slot:slot.id,face:'panel',row,pos:[b.centX,b.cy+row*120,b.fanZ]});
  }
  return result;
+}
+// Shared source of truth for rendering and clearance detection. It includes
+// both sides of every installed radiator as well as fan-only empty bays.
+function installedFans(){
+ return [...project.parts.filter(p=>p.type==='radiator'&&p.visible!==false)
+  .flatMap(attachedFans),...freeBayFans()];
 }
 function repositionRadiatorDepth(r){
  const slot=FAN_SLOTS.find(s=>s.id===r.slot);
@@ -440,7 +446,16 @@ function routeEnds(rt){
  return a&&b?[a.tip,b.tip]:null;
 }
 function routeObstacles(rt,margin=10){
- return routeTools.boxes(project.parts,[rt.from.split('.')[0],rt.to.split('.')[0]],project.tubeOD/2+margin);
+ const clearance=project.tubeOD/2+margin;
+ // Do not skip the fans attached to an endpoint radiator. Their full 120 mm
+ // square and physical thickness still occupy space around the radiator's
+ // inlet/outlet, regardless of whether the fan is on the panel or inside face.
+ return [
+  ...routeTools.boxes(project.parts,
+   [rt.from.split('.')[0],rt.to.split('.')[0]],clearance),
+  ...routeTools.fanBoxes(installedFans(),project.case.fanThickness||25.4,
+   clearance)
+ ];
 }
 function routePoints(rt){
  const ends=routeEnds(rt);
@@ -638,9 +653,7 @@ function draw(){if(!ctx)return;const webgl=window.WalnutLoopWebGL?.active===true
  // The depth-tested renderer has its own grid. Keep the original for 2D fallback.
  if(!webgl)for(let u=-300;u<=300;u+=100){stroke([[u,0,-310],[u,0,310]],'#6b839b',.8,.19);stroke([[-330,0,u],[330,0,u]],'#6b839b',.8,.19)}
  const parts=renderedParts();
- const fans=project.display.caseOnly?[]:[
-  ...parts.filter(p=>p.type==='radiator').flatMap(attachedFans),...freeBayFans()
- ];
+ const fans=project.display.caseOnly?[]:installedFans();
  // One sorting pass for actual front/rear shell faces, radiators, fans, and rotor artwork.
  sceneQueue=[];
  drawCase();
@@ -927,7 +940,7 @@ function normalizeImport(p){
  return JSON.parse(JSON.stringify(p));
 }
 function validateImport(p){
- if(!p||p.format!=='walnut-loop-v22'||!p.case||!p.display||!p.prices||
+ if(!p||p.format!=='walnut-loop-v23'||!p.case||!p.display||!p.prices||
     !Array.isArray(p.parts)||!Array.isArray(p.routes)||
     !['dual','single'].includes(p.loopMode))return false;
  const required=initial().parts.map(part=>part.id);
@@ -1047,7 +1060,7 @@ function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoo
 function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();syncLoopHardwareVisibility();
  // v0.18 intentionally discards old browser drafts; no automatic restore.
  try{localStorage.removeItem('walnutLoopLab05')}catch(e){}
- $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v22'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
+ $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v23'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
     window.WalnutLoopWebGL.exportPng(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)});
     return;
   }if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
