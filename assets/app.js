@@ -11,7 +11,7 @@ const GPU_BLOCK_MM=[127.33,33.35,197];
 const GPU_BACKPLATE_WIDTH_MM=98.8, GPU_PLATFORM_MM=8, GPU_RISER_MM=6;
 const BOARD_SOCKET_OFFSET=[18,0,-6];
 const initial=()=>({
-  format:'walnut-loop-v23',
+  format:'walnut-loop-v24',
   case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:209.55,fanThickness:25.4},
   parts:[
     {id:'rad1',name:'Radiator 1',type:'radiator',fans:{panel:3,inner:3},slot:'front-right',loop:'cpu',pos:[146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Radiator 1 starts on the front/right opening with three fans on each face. Port height and offsets follow provisional supplied measurements.'},
@@ -37,7 +37,7 @@ const initial=()=>({
     {id:'res2',name:'CPU reservoir · right',type:'res',loop:'cpu',orientation:'vertical',pos:[125,300,55],size:[72,238,72],ports:[{id:'in',name:'Bottom return',off:[-17,-119,0]},{id:'out',name:'Bottom supply',off:[17,-119,0]},{id:'top',name:'Top fill / vent',off:[0,119,0]}],note:'Right-side reservoir for dedicated CPU loop.'},
     {id:'pump2',name:'CPU pump · right',type:'pump',loop:'cpu',pos:[125,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'CPU DDC pump below its right-side reservoir.'},
     {id:'drain2',name:'CPU drain · right',type:'drain',loop:'cpu',pos:[190,65,125],size:[55,26,36],ports:[{id:'in',name:'T branch',off:[-28,0,0]},{id:'out',name:'Capped outlet',off:[28,0,0]}],note:'CPU-side low-point tee/drain with capped outlet.'}
-  ],loopMode:'dual',singleHardwareSide:'right', routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:false,fans:false,doors:false,caseOnly:false,internals:false,dimensions:false},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0},mountVersion:1,tubeOD:16,bendRadius:35});
+  ],loopMode:'dual',singleHardwareSide:'right',autoAllow45:false, routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:false,fans:false,doors:false,caseOnly:false,internals:false,dimensions:false},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0},mountVersion:1,tubeOD:16,bendRadius:35});
 let project=initial(); let selection='rad1',selectedRoute=null,portClicks=0;
 let selectedWaypoint=-1,routeDrag=null;
 let sceneQueue=null;
@@ -445,6 +445,28 @@ function routeEnds(rt){
  const a=fittingFor(rt.from),b=fittingFor(rt.to);
  return a&&b?[a.tip,b.tip]:null;
 }
+function tubingShape(rt){
+ const pts=routePoints(rt);
+ return rt.style==='soft'?softPolyline(pts):
+   rt.style==='bend'?roundPolyline(pts,project.bendRadius):pts;
+}
+function otherTubePaths(rt){
+ return project.routes.filter(other=>other!==rt&&!other.blocked&&
+   other._built!==false&&(!other.auto||other._built===true))
+  .map(other=>{
+   const shared=[rt.from,rt.to].filter(k=>k===other.from||k===other.to);
+   return {id:other.id,ports:[other.from,other.to],
+    points:tubingShape(other),skip:shared.map(k=>fittingFor(k)?.tip).filter(Boolean),
+    shared};
+  }).filter(item=>item.points.length>1);
+}
+function tubeTubeHits(rt,points){
+ const others=otherTubePaths(rt);
+ const shared=[rt.from,rt.to].filter(k=>others.some(o=>o.ports.includes(k)))
+  .map(k=>fittingFor(k)?.tip).filter(Boolean);
+ return routeTools.tubeCollisions({id:rt.id,points,
+  ports:[rt.from,rt.to],shared},others,project.tubeOD/2,2);
+}
 function routeObstacles(rt,margin=10){
  const clearance=project.tubeOD/2+margin;
  // Do not skip the fans attached to an endpoint radiator. Their full 120 mm
@@ -458,7 +480,8 @@ function routeObstacles(rt,margin=10){
   // larger general-purpose component margin; otherwise legitimate radiator
   // connections start inside an inflated fan box and cannot be routed.
   ...routeTools.fanBoxes(installedFans(),project.case.fanThickness||25.4,
-   project.tubeOD/2+2)
+   project.tubeOD/2+2),
+  ...routeTools.tubeBoxes(otherTubePaths(rt),project.tubeOD,2)
  ];
 }
 function routePoints(rt){
@@ -490,16 +513,20 @@ function generateRoutePath(rt){
  const original=routePoints(rt),obstacles=routeObstacles(rt,18);
  // Prefer the user's selected X/Y/Z order whenever it already clears
  // component envelopes; detour only the paths that actually need it.
- if(original.length>=2&&!routeTools.collisions(original,obstacles).length){
-  delete rt.waypoints;delete rt.blocked;
+ if(original.length>=2&&!routeTools.collisions(original,obstacles).length&&
+    !tubeTubeHits(rt,original).length){
+  delete rt.waypoints;delete rt.blocked;rt._built=true;
   return true;
  }
  const planned=planRoute(rt);
  if(planned.points){
   rt.waypoints=planned.points.slice(1,-1);
-  delete rt.blocked;
-  return true;
+  delete rt.blocked;rt._built=true;
+  // The actual 3D tube must clear the other routed centerlines too.
+  const verification=routeGeom(rt);
+  if(!verification.blocked)return true;
  }
+ rt._built=false;
  rt.blocked=planned.reason||'collision';
  // Leave no unsafe geometry to render.
  rt.waypoints=[];
@@ -596,9 +623,13 @@ function routeGeom(rt){
  // Tight curves can bow beyond otherwise-clear control points. Never silently
  // render that curve through a component; display the safe path instead.
  const clashes=routeTools.collisions(smooth,obstacles);
- const safe=!clashes.length;
- if(!safe&&routeTools.collisions(pts,obstacles).length===0)smooth=pts;
- const actual=routeTools.collisions(smooth,obstacles);
+ const safe=!clashes.length&&!tubeTubeHits(rt,smooth).length;
+ if(!safe&&!routeTools.collisions(pts,obstacles).length&&
+   !tubeTubeHits(rt,pts).length)smooth=pts;
+ const actual=[...new Set([
+  ...routeTools.collisions(smooth,obstacles),
+  ...tubeTubeHits(rt,smooth)
+ ])];
  const elbows=rt.style==='elbow'?Math.max(0,pts.length-2):0;
  return {pts,smooth,length:lengthOf(smooth),elbows,collisions:actual,
   blocked:actual.length>0,simplified:!safe&&!actual.length};
@@ -944,7 +975,7 @@ function normalizeImport(p){
  return JSON.parse(JSON.stringify(p));
 }
 function validateImport(p){
- if(!p||p.format!=='walnut-loop-v23'||!p.case||!p.display||!p.prices||
+ if(!p||p.format!=='walnut-loop-v24'||!p.case||!p.display||!p.prices||
     !Array.isArray(p.parts)||!Array.isArray(p.routes)||
     !['dual','single'].includes(p.loopMode))return false;
  const required=initial().parts.map(part=>part.id);
@@ -1019,7 +1050,7 @@ function addRoute(from,to,style,axis){
  }
  if(!connectablePort(from)||!connectablePort(to)||from===to){
   toast('Select two different, valid ports.');return
- }if(project.loopMode==='dual'&&portLoop(from)!==portLoop(to)){toast('GPU and CPU loops are separate; select ports in the same loop.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);const route={id,from,to,style,axis,loop:portLoop(from)};
+ }if(project.loopMode==='dual'&&portLoop(from)!==portLoop(to)){toast('GPU and CPU loops are separate; select ports in the same loop.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);const route={id,from,to,style,axis,loop:portLoop(from),auto:false,_built:false};
  const safe=generateRoutePath(route);
  project.routes.push(route);selectedRoute=id;selectedWaypoint=-1;
  changeModel();toast(safe?'Route added with component clearance.':'No clear automatic path. Adjust component positions or add points.');}
@@ -1051,20 +1082,42 @@ function sampleRoutes(){
   ?$('styleSelect').value:'soft';
  const chosenAxis=['xzy','zyx','yxz','xyz'].includes($('axisOrder').value)
   ?$('axisOrder').value:'xzy';
+ // Auto 45° fittings are opt-in. This affects only fittings tagged as auto;
+ // a swivel the user configured manually is never deleted.
+ project.autoAllow45=$('allowAuto45').checked;
+ for(const part of project.parts){
+  if(!part.fittings)continue;
+  for(const [port,fit] of Object.entries(part.fittings))
+   if(fit.auto)delete part.fittings[port];
+ }
+ if(project.autoAllow45){
+  // Optional modest deflection on block outlets; other hardware and any
+  // explicit user-selected 45/90/straight fittings stay unchanged.
+  for(const id of ['cpu','gpu']){
+   const part=cpart(id);
+   if(part&&(!part.fittings||!part.fittings.out)){
+    part.fittings=part.fittings||{};
+    part.fittings.out={type:'45',rotation:0,auto:true};
+   }
+  }
+ }
  project.routes=links.filter(({ports})=>connectablePort(ports[0])&&connectablePort(ports[1]))
   .map(({ports,mode},i)=>({id:'example'+i,from:ports[0],to:ports[1],
-   loop:mode,style:chosenStyle,axis:chosenAxis}));
- const unresolved=project.routes.filter(rt=>!generateRoutePath(rt)).length;
+   loop:mode,style:chosenStyle,axis:chosenAxis,auto:true,_built:false}));
+ // Greedy occupancy: route every connection after the tubes already placed.
+ // Failed routes are not reservations, and remain visible as warnings.
+ let unresolved=0;
+ for(const rt of project.routes)if(!generateRoutePath(rt))unresolved++;
  selectedRoute=null;selectedWaypoint=-1;changeModel();
  toast('Generated '+(project.routes.length-unresolved)+' clearance-aware '+chosenStyle+
   ' routes'+(unresolved?' · '+unresolved+' need manual placement (not drawn)':'')+
   '; fill/vent ports stay free.');
 }
 function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoom;view.target=[0,345,0];view.pan=[0,0];for(let id of ['isoBtn','frontBtn','sideBtn','topBtn'])$(id).classList.remove('active');draw()}
-function init(){enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();syncLoopHardwareVisibility();
+function init(){ $('allowAuto45').checked=project.autoAllow45===true;enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();syncLoopHardwareVisibility();
  // v0.18 intentionally discards old browser drafts; no automatic restore.
  try{localStorage.removeItem('walnutLoopLab05')}catch(e){}
- $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v23'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
+ $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v24'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
     window.WalnutLoopWebGL.exportPng(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)});
     return;
   }if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
