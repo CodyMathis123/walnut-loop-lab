@@ -36,7 +36,7 @@ const defaultBridge={exit:35,rise:90,order:'x'};
 const base=geo.radiatorBridge(example,defaultBridge);
 checkRightAngles(base);
 const handles=geo.radiatorBridgeHandles(example,defaultBridge);
-assert.deepEqual(handles.map(h=>h.id),['a-exit','a-top','b-top','b-exit']);
+assert.deepEqual(Array.from(handles,h=>h.id),['a-exit','a-top','b-top','b-exit']);
 const shiftedA=geo.dragRadiatorBridge(example,defaultBridge,'a-exit',25,40);
 assert.equal(shiftedA.exitA,60);
 assert.equal(shiftedA.exitB,undefined,'Moving near side does not shift far side');
