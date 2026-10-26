@@ -1067,6 +1067,12 @@ function sanitizeFittings(){
    }
   }
  }
+ // The same global 45° permission applies to INLINE elbow hardware.
+ if(project.allow45!==true)for(const route of project.routes){
+  if(route.style!=='elbow')continue;
+  for(const [index,angle] of Object.entries(route.cornerAngles||{}))
+   if(Number(angle)===45)route.cornerAngles[index]=90;
+ }
 }
 function changeModel(){sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
 function refreshCornerControls(rt){
@@ -1096,7 +1102,7 @@ function refreshCornerControls(rt){
   if(spec&&alignCornerToAngle(rt,index,spec.angle))changeModel();
  });
 }
-function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?'Clearance needed':Math.round(g.length)+' mm'} · ${g.corners.length} corners</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
+function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?(g.angleIssues.length?'Angle mismatch':'Clearance needed'):Math.round(g.length)+' mm'} · ${g.corners.length} corners</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
  let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=(rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points';$('deletePoint').disabled=selectedWaypoint<0}refreshCornerControls(rt)}
 function estimate(){
  let straight=0,elbow=0,adapter=0,softLen=0,hardLen=0;
@@ -1152,6 +1158,12 @@ function validateImport(p){
    // Imported sketches follow the same rule as interactive routing.
    p.routes.every(route=>{
     if(typeof route?.from!=='string'||typeof route?.to!=='string')return false;
+    if(route.cornerAngles!==undefined){
+     if(!route.cornerAngles||typeof route.cornerAngles!=='object'||Array.isArray(route.cornerAngles))return false;
+     const permitted=route.style==='elbow'
+      ?(p.allow45===true?[45,90]:[90]):route.style==='bend'?routeTools.BEND_ANGLES:[];
+     if(Object.values(route.cornerAngles).some(n=>!permitted.includes(Number(n))))return false;
+    }
     return ![route.from,route.to].some(k=>{
      const [id,pid]=k.split('.');
      return pid==='top'&&p.parts.find(part=>part.id===id)?.type==='res';
