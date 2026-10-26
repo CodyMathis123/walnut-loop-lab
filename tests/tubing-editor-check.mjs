@@ -100,7 +100,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.equal(api.routePoints(rt).length,initial.length);
  // Hardware modes should not move or alter prior route waypoint types.
  assert.equal(typeof api.routePointWorldDelta(15,-10,false)[1],'number');
- const projectJson=JSON.stringify({...api.project,format:'walnut-loop-v26'});
+ const projectJson=JSON.stringify({...api.project,format:'walnut-loop-v27'});
  assert.ok(projectJson.includes('"routes"'));
 }
 console.log('Tubing pointer drag, edit handles, styles, shift depth and reset passed.');
