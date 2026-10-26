@@ -668,7 +668,7 @@ function squareElbowRoute(rt,allowClashes=true){
 function squareSelectedRoute(){
  const rt=project.routes.find(r=>r.id===selectedRoute);
  if(!rt||rt.style!=='elbow'||rt.bridge)return;
- if(squareElbowRoute(rt)){
+ if(squareElbowRoute(rt,true)){
   changeModel();
   toast(routeGeom(rt).blocked?'Squared to X/Y/Z; check marked clearance problems.':
    'All straight sections are now parallel to case edges.');
@@ -1306,7 +1306,7 @@ function sanitizeFittings(){
 }
 function changeModel(){
  for(const rt of project.routes){
-  if(rt.style==='elbow'&&!rt.bridge)squareElbowRoute(rt);
+  if(rt.style==='elbow'&&!rt.bridge&&!rt.blocked)squareElbowRoute(rt);
   if(rt.lockedCorners?.length)enforceLocked90(rt);
  }
  sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
@@ -1353,7 +1353,7 @@ function refreshCornerControls(rt){
   if(spec&&alignCornerToAngle(rt,index,spec.angle))changeModel();
  });
 }
-function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?(g.angleIssues.length?'Angle mismatch':'Clearance needed'):Math.round(g.length)+' mm'} · ${g.corners.length} corners</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
+function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?(g.axisIssues?.length?'Not case-aligned':g.angleIssues.length?'Angle mismatch':'Clearance needed'):Math.round(g.length)+' mm'} · ${g.corners.length} corners</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
  let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('squareRoute').disabled=rt.style!=='elbow'||!!rt.bridge;$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=rt.bridge?'Parametric bridge · edit height and exit below':
   (rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points'+
   (rt.lockedCorners?.length?' · '+rt.lockedCorners.length+' locked at 90°':'');$('deletePoint').disabled=selectedWaypoint<0}refreshCornerControls(rt);refreshBridgeControls(rt)}
@@ -1387,7 +1387,7 @@ function estimate(){
 function refreshEstimate(){let a=estimate();$('totalLength').textContent=((a.softLen+a.hardLen)/1000).toFixed(2)+' m';$('fittingCount').textContent=a.straight;$('elbowCount').textContent=a.elbow+a.adapter;let money=n=>'$'+n.toFixed(2);$('estimateRows').innerHTML=[['Port compressions',a.straight+' × '+money(project.prices.fit),a.c1],['Tube elbows + port swivels',a.elbow+' tube + '+a.adapter+' angled port × '+money(project.prices.elbow),a.c2],['Soft tubing',a.sf.toFixed(2)+' m',a.c3],['Hard tubing',a.hf.toFixed(2)+' m',a.c4],['Other / adapters','allowance',project.prices.other]].map(([n,detail,v])=>`<tr><td>${n}<small style="display:block;color:#8493a4">${detail}</small></td><td>${money(v)}</td></tr>`).join('');$('costTotal').textContent=money(a.total)}
 // Intentionally no automatic draft persistence during greenfield iteration.
 function persist(){}
-function updateAll(){for(const rt of project.routes)if(rt.style==='elbow'&&!rt.bridge)squareElbowRoute(rt);
+function updateAll(){for(const rt of project.routes)if(rt.style==='elbow'&&!rt.bridge&&!rt.blocked)squareElbowRoute(rt);
  sceneRevision++;refreshLoopSummary();refreshCase();refreshPortSelect();refreshComponent();refreshRouteList();refreshEstimate();for(let id of ['fit','elbow','soft','hard','waste','other'])$(id==='fit'?'fitPrice':id==='elbow'?'elbowPrice':id==='soft'?'softPrice':id==='hard'?'hardPrice':id==='waste'?'wastePct':'otherCost').value=project.prices[id];$('tubeOD').value=project.tubeOD;$('bendRadius').value=project.bendRadius;for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).classList.toggle('active',project.display[k]);draw()}
 function saveFile(name,data,mime){let blob=new Blob([data],{type:mime}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1500)}// Greenfield editor: imports are current-format snapshots, never upgraded.
 // Re-opening the page intentionally starts with initial() rather than restoring
