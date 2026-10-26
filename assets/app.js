@@ -11,7 +11,7 @@ const GPU_BLOCK_MM=[127.33,33.35,197];
 const GPU_BACKPLATE_WIDTH_MM=98.8, GPU_PLATFORM_MM=8, GPU_RISER_MM=6;
 const BOARD_SOCKET_OFFSET=[18,0,-6];
 const initial=()=>({
-  format:'walnut-loop-v24',
+  format:'walnut-loop-v25',
   case:{width:546.1,height:736.6,depth:508,wood:19.05,doors:19.05,openW:406.4,openD:469.9,railWidth:50.8,railThickness:19.05,divider:488.95,lowerRailTop:19.05,portY:463.55,portFrontA:76.2,portFrontB:139.7,steelWidth:254,steelZ:0,fanOpeningWidth:122,fanOpeningHeight:362,fanOpeningBottom:82.55,fanOpeningSide:44.45,windowSide:88.9,windowTop:38.1,windowHeight:209.55,fanThickness:25.4},
   parts:[
     {id:'rad1',name:'Radiator 1',type:'radiator',fans:{panel:3,inner:3},slot:'front-right',loop:'cpu',pos:[146,273.55,180],size:[135,380,60],ports:[{id:'in',name:'Near side',off:[31.75,190,-33]},{id:'out',name:'Far side',off:[-31.75,190,-33]}],note:'Radiator 1 starts on the front/right opening with three fans on each face. Port height and offsets follow provisional supplied measurements.'},
@@ -37,7 +37,7 @@ const initial=()=>({
     {id:'res2',name:'CPU reservoir · right',type:'res',loop:'cpu',orientation:'vertical',pos:[125,300,55],size:[72,238,72],ports:[{id:'in',name:'Bottom return',off:[-17,-119,0]},{id:'out',name:'Bottom supply',off:[17,-119,0]},{id:'top',name:'Top fill / vent',off:[0,119,0]}],note:'Right-side reservoir for dedicated CPU loop.'},
     {id:'pump2',name:'CPU pump · right',type:'pump',loop:'cpu',pos:[125,104,70],size:[76,65,76],ports:[{id:'in',name:'In',off:[0,37,0]},{id:'out',name:'Out',off:[39,5,0]}],note:'CPU DDC pump below its right-side reservoir.'},
     {id:'drain2',name:'CPU drain · right',type:'drain',loop:'cpu',pos:[190,65,125],size:[55,26,36],ports:[{id:'in',name:'T branch',off:[-28,0,0]},{id:'out',name:'Capped outlet',off:[28,0,0]}],note:'CPU-side low-point tee/drain with capped outlet.'}
-  ],loopMode:'dual',singleHardwareSide:'right',autoAllow45:false, routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:false,fans:false,doors:false,caseOnly:false,internals:false,dimensions:false},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0},mountVersion:1,tubeOD:16,bendRadius:35});
+  ],loopMode:'dual',singleHardwareSide:'right',allow45:false, routes:[],prices:{fit:4.95,elbow:10.95,soft:7,hard:13.33,waste:25,other:20},display:{wood:true,steel:true,labels:false,ports:false,fans:false,doors:false,caseOnly:false,internals:false,dimensions:false},fanOnly:{'front-left':0,'front-right':0,'rear-left':0,'rear-right':0},mountVersion:1,tubeOD:16,bendRadius:35});
 let project=initial(); let selection='rad1',selectedRoute=null,portClicks=0;
 let selectedWaypoint=-1,routeDrag=null;
 let sceneQueue=null;
@@ -439,21 +439,56 @@ const routeTools=window.WalnutLoopRouting;
 function fittingFor(k){
  const [id,pid]=k.split('.');
  const part=cpart(id),port=part?.ports?.find(p=>p.id===pid);
- return part&&port?routeTools.fitting(part,port,project.tubeOD):null;
+ if(!part||!port)return null;
+ return routeTools.fitting(part,port,project.tubeOD,project.allow45===true);
 }
 function routeEnds(rt){
  const a=fittingFor(rt.from),b=fittingFor(rt.to);
  return a&&b?[a.tip,b.tip]:null;
 }
+function fittingLeads(rt){
+ const a=fittingFor(rt.from),b=fittingFor(rt.to);
+ if(!a||!b)return null;
+ const length=Math.max(32,project.tubeOD*2.3);
+ return {a,b,depart:add(a.tip,scale(a.outward,length)),
+  approach:add(b.tip,scale(b.outward,length))};
+}
+// Fixed straight sections beyond both compression fittings. A tube may only
+// leave a straight outlet along its normal, or a 90° elbow along its rotation.
+function routeCenterline(rt){
+ const ends=fittingLeads(rt);if(!ends)return [];
+ const {a,b,depart,approach}=ends;
+ let middle=[];
+ if(Array.isArray(rt.waypoints)){
+  middle=rt.waypoints.map(p=>p.slice());
+ }else{
+  let previous=depart.slice();
+  for(const axis of (rt.axis||'xzy')){
+   const i={x:0,y:1,z:2}[axis];
+   if(i===undefined)continue;
+   if(Math.abs(approach[i]-previous[i])>.01){
+    previous=previous.slice();previous[i]=approach[i];
+    middle.push(previous);
+   }
+  }
+ }
+ const output=[a.tip,depart,...middle,approach,b.tip];
+ return output.filter((p,i)=>i===0||dist(p,output[i-1])>.001);
+}
 function tubingSignature(rt){
- return JSON.stringify([routePoints(rt),rt.style,project.bendRadius]);
+ return JSON.stringify([routeCenterline(rt),rt.style,project.bendRadius]);
 }
 function tubingShape(rt){
  if(rt._displayPath&&rt._geometrySignature===tubingSignature(rt))
   return rt._displayPath.map(p=>p.slice());
- const pts=routePoints(rt);
- return rt.style==='soft'?softPolyline(pts):
-   rt.style==='bend'?roundPolyline(pts,project.bendRadius):pts;
+ const pts=routeCenterline(rt);
+ if(pts.length<4)return pts;
+ // Smoothing is restricted to the free tubing between the two fixed leads:
+ // Catmull–Rom can otherwise bend the hose backwards right at a port.
+ const middle=pts.slice(1,-1);
+ const body=rt.style==='soft'?softPolyline(middle):
+   rt.style==='bend'?roundPolyline(middle,project.bendRadius):middle;
+ return [pts[0],...body,pts[pts.length-1]];
 }
 function rememberTubePath(rt,shape){
  rt._geometrySignature=tubingSignature(rt);
@@ -484,6 +519,7 @@ function routeObstacles(rt,margin=10,includeTubes=true){
  return [
   ...routeTools.boxes(project.parts,
    [rt.from.split('.')[0],rt.to.split('.')[0]],clearance),
+  ...routeTools.cabinetBoxes(project.case,project.tubeOD/2+2),
   // End-tank port centers are only 11 mm above the top fan frame in this
   // measured mockup. Use tube radius + 2 mm fan clearance rather than the
   // larger general-purpose component margin; otherwise legitimate radiator
@@ -514,8 +550,9 @@ function routePoints(rt){
  return way;
 }
 function planRoute(rt){
- const ends=routeEnds(rt);
- if(!ends)return {points:null,blocked:['invalid-port'],reason:'ports'};
+ const leads=fittingLeads(rt);
+ if(!leads)return {points:null,blocked:['invalid-port'],reason:'ports'};
+ const ends=[leads.depart,leads.approach];
  // Preserve 8 mm tube radius plus ~10 mm general clearance. The tray
  // and motherboard AABBs receive an additional 9 mm in route-geometry.js.
  const blocks=routeObstacles(rt,10);
@@ -524,7 +561,7 @@ function planRoute(rt){
  return routeTools.plan(ends[0],ends[1],blocks);
 }
 function generateRoutePath(rt){
- const original=routePoints(rt),obstacles=routeObstacles(rt,18,false);
+ const original=routeCenterline(rt),obstacles=routeObstacles(rt,8,false);
  // Prefer the user's selected X/Y/Z order whenever it already clears
  // component envelopes; detour only the paths that actually need it.
  if(original.length>=2&&!routeTools.collisions(original,obstacles).length&&
@@ -636,7 +673,7 @@ function routeGeom(rt){
  if(rt.blocked)return {pts:[],smooth:[],length:0,elbows:0,collisions:[],blocked:true};
  // Broad tube AABBs are used to steer auto routing, but only exact
  // centerline separation decides whether a drawn tube collides.
- const pts=routePoints(rt),obstacles=routeObstacles(rt,8,false);
+ const pts=routeCenterline(rt),obstacles=routeObstacles(rt,8,false);
  let smooth=tubingShape(rt);
  // Tight curves can bow beyond otherwise-clear control points. Never silently
  // render that curve through a component; display the safe path instead.
@@ -909,7 +946,7 @@ function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.p
  <div class="field"><label>Compression fitting</label>
  <select data-fit-port="${p.id}">
  <option value="straight" ${(comp.fittings?.[p.id]?.type||'straight')==='straight'?'selected':''}>Straight</option>
- <option value="45" ${comp.fittings?.[p.id]?.type==='45'?'selected':''}>45° swivel</option>
+ ${project.allow45===true?`<option value="45" ${comp.fittings?.[p.id]?.type==='45'?'selected':''}>45° swivel</option>`:''}
  <option value="90" ${comp.fittings?.[p.id]?.type==='90'?'selected':''}>90° swivel</option>
  </select></div>
  <div class="field"><label>Swivel rotation (°)</label>
@@ -920,7 +957,10 @@ function refreshComponent(){sceneRevision++;let comp=cpart(selection)||project.p
  }));
  const updateFitting=(portId,update)=>{
   comp.fittings=comp.fittings||{};
-  comp.fittings[portId]={type:'straight',rotation:0,...comp.fittings[portId],...update};
+  const requested=update.type==='45'&&project.allow45!==true
+   ?{...update,type:'straight',rotation:0}:update;
+  comp.fittings[portId]={type:'straight',rotation:0,...comp.fittings[portId],...requested};
+  if(comp.fittings[portId].auto)delete comp.fittings[portId].auto;
   // The exit point moves with the fitting. Existing explicit route handles
   // remain where placed and retain their attachment to the fitting tip.
   changeModel();
@@ -950,6 +990,15 @@ function refreshFreeBayControls(){
   project.fanOnly[el.dataset.freeBay]=Number(el.value);
   showCoolingModel();changeModel();
  }));
+}
+function sanitizeFittings(){
+ for(const part of project.parts){
+  for(const fit of Object.values(part.fittings||{})){
+   if(fit.type==='45'&&project.allow45!==true){
+    fit.type='straight';fit.rotation=0;
+   }
+  }
+ }
 }
 function changeModel(){sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
 function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?'Clearance needed':Math.round(g.length)+' mm'} · ${g.elbows} elbow${g.elbows===1?'':'s'}</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
@@ -993,7 +1042,7 @@ function normalizeImport(p){
  return JSON.parse(JSON.stringify(p));
 }
 function validateImport(p){
- if(!p||p.format!=='walnut-loop-v24'||!p.case||!p.display||!p.prices||
+ if(!p||p.format!=='walnut-loop-v25'||!p.case||!p.display||!p.prices||
     !Array.isArray(p.parts)||!Array.isArray(p.routes)||
     !['dual','single'].includes(p.loopMode))return false;
  const required=initial().parts.map(part=>part.id);
@@ -1001,6 +1050,7 @@ function validateImport(p){
  if(ids.length!==required.length||new Set(ids).size!==required.length||
     required.some(id=>!ids.includes(id)))return false;
  return p.parts.every(part=>typeof part.id==='string' &&
+   (p.allow45===true||!Object.values(part.fittings||{}).some(f=>f.type==='45')) &&
    Array.isArray(part.pos)&&part.pos.length===3&&part.pos.every(Number.isFinite)&&
    Array.isArray(part.size)&&part.size.length===3&&part.size.every(n=>Number.isFinite(n)&&n>0)&&
    Array.isArray(part.ports)) &&
@@ -1100,25 +1150,11 @@ function sampleRoutes(){
   ?$('styleSelect').value:'soft';
  const chosenAxis=['xzy','zyx','yxz','xyz'].includes($('axisOrder').value)
   ?$('axisOrder').value:'xzy';
- // Auto 45° fittings are opt-in. This affects only fittings tagged as auto;
- // a swivel the user configured manually is never deleted.
- project.autoAllow45=$('allowAuto45').checked;
- for(const part of project.parts){
-  if(!part.fittings)continue;
-  for(const [port,fit] of Object.entries(part.fittings))
-   if(fit.auto)delete part.fittings[port];
- }
- if(project.autoAllow45){
-  // Optional modest deflection on block outlets; other hardware and any
-  // explicit user-selected 45/90/straight fittings stay unchanged.
-  for(const id of ['cpu','gpu']){
-   const part=cpart(id);
-   if(part&&(!part.fittings||!part.fittings.out)){
-    part.fittings=part.fittings||{};
-    part.fittings.out={type:'45',rotation:0,auto:true};
-   }
-  }
- }
+ // This checkbox is a global permission, not a command to install elbows.
+ // Generated paths use whatever permitted fitting is explicitly configured.
+ // No automatic 45° connectors are introduced just by checking the box.
+ project.allow45=$('allowAuto45').checked;
+ sanitizeFittings();
  // Reserve the tight reservoir return runs first. Once these exits are
  // clear, subsequent radiator/pump/drain runs avoid their occupied space.
  // This provides complete routes on the stock left/right and dual layouts
@@ -1138,10 +1174,15 @@ function sampleRoutes(){
   '; fill/vent ports stay free.');
 }
 function setView(yaw,pitch,zoom=.90){view.yaw=yaw;view.pitch=pitch;view.zoom=zoom;view.target=[0,345,0];view.pan=[0,0];for(let id of ['isoBtn','frontBtn','sideBtn','topBtn'])$(id).classList.remove('active');draw()}
-function init(){ $('allowAuto45').checked=project.autoAllow45===true;enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();syncLoopHardwareVisibility();
+function init(){ $('allowAuto45').checked=project.allow45===true;
+ $('allowAuto45').onchange=e=>{
+  project.allow45=e.target.checked;sanitizeFittings();
+  for(const rt of project.routes){delete rt._displayPath;delete rt._geometrySignature}
+  changeModel();refreshComponent();
+ };enableRenderer(/iPad|iPhone|iPod/i.test(navigator.userAgent)||!nativeCtx?'svg':'canvas');syncMeasuredRadiators();syncLoopHardwareVisibility();
  // v0.18 intentionally discards old browser drafts; no automatic restore.
  try{localStorage.removeItem('walnutLoopLab05')}catch(e){}
- $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v24'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
+ $('saveBtn').onclick=()=>{saveFile('walnut-loop-project.json',JSON.stringify({...project,format:'walnut-loop-v25'},null,2),'application/json');toast('Project JSON downloaded.')};$('loadBtn').onclick=()=>$('fileInput').click();$('fileInput').onchange=async e=>{let f=e.target.files[0];if(!f)return;try{let v=JSON.parse(await f.text());if(!validateImport(v))throw Error('Invalid project');project=normalizeImport(v);selection=project.parts[0].id;selectedRoute=null;persist();updateAll();toast('Project imported.')}catch(e){toast('Could not import: '+e.message)}e.target.value=''};$('pngBtn').onclick=()=>{draw();if(window.WalnutLoopWebGL?.active){
     window.WalnutLoopWebGL.exportPng(blob=>{if(!blob)return;const url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)});
     return;
   }if(isSvgMode){const n=$('sceneSvg').cloneNode(true);n.setAttribute('xmlns','http://www.w3.org/2000/svg');saveFile('walnut-loop-view.svg',new XMLSerializer().serializeToString(n),'image/svg+xml');toast('SVG view downloaded.')}else canvas.toBlob(blob=>{if(!blob)return;let url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='walnut-loop-view.png';a.click();setTimeout(()=>URL.revokeObjectURL(url),1500)},'image/png')};$('resetBtn').onclick=()=>{if(!confirm('Reset to the corrected front/back-panel cabinet and starter hardware?'))return;project=initial();syncMeasuredRadiators();selection='rad1';selectedRoute=null;persist();updateAll()};
