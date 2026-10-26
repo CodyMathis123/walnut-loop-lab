@@ -37,3 +37,5 @@ jobs:
         run: node tests/physical-port-clearance-check.mjs
       - name: Per-corner elbow hardware and hard-tube bend angle validation
         run: node tests/corner-angle-check.mjs
+      - name: Radiator and component dropdown port labels
+        run: node tests/port-labels-check.mjs
