@@ -22,7 +22,8 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
    dataset:{},children:[],width:1100,height:850,
    classList:{add(){},remove(){},toggle(){}},
    addEventListener(){},appendChild(v){this.children.push(v)},
-   replaceChildren(){},querySelectorAll(){return []},getContext(){return canvas},
+   replaceChildren(){},querySelectorAll(){return []},setAttribute(){},
+   getContext(){return canvas},
    getBoundingClientRect(){return {width:1100,height:850,left:0,top:0}}};
   nodes.set(id,n);return n;
  };
