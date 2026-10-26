@@ -53,7 +53,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  const {api,node,scene,geometry,logs}=harness(agent);
  const tray=api.cpart('tray'),mobo=api.cpart('mobo'),gpu=api.cpart('gpu');
  const cpu=api.cpart('cpu');
- assert.equal(api.project.format,'walnut-loop-v26');
+ assert.equal(api.project.format,'walnut-loop-v27');
  assert.deepEqual(Array.from(gpu.size),[127.33,33.35,197]);
  assert.deepEqual(Array.from(gpu.pcbSize),[98.8,1.6,197]);
  assert.equal(gpu.mountedTo,'tray');
