@@ -136,6 +136,75 @@
    max:[1+extra,y1+extra,depth/2-wood+extra]});
   return boxes;
  }
+ // Angle is the physical deflection of a tube (0°=straight, 90°=elbow).
+ // Every non-collinear corner must have a supported part/bend selected.
+ const ELBOW_ANGLES=[90,45], BEND_ANGLES=[90,60,45,30,22.5];
+ function cornerAngle(a,b,c){
+  const u=sub(b,a),v=sub(c,b),lengthU=Math.hypot(...u),lengthV=Math.hypot(...v);
+  if(lengthU<.01||lengthV<.01)return 0;
+  return Math.acos(clamp(dot(u,v)/(lengthU*lengthV),-1,1))*180/Math.PI;
+ }
+ function corners(pts,style,choices={},allow45=false,tolerance=3){
+  if(!Array.isArray(pts)||pts.length<3||style==='soft')return [];
+  const allowed=style==='elbow'?(allow45?[90,45]:[90]):BEND_ANGLES;
+  const result=[];
+  for(let i=1;i<pts.length-1;i++){
+   const actual=cornerAngle(pts[i-1],pts[i],pts[i+1]);
+   if(actual<1.5)continue;
+   const stored=Number(choices?.[i]);
+   const angle=allowed.includes(stored)?stored:
+    allowed.reduce((best,x)=>Math.abs(x-actual)<Math.abs(best-actual)?x:best);
+   result.push({index:i,actual,angle,valid:Math.abs(actual-angle)<=tolerance,
+    error:Math.abs(actual-angle)>tolerance?
+     'Corner '+i+': '+actual.toFixed(1)+'° turn cannot use '+angle+'° '+(style==='elbow'?'elbow':'formed bend'):null,
+    type:style});
+  }
+  return result;
+ }
+ // This moves ONLY the editable corner, retaining adjacent anchors and
+ // the plane of the current route. The user can inspect collision warnings.
+ function snapCorner(a,b,c,desired){
+  if(!Number.isFinite(desired)||desired<=0||desired>=180)return null;
+  const chord=sub(c,a),length=Math.hypot(...chord);
+  if(length<1)return null;
+  const axis=unit(chord),middle=add(a,axis.map(n=>n*length/2));
+  let perpendicular=sub(b,middle);
+  perpendicular=sub(perpendicular,axis.map(n=>n*dot(perpendicular,axis)));
+  if(Math.hypot(...perpendicular)<.01){
+   const reference=Math.abs(axis[1])<.9?[0,1,0]:[1,0,0];
+   perpendicular=cross(axis,reference);
+  }
+  const height=(length/2)*Math.tan(desired*Math.PI/360);
+  return add(middle,unit(perpendicular).map(n=>n*height));
+ }
+ // Orthogonalize a non-axis-aligned segment into right-angle movements.
+ // The candidate is accepted ONLY when every resulting segment clears the
+ // caller's collision boxes, so this cannot introduce a path through wood.
+ function orthogonalize(pts,obstacles=[],axisOrder='xzy'){
+  if(pts.length<2)return pts.map(p=>p.slice());
+  const axes=['x','y','z'].map(k=>({x:0,y:1,z:2})[k]);
+  const perms=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+  const fav=(axisOrder||'xzy').split('').map(k=>({x:0,y:1,z:2})[k]);
+  perms.sort((a,b)=>a.reduce((v,n,i)=>v+(n===fav[i]?0:1),0)-
+   b.reduce((v,n,i)=>v+(n===fav[i]?0:1),0));
+  let out=[pts[0].slice()];
+  for(let i=1;i<pts.length;i++){
+   const from=out[out.length-1],to=pts[i];
+   let best=null;
+   for(const seq of perms){
+    let current=from.slice(),candidate=[current];
+    for(const axis of seq){
+     if(Math.abs(current[axis]-to[axis])<.001)continue;
+     current=current.slice();current[axis]=to[axis];
+     candidate.push(current);
+    }
+    if(!collisions(candidate,obstacles).length){best=candidate;break}
+   }
+   if(!best)return null;
+   out.push(...best.slice(1));
+  }
+  return out.filter((p,i)=>i===0||dist(p,out[i-1])>.001);
+ }
  function segmentIntersects(a,b,box){
   let lo=0,hi=1;
   for(let i=0;i<3;i++){
@@ -308,5 +377,5 @@
   const blocked=collisions(candidate,obstacles);
   return {points:blocked.length?null:candidate,blocked,reason:blocked.length?'verification':null,visited};
  }
- window.WalnutLoopRouting={fitting,boxes,fanBoxes,cabinetBoxes,tubeBoxes,tubeCollisions,distanceSegments,collisions,plan,segmentIntersects,simplify};
+ window.WalnutLoopRouting={fitting,boxes,fanBoxes,cabinetBoxes,tubeBoxes,tubeCollisions,distanceSegments,cornerAngle,corners,snapCorner,orthogonalize,ELBOW_ANGLES,BEND_ANGLES,collisions,plan,segmentIntersects,simplify};
 })();
