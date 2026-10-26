@@ -499,6 +499,7 @@ function fittingLeads(rt){
 function routeCenterline(rt){
  const ends=fittingLeads(rt);if(!ends)return [];
  const {a,b,depart,approach}=ends;
+ if(rt.bridge)return routeTools.radiatorBridge(ends,rt.bridge)||[];
  let middle=[];
  if(Array.isArray(rt.waypoints)){
   middle=rt.waypoints.map(p=>p.slice());
@@ -694,6 +695,7 @@ function routeObstacles(rt,margin=10,includeTubes=true){
  ];
 }
 function routePoints(rt){
+ if(rt.bridge)return routeCenterline(rt);
  const ends=routeEnds(rt);
  if(!ends)return [];
  const [a,b]=ends;
@@ -751,6 +753,7 @@ function generateRoutePath(rt){
 // A waypoint is a true world-space 3D coordinate; endpoints remain attached
 // to real hardware ports. Existing automatic routes become editable on demand.
 function editableRoute(rt){
+ if(rt.bridge)return [];
  if(!Array.isArray(rt.waypoints))rt.waypoints=routePoints(rt).slice(1,-1);
  return rt.waypoints;
 }
@@ -854,11 +857,13 @@ function removeSelectedRoutePoint(){
 }
 function clearSelectedRoutePoints(){
  const rt=project.routes.find(r=>r.id===selectedRoute);if(!rt)return;
+ delete rt.bridge;
  delete rt.waypoints;delete rt.blocked;delete rt.lockedCorners;
  delete rt.cornerAngles;selectedWaypoint=-1;generateRoutePath(rt);changeModel();
 }
 function drawRouteHandles(){
  const rt=project.routes.find(r=>r.id===selectedRoute);
+ if(rt?.bridge)return;
  if(!rt||project.display.caseOnly||!portPos(rt.from)||!portPos(rt.to))return;
  const pts=routePoints(rt);
  // Open circles for two fixed endpoints, draggable gold circles for bends.
@@ -879,6 +884,8 @@ function routeGeom(rt){
  // Broad tube AABBs are used to steer auto routing, but only exact
  // centerline separation decides whether a drawn tube collides.
  const pts=routeCenterline(rt),obstacles=routeObstacles(rt,8,false);
+ if(rt.bridge&&!pts.length)return {pts:[],smooth:[],length:0,elbows:0,
+  corners:[],angleIssues:[],collisions:['bridge:invalid-port-direction'],blocked:true};
  let smooth=tubingShape(rt);
  // Tight curves can bow beyond otherwise-clear control points. Never silently
  // render that curve through a component; display the safe path instead.
@@ -1217,8 +1224,8 @@ function changeModel(){for(const rt of project.routes)if(rt.lockedCorners?.lengt
  sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
 function refreshCornerControls(rt){
  const panel=$('routeCornerControls'),list=$('cornerList');
- panel.style.display=rt&&rt.style!=='soft'?'block':'none';
- if(!rt||rt.style==='soft'){list.innerHTML='';return}
+ panel.style.display=rt&&rt.style!=='soft'&&!rt.bridge?'block':'none';
+ if(!rt||rt.style==='soft'||rt.bridge){list.innerHTML='';return}
  const c=routeCorners(rt),angles=rt.style==='elbow'?
   (project.allow45?[90,45]:[90]):routeTools.BEND_ANGLES;
  const pts=routeCenterline(rt);
@@ -1259,7 +1266,9 @@ function refreshCornerControls(rt){
  });
 }
 function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?(g.angleIssues.length?'Angle mismatch':'Clearance needed'):Math.round(g.length)+' mm'} · ${g.corners.length} corners</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
- let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=(rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points'+(rt.lockedCorners?.length?' · '+rt.lockedCorners.length+' locked at 90°':'');$('deletePoint').disabled=selectedWaypoint<0}refreshCornerControls(rt)}
+ let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=rt.bridge?'Parametric bridge · edit height and exit below':
+  (rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points'+
+  (rt.lockedCorners?.length?' · '+rt.lockedCorners.length+' locked at 90°':'');$('deletePoint').disabled=selectedWaypoint<0}refreshCornerControls(rt);refreshBridgeControls(rt)}
 function estimate(){
  let straight=0,elbow=0,adapter=0,softLen=0,hardLen=0;
  const ports=new Set(project.routes.filter(r=>!r.blocked).flatMap(r=>[r.from,r.to]));
@@ -1314,6 +1323,17 @@ function validateImport(p){
    // Imported sketches follow the same rule as interactive routing.
    p.routes.every(route=>{
     if(typeof route?.from!=='string'||typeof route?.to!=='string')return false;
+    if(route.bridge!==undefined){
+     const b=route.bridge;
+     if(!b||typeof b!=='object'||Array.isArray(b)||
+        route.style==='soft'||route.waypoints!==undefined||
+        route.lockedCorners!==undefined||
+        !Number.isFinite(b.exit)||b.exit<0||b.exit>180||
+        !Number.isFinite(b.rise)||b.rise<25||b.rise>260||
+        !['x','z'].includes(b.order)||[route.from,route.to].some(k=>
+         p.parts.find(part=>part.id===k.split('.')[0])?.type!=='radiator'))
+      return false;
+    }
     if(route.lockedCorners!==undefined){
       if(route.style==='soft'||!Array.isArray(route.lockedCorners)||
          !Array.isArray(route.waypoints)||
@@ -1381,7 +1401,79 @@ function setRadiatorSlot(id,slot){let p=cpart(id);if(!p||p.type!=='radiator')ret
  }
  p.slot=slot;alignRadiatorToOpening(p);project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;showCoolingModel();changeModel();refreshComponent();
 }
-function addRoute(from,to,style,axis){
+function canBridgePorts(from,to){
+ const p=cpart((from||'').split('.')[0]),q=cpart((to||'').split('.')[0]);
+ if(p?.type!=='radiator'||q?.type!=='radiator')return false;
+ const leads=fittingLeads({from,to});
+ return !!routeTools.radiatorBridge(leads,{exit:35,rise:95,order:'x'});
+}
+function configureBridge(rt,config={exit:35,rise:95,order:'x'}){
+ if(!canBridgePorts(rt.from,rt.to))return false;
+ rt.bridge={exit:clamp(Number(config.exit)||0,0,180),
+  rise:clamp(Number(config.rise)||95,25,260),
+  order:config.order==='z'?'z':'x'};
+ if(rt.style==='soft')rt.style='elbow';
+ delete rt.waypoints;delete rt.lockedCorners;delete rt.cornerAngles;
+ delete rt._displayPath;delete rt._geometrySignature;delete rt.blocked;
+ rt.auto=false;rt._built=true;selectedWaypoint=-1;
+ return true;
+}
+function detachRadiatorBridge(rt){
+ if(!rt?.bridge)return false;
+ const pts=routeCenterline(rt);
+ if(pts.length<4)return false;
+ rt.waypoints=pts.slice(2,-2).map(p=>p.slice());
+ delete rt.bridge;delete rt._displayPath;delete rt._geometrySignature;
+ selectedWaypoint=-1;return true;
+}
+function makeSelectedBridge(){
+ const rt=project.routes.find(r=>r.id===selectedRoute);
+ if(!rt)return;
+ if(!configureBridge(rt,rt.bridge||{exit:35,rise:95,order:'x'})){
+  toast('Bridge needs two radiator ports with straight, side-facing fittings.');
+  return;
+ }
+ changeModel();
+ const g=routeGeom(rt);
+ toast(g.blocked?'Bridge created with 90° turns; adjust rise/exit to clear obstacles.':
+  'Bridge created: every turn is an exact 90°. Adjust exit and rise below.');
+}
+function fitSelectedBridge(){
+ const rt=project.routes.find(r=>r.id===selectedRoute);
+ if(!rt?.bridge)return;
+ const original={...rt.bridge};
+ // Try short exits and successively higher crossbars; never accept a clash.
+ const candidates=[...new Set([original.rise,65,85,105,125,150,190,230])];
+ const exits=[...new Set([original.exit,15,25,40,60,90])];
+ let found=null;
+ outer:for(const rise of candidates)for(const exit of exits)for(const order of ['x','z']){
+  rt.bridge={exit,rise,order};
+  const g=routeGeom(rt);
+  if(!g.blocked){found={...rt.bridge};break outer}
+ }
+ rt.bridge=found||original;
+ changeModel();
+ toast(found?'Found a bridge with component and tube clearance.':
+  'No clear bridge found in the tested positions; path remains flagged.');
+}
+function refreshBridgeControls(rt){
+ const enabled=!!rt?.bridge;
+ $('bridgeControls').style.display=enabled?'block':'none';
+ $('routePointControls').style.display=enabled?'none':'block';
+ $('makeBridge').disabled=!rt||!canBridgePorts(rt.from,rt.to);
+ if(!enabled)return;
+ $('bridgeExit').value=rt.bridge.exit;
+ $('bridgeRise').value=rt.bridge.rise;
+ $('bridgeOrder').value=rt.bridge.order;
+ const g=routeGeom(rt);
+ const issues=g.collisions.map(k=>k.startsWith('bridge:')?
+  'straight port fittings required':k).slice(0,4);
+ $('bridgeStatus').textContent=g.blocked?
+  '⚠ Clearance needed: '+issues.join(', ')+
+   (g.collisions.length>4?' and more':''):
+  'All '+g.corners.length+' turns are exactly 90° · no modeled collisions.';
+}
+function addRoute(from,to,style,axis,preset=null){
  if(isFillVentPort(from)||isFillVentPort(to)){
   toast('Reservoir top ports are fill/vent only; connect tubing to the two bottom ports.');
   return;
@@ -1389,6 +1481,16 @@ function addRoute(from,to,style,axis){
  if(!connectablePort(from)||!connectablePort(to)||from===to){
   toast('Select two different, valid ports.');return
  }if(project.loopMode==='dual'&&portLoop(from)!==portLoop(to)){toast('GPU and CPU loops are separate; select ports in the same loop.');return}let id='route_'+Date.now()+'_'+Math.floor(Math.random()*99999);const route={id,from,to,style,axis,loop:portLoop(from),auto:false,_built:false};
+ if(preset==='bridge'){
+  if(!configureBridge(route)){
+   toast('Select two radiator ports with straight, side-facing fittings.');return;
+  }
+  project.routes.push(route);selectedRoute=id;selectedWaypoint=-1;
+  changeModel();
+  toast(routeGeom(route).blocked?'Bridge created, but clearance needs adjustment.':
+   '90° radiator bridge created. Tune its exit and rise in Selected route.');
+  return;
+ }
  const safe=generateRoutePath(route);
  project.routes.push(route);selectedRoute=id;selectedWaypoint=-1;
  changeModel();toast(safe?'Route added with component clearance.':'No clear automatic path. Adjust component positions or add points.');}
@@ -1489,12 +1591,41 @@ function init(){ $('allowAuto45').checked=project.allow45===true;
  }
  $('showCoolingBtn').onclick=()=>{showCoolingModel();changeModel();toast('Cooling assemblies visible. Select a radiator to edit fans.');};$('componentVisible').onchange=e=>{let part=cpart(selection);if(!part)return;part.visible=e.target.checked;project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;changeModel()};$('wallThickness').onchange=e=>{project.case.wood=clamp(Number(e.target.value),1,80);changeModel()};$('syncRads').onclick=()=>{syncMeasuredRadiators();showCoolingModel();persist();refreshComponent();changeModel();toast('Aligned installed radiators to front/back panel cutouts.');};$('dividerHeight').onchange=e=>{project.case.divider=clamp(Number(e.target.value),50,project.case.height-50);changeModel()};$('centerComponent').onclick=()=>{let p=cpart(selection);if(p)view.target=p.pos.slice();draw()};
  for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).onclick=()=>{project.display[k]=!project.display[k];$(id).classList.toggle('active',project.display[k]);changeModel()};
- $('addRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,$('styleSelect').value,$('axisOrder').value);$('populateRoutes').onclick=sampleRoutes;
- $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.style=e.target.value;if(rt.style==='soft'){delete rt.lockedCorners;delete rt.cornerAngles}changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;selectedWaypoint=-1;changeModel()};
+ $('addRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,$('styleSelect').value,$('axisOrder').value);
+ $('addBridgeRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,
+  $('styleSelect').value==='bend'?'bend':'elbow',$('axisOrder').value,'bridge');
+ $('populateRoutes').onclick=sampleRoutes;
+ $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){
+ if(e.target.value==='soft'&&rt.bridge)detachRadiatorBridge(rt);
+ rt.style=e.target.value;
+ if(rt.style==='soft'){delete rt.lockedCorners;delete rt.cornerAngles}
+ changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;selectedWaypoint=-1;changeModel()};
  $('addPoint').onclick=addSelectedRoutePoint;
  $('add90Corner').onclick=addLocked90Corner;
  $('deletePoint').onclick=removeSelectedRoutePoint;
  $('autoRoute').onclick=clearSelectedRoutePoints;
+ $('makeBridge').onclick=makeSelectedBridge;
+ $('fitBridge').onclick=fitSelectedBridge;
+ $('detachBridge').onclick=()=>{
+  const rt=project.routes.find(r=>r.id===selectedRoute);
+  if(rt&&detachRadiatorBridge(rt)){changeModel();toast('Converted bridge to manual bend points.')}
+ };
+ for(const [id,field,low,high] of [
+  ['bridgeExit','exit',0,180],['bridgeRise','rise',25,260]
+ ]){
+  $(id).onchange=e=>{
+   const rt=project.routes.find(r=>r.id===selectedRoute);
+   if(!rt?.bridge)return;
+   const n=Number(e.target.value);
+   if(Number.isFinite(n))rt.bridge[field]=clamp(n,low,high);
+   changeModel();
+  };
+ }
+ $('bridgeOrder').onchange=e=>{
+  const rt=project.routes.find(r=>r.id===selectedRoute);
+  if(!rt?.bridge)return;
+  rt.bridge.order=e.target.value==='z'?'z':'x';changeModel();
+ };
  $('tubeOD').onchange=e=>{project.tubeOD=clamp(Number(e.target.value)||16,8,25);changeModel()};$('bendRadius').onchange=e=>{project.bendRadius=clamp(Number(e.target.value)||35,8,150);changeModel()};
  for(let [id,k] of [['fitPrice','fit'],['elbowPrice','elbow'],['softPrice','soft'],['hardPrice','hard'],['wastePct','waste'],['otherCost','other']])$(id).onchange=e=>{project.prices[k]=Math.max(0,Number(e.target.value)||0);changeModel()};
  $('rendererBtn').onclick=()=>{window.WalnutLoopWebGL?.setActive(false);enableRenderer(isSvgMode?'canvas':'svg')};
@@ -1508,7 +1639,7 @@ canvas.addEventListener('pointerdown',e=>{
  const [x,y]=canvasPoint(e);
  if(!project.display.caseOnly&&e.button!==2){
   const rt=project.routes.find(r=>r.id===selectedRoute);
-  if(rt&&portPos(rt.from)&&portPos(rt.to)){
+  if(rt&&!rt.bridge&&portPos(rt.from)&&portPos(rt.to)){
    const pts=routePoints(rt);
    for(let i=1;i<pts.length-1;i++){
     const v=screen(pts[i]);
@@ -1521,7 +1652,10 @@ canvas.addEventListener('pointerdown',e=>{
   }
   if(!routeDrag){
    const hit=nearestRenderedRoute(x,y);
-   if(hit){
+   if(hit?.route.bridge){
+    selectedRoute=hit.route.id;selectedWaypoint=-1;
+    refreshRouteList();draw();
+   }else if(hit){
     const target=hit.route;
     // Clicking a tube creates an editable bend at the nearest control segment.
     const seg=nearestRouteSegment(target,x,y);
