@@ -257,6 +257,88 @@
   place(-13,77,20,9,10,chip);
  }
 
+ function renderGPU(part,geo){
+  const {box,polygon,stroke,circle3}=geo;
+  const [x,y,z]=part.pos,[fullWidth,fullHeight,fullLength]=part.size;
+  const pcbW=part.pcbSize?.[0]||98.8;
+  const pcbL=part.pcbSize?.[2]||197;
+  const left=x-fullWidth/2,pcbCenterX=left+pcbW/2;
+  const blockBottom=y-fullHeight/2;
+  const pcbBottom=blockBottom+5.2,pcbTop=pcbBottom+1.6;
+  const rear=z-fullLength/2,front=z+fullLength/2;
+  const walnut=['#835331','#6b422b','#603a26','#ac7446','#a36c41','#573521'];
+  const graphite=['#262d33','#20262e','#1a222b','#39414a','#3b4751','#19232b'];
+  const copper=['#998a75','#847361','#635b52','#b4a58b','#a99b85','#5d5550'];
+  // Planned walnut cover/platform extends slightly left of the aluminum tray.
+  // The platform is a structural design placeholder, not proof of mounting.
+  const support=part.platformThickness||8;
+  box({pos:[pcbCenterX,blockBottom-6-support/2,z],
+       size:[pcbW+8,support,pcbL+5]},walnut);
+  for(const dx of [-pcbW*.43,pcbW*.43]){
+   stroke([[pcbCenterX+dx,blockBottom-6,z-pcbL/2+5],
+           [pcbCenterX+dx,blockBottom-6,z+pcbL/2-5]],'#c18c55',.65,.5);
+  }
+  // PCB envelope is 197 x ~99 mm, inferred from Alphacool backplate,
+  // rather than the much longer original air cooler/shroud.
+  box({pos:[pcbCenterX,pcbBottom+.8,z],size:[pcbW,1.6,pcbL]},
+      ['#22392e','#172a24','#182c25','#345c44','#294d3b','#152820']);
+  // Left PCIe edge / gold fingers, alongside the motherboard's x16 socket.
+  for(let i=0;i<17;i++){
+   const zz=z-52+i*6.2;
+   polygon([[left-1,pcbTop+.25,zz],[left+8,pcbTop+.25,zz],
+    [left+8,pcbTop+.25,zz+3.8],[left-1,pcbTop+.25,zz+3.8]],'#d4ad57');
+  }
+  stroke([[left,pcbTop+.3,z-59],[left,pcbTop+.3,z+61]],'#ddbb72',1.4);
+  // Aluminum backplate, copper cooling plate and tinted acrylic cover.
+  box({pos:[pcbCenterX,blockBottom+2.6,z],size:[pcbW,5.2,pcbL]},
+     graphite);
+  box({pos:[pcbCenterX,blockBottom+11.5,z],size:[pcbW,10,pcbL]},
+     copper);
+  box({pos:[pcbCenterX,blockBottom+23,z],size:[pcbW-7,13,pcbL-9]},
+     ['#314b56','#27444f','#19353f','#456876','#385966','#17313d']);
+  // GPU die and block channels near the middle: schematic, not CAD internals.
+  const top=blockBottom+29.5;
+  for(let i=-5;i<=5;i++){
+   const xx=pcbCenterX+i*5.7;
+   stroke([[xx,top+.3,z-43],[xx,top+.3,z+45]],'#78a9b8',.8,.72);
+  }
+  const core=[[pcbCenterX-17,top+.7,z-17],
+   [pcbCenterX+17,top+.7,z-17],[pcbCenterX+17,top+.7,z+17],
+   [pcbCenterX-17,top+.7,z+17]];
+  stroke([...core,core[0]],'#b7d1d6',2,.9);
+  for(const dx of [-39,39])for(const dz of [-88,0,88])
+   stroke(circle3([pcbCenterX+dx,top+.4,z+dz],2.3,'y',12),
+     '#c5bca6',1.1,.85);
+  // Terminal on the right (+X) long edge, holding two accessible G1/4 ports.
+  const terminalW=fullWidth-pcbW;
+  const terminalCenterX=left+pcbW+terminalW/2;
+  box({pos:[terminalCenterX,blockBottom+20,z],size:[terminalW,25,69]},
+      graphite);
+  // The two modeled working ports have 34 mm separation along Z.
+  // Other physical ports are treated as capped in this planning model.
+  for(const port of part.ports||[]){
+   const at=[x+port.off[0],y+port.off[1],z+port.off[2]];
+   polygon(circle3(at,9,'x',24).slice(0,-1),'#899aa1');
+   stroke(circle3(at,9,'x',24),'#c6d4d6',1.7);
+   stroke(circle3(at,5.5,'x',24),'#0b1821',1.3);
+  }
+  // Rear metal bracket, display connectors all facing -Z.
+  const bracketZ=rear-2;
+  box({pos:[pcbCenterX,blockBottom+20,bracketZ],
+       size:[pcbW+2,28,3]},graphite);
+  for(let i=0;i<4;i++){
+   const xx=pcbCenterX-36+i*23.8;
+   const yPort=blockBottom+21;
+   stroke([[xx-7,yPort-3,bracketZ-2],[xx+7,yPort-3,bracketZ-2],
+     [xx+7,yPort+3,bracketZ-2],[xx-7,yPort+3,bracketZ-2],
+     [xx-7,yPort-3,bracketZ-2]],'#b6c1c7',1.25);
+  }
+  // Platform / PCI bracket fastener proxies along rear side.
+  for(const dx of [-pcbW*.41,pcbW*.41])for(const dz of [-pcbL*.44,pcbL*.44])
+   stroke(circle3([pcbCenterX+dx,blockBottom-6,z+dz],2,'y',10),
+     '#cfb078',1);
+ }
+
  function renderReservoir(p,geo){
   const {box,polygon,stroke,circle3}=geo;
   const horizontal=p.orientation==='horizontal';
@@ -299,5 +381,5 @@
   }
  }
 
- window.WalnutLoopPartGeometry={renderTray,renderRadiator,renderMotherboard,renderReservoir,rearPanelAlignment,trayXForRearPanelCenter};
+ window.WalnutLoopPartGeometry={renderTray,renderRadiator,renderMotherboard,renderGPU,renderReservoir,rearPanelAlignment,trayXForRearPanelCenter};
 })();
