@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Walnut Loop Lab v0.23 — collision-aware tubing editor</title>
-<link rel="stylesheet" href="assets/style.css?v=0.22">
+<link rel="stylesheet" href="assets/style.css?v=0.23">
 <script type="importmap">
 {"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.186.1/build/three.module.js"}}
 </script>
@@ -59,8 +59,8 @@
  <button class="small warn" id="deleteRoute">Delete selected route</button></div></div></details><details class="section folding-section "><summary>Tubing estimate</summary><div class="folding-inner"><div class="metrics"><div class="metric"><strong id="totalLength">—</strong><small>centerline tube</small></div><div class="metric"><strong id="fittingCount">—</strong><small>port fittings</small></div><div class="metric"><strong id="elbowCount">—</strong><small>tube elbows</small></div></div><div class="grid2" style="margin-top:14px"><div class="field"><label>Straight fitting ($/ea)</label><input id="fitPrice" type="number" min="0" step=".01"></div><div class="field"><label>Integrated elbow ($/ea)</label><input id="elbowPrice" type="number" min="0" step=".01"></div><div class="field"><label>Soft tube ($/meter)</label><input id="softPrice" type="number" min="0" step=".01"></div><div class="field"><label>Hard tube ($/meter)</label><input id="hardPrice" type="number" min="0" step=".01"></div><div class="field"><label>Waste allowance (%)</label><input id="wastePct" type="number" min="0" max="200" step="5"></div><div class="field"><label>Other adapters ($)</label><input id="otherCost" type="number" min="0" step=".01"></div></div><table style="margin-top:12px"><thead><tr><th>Part</th><th>Estimate</th></tr></thead><tbody id="estimateRows"></tbody><tfoot><tr><td><strong>Estimated total</strong></td><td><strong id="costTotal">—</strong></td></tr></tfoot></table></div></details>
 <div class="footer"><a href="docs/case-geometry.md" target="_blank" rel="noopener">Measurements &amp; model assumptions</a> · New layout on refresh · JSON import/export</div>
 </aside></main><div id="toast" class="notification"></div>
-<script src="assets/part-geometry.js?v=0.22"></script>
-<script src="assets/route-geometry.js?v=0.22"></script>
-<script src="assets/app.js?v=0.22"></script>
-<script type="module" src="assets/renderer-webgl.js?v=0.22"></script>
+<script src="assets/part-geometry.js?v=0.23"></script>
+<script src="assets/route-geometry.js?v=0.23"></script>
+<script src="assets/app.js?v=0.23"></script>
+<script type="module" src="assets/renderer-webgl.js?v=0.23"></script>
 </body></html>
