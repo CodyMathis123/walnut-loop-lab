@@ -101,15 +101,26 @@ if (!button || !viewport || !editor) {
       if (!Array.isArray(pts) || pts.length < 2 || radius <= 0) return;
       const clean = pts.filter((p, i) => i === 0 || p.some((v, j) => Math.abs(v - pts[i - 1][j]) > 0.001));
       if (clean.length < 2) return;
-      const N = 10,ring = [];
+      const N = 16,ring = [];
       const cross = (a,b) => [a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+      const dot=(a,b)=>a.reduce((v,x,i)=>v+x*b[i],0);
       const unit = a => {const l = Math.hypot(...a) || 1;return a.map(v => v/l);};
       const difference = (a,b) => a.map((v,i) => v-b[i]);
+      let previousU=null;
       for (let i=0; i<clean.length; i++) {
         const previous=clean[Math.max(0,i-1)], next=clean[Math.min(clean.length-1,i+1)];
         const tangent=unit(difference(next,previous));
-        const reference=Math.abs(tangent[1])<0.87?[0,1,0]:[1,0,0];
-        const u=unit(cross(tangent,reference)),v=unit(cross(tangent,u));
+        // Parallel-transport the radial frame so it never flips when the tube
+        // turns upward or through the old world-Y threshold. Reinitializing the
+        // frame every ring gave abrupt seam rotations and apparent pinches.
+        let u=previousU&&difference(previousU,tangent.map(n=>n*dot(previousU,tangent)));
+        if(!u||Math.hypot(...u)<.02){
+          const reference=Math.abs(tangent[1])<.90?[0,1,0]:[1,0,0];
+          u=cross(tangent,reference);
+        }
+        u=unit(u);
+        const v=unit(cross(tangent,u));
+        previousU=u;
         const points=[];
         for(let j=0;j<N;j++){
           const a=2*Math.PI*j/N;
