@@ -22,28 +22,28 @@
   const i=ratios.indexOf(Math.max(...ratios));
   return [0,1,2].map(j=>j===i?(Math.sign(port.off[i])||1):0);
  }
- function fitting(part,port,tubeOD=16){
+ function fitting(part,port,tubeOD=16,allow45=false){
   const base=add(part.pos,port.off),face=normal(part,port);
   const choice=part.fittings?.[port.id]||{};
-  const type=['straight','45','90'].includes(choice.type)?choice.type:'straight';
+  const requested=choice.type||'straight';
+  const type=requested==='90'?'90':
+   requested==='45'&&allow45?'45':'straight';
   const angle=Number.isFinite(+choice.rotation)?+choice.rotation:0;
   const reference=Math.abs(dot(face,[0,1,0]))>.85?[1,0,0]:[0,1,0];
   const axis1=unit(cross(face,reference)),axis2=unit(cross(face,axis1));
   const rad=angle*Math.PI/180;
   const side=add(axis1.map(x=>x*Math.cos(rad)),axis2.map(x=>x*Math.sin(rad)));
   const theta=type==='90'?Math.PI/2:type==='45'?Math.PI/4:0;
-  const outward=unit(add(face.map(x=>x*Math.cos(theta)),side.map(x=>x*Math.sin(theta))));
-  const step=type==='straight'?13:15;
-  const reach=type==='straight'?13:type==='45'?31:34;
-  const pts=[base,add(base,face.map(v=>v*step))];
-  if(type!=='straight'){
-   const n=6,r=reach-step;
-   for(let i=1;i<=n;i++){
-    const t=i/n;
-    const mid=unit(add(face.map(x=>x*Math.cos(theta*t)),side.map(x=>x*Math.sin(theta*t))));
-    const delta=add(face.map(v=>v*step),mid.map(v=>v*r*t));
-    pts.push(add(base,delta));
-   }
+  const outward=unit(add(face.map(x=>x*Math.cos(theta)),
+   side.map(x=>x*Math.sin(theta))));
+  const neck=type==='straight'?13:15,radius=type==='90'?19:21;
+  const pts=[base,add(base,face.map(v=>v*neck))];
+  // A real rotary fitting has a normal neck followed by an angular elbow.
+  // A circular arc has EXACTLY the expected tangent at its outlet.
+  if(type!=='straight')for(let i=1;i<=12;i++){
+   const t=theta*i/12;
+   pts.push(add(base,add(face.map(v=>v*(neck+radius*Math.sin(t))),
+    side.map(v=>v*radius*(1-Math.cos(t))))));
   }
   const tip=pts[pts.length-1];
   return {type,rotation:angle,base,tip,normal:face,outward,points:pts,
