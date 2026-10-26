@@ -8,7 +8,7 @@ const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const components=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const routing=readFileSync(new URL('../assets/route-geometry.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-assert.match(html,/assets\/app\.js\?v=0\.22/);
+assert.match(html,/assets\/app\.js\?v=0\.23/);
 assert.match(html,/id="gpuMountControls"/);
 assert.match(html,/id="alignGpuBtn"/);
 
@@ -53,7 +53,7 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  const {api,node,scene,geometry,logs}=harness(agent);
  const tray=api.cpart('tray'),mobo=api.cpart('mobo'),gpu=api.cpart('gpu');
  const cpu=api.cpart('cpu');
- assert.equal(api.project.format,'walnut-loop-v22');
+ assert.equal(api.project.format,'walnut-loop-v23');
  assert.deepEqual(Array.from(gpu.size),[127.33,33.35,197]);
  assert.deepEqual(Array.from(gpu.pcbSize),[98.8,1.6,197]);
  assert.equal(gpu.mountedTo,'tray');
