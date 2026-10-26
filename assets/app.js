@@ -529,6 +529,65 @@ function alignCornerToAngle(rt,index,desired){
  delete rt._displayPath;delete rt._geometrySignature;delete rt.blocked;
  rt._built=false;return true;
 }
+
+function shiftCornerConstraints(rt,at,delta){
+ rt.lockedCorners=(rt.lockedCorners||[]).filter(i=>delta>0||i!==at)
+  .map(i=>i>=at+(delta<0?1:0)?i+delta:i);
+ if(rt.cornerAngles){
+  const out={};
+  for(const [key,v] of Object.entries(rt.cornerAngles)){
+   const n=Number(key),pivot=at+2;
+   if(delta<0&&n===pivot)continue;
+   out[n>=pivot+(delta<0?1:0)?n+delta:n]=v;
+  }
+  rt.cornerAngles=out;
+ }
+}
+// A 90-degree lock belongs to a waypoint, not the rendered tube mesh.
+// Port exit necks stay fixed; impossible adjacent locks reject the edit.
+function enforceLocked90(rt,priority=-1){
+ if(!rt.lockedCorners?.length)return true;
+ if(!Array.isArray(rt.waypoints))return false;
+ const backup=rt.waypoints.map(p=>p.slice());
+ const order=[...new Set(rt.lockedCorners)].sort((a,b)=>
+  a===priority?-1:b===priority?1:a-b);
+ for(let pass=0;pass<32;pass++){
+  for(const i of order){
+   const pts=routeCenterline(rt),k=i+2;
+   if(k<2||k>=pts.length-2){rt.waypoints=backup;return false}
+   const actual=routeTools.cornerAngle(pts[k-1],pts[k],pts[k+1]);
+   if(Math.abs(actual-90)<.02)continue;
+   const p=routeTools.snapCorner(pts[k-1],pts[k],pts[k+1],90);
+   if(!p||dist(p,pts[k-1])<8||dist(p,pts[k+1])<8){
+    rt.waypoints=backup;return false;
+   }
+   rt.waypoints[i]=p;
+  }
+  if(order.every(i=>{
+   const pts=routeCenterline(rt),k=i+2;
+   return k>=2&&k<pts.length-2&&
+    Math.abs(routeTools.cornerAngle(pts[k-1],pts[k],pts[k+1])-90)<.15;
+  }))return true;
+ }
+ rt.waypoints=backup;return false;
+}
+function lockCorner90(rt,index,lock=true){
+ const wp=editableRoute(rt),pts=routeCenterline(rt),i=index-2;
+ if(index<2||index>pts.length-3||i>=wp.length)return false;
+ const saved=wp.map(p=>p.slice()),prior=(rt.lockedCorners||[]).slice(),
+  oldAngles={...(rt.cornerAngles||{})};
+ rt.lockedCorners=(rt.lockedCorners||[]).filter(k=>k!==i);
+ if(lock)rt.lockedCorners.push(i);
+ rt.lockedCorners.sort((a,b)=>a-b);
+ rt.cornerAngles=rt.cornerAngles||{};
+ if(lock)rt.cornerAngles[index]=90;else delete rt.cornerAngles[index];
+ if(lock&&!enforceLocked90(rt,i)){
+  rt.waypoints=saved;rt.lockedCorners=prior;rt.cornerAngles=oldAngles;
+  return false;
+ }
+ delete rt._displayPath;delete rt._geometrySignature;delete rt.blocked;
+ rt._built=false;return true;
+}
 function orthogonalRoute(rt,obstacles){
  const pts=routeCenterline(rt);
  if(pts.length<4)return false;
@@ -735,6 +794,7 @@ function insertRoutePoint(rt,segmentIndex,t=.5){
  const wp=editableRoute(rt);
  const pts=routePoints(rt),i=clamp(segmentIndex,0,pts.length-2);
  const point=mix(pts[i],pts[i+1],t);
+ shiftCornerConstraints(rt,i,1);
  wp.splice(i,0,point);delete rt.blocked;selectedRoute=rt.id;selectedWaypoint=i;
  return point;
 }
@@ -746,15 +806,48 @@ function addSelectedRoutePoint(){
  for(let i=0;i<pts.length-1;i++){const d=dist(pts[i],pts[i+1]);if(d>longest){longest=d;index=i}}
  insertRoutePoint(rt,index,.5);changeModel();
 }
+
+function addLocked90Corner(){
+ const rt=project.routes.find(r=>r.id===selectedRoute);if(!rt)return;
+ const oldStyle=rt.style;
+ if(rt.style==='soft')rt.style='elbow';
+ const prior=Array.isArray(rt.waypoints)?rt.waypoints.map(p=>p.slice()):null,
+  locks=(rt.lockedCorners||[]).slice(),angles={...(rt.cornerAngles||{})};
+ let i=selectedWaypoint,inserted=false;
+ if(i<0||i>=editableRoute(rt).length){
+  const wp=editableRoute(rt),leads=fittingLeads(rt);
+  if(!leads)return;
+  const line=[leads.depart,...wp,leads.approach];
+  let at=-1,longest=0;
+  for(let j=0;j<line.length-1;j++){
+   const d=dist(line[j],line[j+1]);
+   if(d>longest){longest=d;at=j}
+  }
+  if(at<0||longest<20){rt.style=oldStyle;toast('No room for a 90° corner.');return}
+  shiftCornerConstraints(rt,at,1);
+  wp.splice(at,0,mix(line[at],line[at+1],.5));
+  i=at;inserted=true;
+ }
+ if(!lockCorner90(rt,i+2,true)){
+  if(prior)rt.waypoints=prior;else delete rt.waypoints;
+  rt.lockedCorners=locks;rt.cornerAngles=angles;rt.style=oldStyle;
+  toast('Cannot constrain that bend to 90°.');changeModel();return;
+ }
+ selectedWaypoint=i;changeModel();
+ toast(routeGeom(rt).blocked?'90° locked; route needs clearance adjustments.':
+  (inserted?'Added':'Locked')+' a true 90° bend. Its angle stays fixed when dragged.');
+}
 function removeSelectedRoutePoint(){
  const rt=project.routes.find(r=>r.id===selectedRoute);
  if(!rt||selectedWaypoint<0)return;
  const wp=editableRoute(rt);if(selectedWaypoint>=wp.length)return;
+ shiftCornerConstraints(rt,selectedWaypoint,-1);
  wp.splice(selectedWaypoint,1);selectedWaypoint=-1;changeModel();
 }
 function clearSelectedRoutePoints(){
  const rt=project.routes.find(r=>r.id===selectedRoute);if(!rt)return;
- delete rt.waypoints;delete rt.blocked;selectedWaypoint=-1;generateRoutePath(rt);changeModel();
+ delete rt.waypoints;delete rt.blocked;delete rt.lockedCorners;
+ delete rt.cornerAngles;selectedWaypoint=-1;generateRoutePath(rt);changeModel();
 }
 function drawRouteHandles(){
  const rt=project.routes.find(r=>r.id===selectedRoute);
@@ -764,7 +857,8 @@ function drawRouteHandles(){
  pts.forEach((point,i)=>{
   const v=screen(point),end=i===0||i===pts.length-1;
   ctx.beginPath();ctx.arc(v.x,v.y,end?5:8,0,Math.PI*2);
-  ctx.fillStyle=end?'#15232b':i-1===selectedWaypoint?'#ffefb0':'#f3b86c';
+  ctx.fillStyle=end?'#15232b':i-1===selectedWaypoint?'#ffefb0':
+    rt.lockedCorners?.includes(i-1)?'#f5d36e':'#f3b86c';
   ctx.strokeStyle=end?'#b6d9df':'#171f28';ctx.lineWidth=2.5;
   ctx.fill();ctx.stroke();
  });
@@ -1366,6 +1460,7 @@ function init(){ $('allowAuto45').checked=project.allow45===true;
  $('addRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,$('styleSelect').value,$('axisOrder').value);$('populateRoutes').onclick=sampleRoutes;
  $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.style=e.target.value;changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;selectedWaypoint=-1;changeModel()};
  $('addPoint').onclick=addSelectedRoutePoint;
+ $('add90Corner').onclick=addLocked90Corner;
  $('deletePoint').onclick=removeSelectedRoutePoint;
  $('autoRoute').onclick=clearSelectedRoutePoints;
  $('tubeOD').onchange=e=>{project.tubeOD=clamp(Number(e.target.value)||16,8,25);changeModel()};$('bendRadius').onchange=e=>{project.bendRadius=clamp(Number(e.target.value)||35,8,150);changeModel()};
