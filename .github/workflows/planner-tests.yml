@@ -31,5 +31,7 @@ jobs:
         run: node tests/gpu-layout-check.mjs
       - name: Fan volumes and tubing collision avoidance
         run: node tests/fan-clearance-check.mjs
-      - name: Tube-to-tube collision and optional auto 45-degree fittings
+      - name: Tube-to-tube separation and global 45 degree fitting permission
         run: node tests/tube-separation-check.mjs
+      - name: Port exit tangents and walnut case shell clearance
+        run: node tests/physical-port-clearance-check.mjs
