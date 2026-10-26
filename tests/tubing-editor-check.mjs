@@ -6,7 +6,7 @@ const code=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const geo=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
 const routing=readFileSync(new URL('../assets/route-geometry.js',import.meta.url),'utf8');
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
-for(const id of ['addPoint','deletePoint','autoRoute','pointCount','singleHardwareSide']){
+for(const id of ['addPoint','add90Corner','deletePoint','autoRoute','pointCount','singleHardwareSide']){
  assert.ok(html.includes('id="'+id+'"'),'Missing route control '+id);
 }
 assert.match(html,/assets\/app\.js\?v=0\.27/);
@@ -41,6 +41,7 @@ function setup(userAgent){
  globalThis.testAPI={
   project,cpart,portPos,screen,draw,addRoute,routePoints,routeGeom,
   editableRoute,insertRoutePoint,nearestRenderedRoute,pointSegmentDistance,
+  routeCenterline,lockCorner90,enforceLocked90,
   routePointWorldDelta,addSelectedRoutePoint,removeSelectedRoutePoint,
   clearSelectedRoutePoints,selectRoute(id){selectedRoute=id;selectedWaypoint=-1},
   getSelectedWaypoint(){return selectedWaypoint},
@@ -95,7 +96,31 @@ for(const agent of ['Desktop Chrome','iPhone Safari']){
  assert.ok(Math.abs(rt.waypoints[0][2]-point[2])>.1 ||
   Math.abs(rt.waypoints[0][0]-point[0])>.1,'Shift must edit depth');
  assert.notEqual(JSON.stringify(rt.waypoints),originalPoints);
+ // A selected bend becomes a permanently constrained 90-degree corner.
+ api.selectRoute(rt.id);
+ node('add90Corner').onclick();
+ assert.equal(rt.lockedCorners.length,1,'New fixed 90 button must create a lock');
+ assert.equal(rt.style,'elbow');
+ const i=rt.lockedCorners[0];
+ const angle=()=>{
+  const pts=api.routeCenterline(rt),j=rt.lockedCorners[0]+2;
+  return Math.acos(Math.max(-1,Math.min(1,
+   pts[j].map((n,k)=>n-pts[j-1][k])
+    .reduce((sum,n,k)=>sum+n*(pts[j+1][k]-pts[j][k]),0)/
+   (Math.hypot(...pts[j].map((n,k)=>n-pts[j-1][k]))*
+    Math.hypot(...pts[j+1].map((n,k)=>n-pts[j][k]))))))*180/Math.PI;
+ };
+ assert.ok(Math.abs(angle()-90)<.15,'Newly locked bend must be an actual right angle');
+ // Perturb the geometry and reapply the persistent constraint.
+ rt.waypoints[i][0]+=18;
+ assert.equal(api.enforceLocked90(rt,i),true);
+ assert.ok(Math.abs(angle()-90)<.15,'Subsequent edits retain the right angle');
+ const indexBeforeInsert=rt.lockedCorners[0];
+ api.insertRoutePoint(rt,0,.5);
+ assert.equal(rt.lockedCorners[0],indexBeforeInsert+1,
+  'Inserting before a locked waypoint preserves its identity');
  node('autoRoute').onclick();
+ assert.equal(rt.lockedCorners,undefined,'Reset removes corner constraints');
  assert.equal(rt.waypoints,undefined,'Reset returns to automatic route');
  assert.equal(api.routePoints(rt).length,initial.length);
  // Hardware modes should not move or alter prior route waypoint types.

@@ -529,6 +529,65 @@ function alignCornerToAngle(rt,index,desired){
  delete rt._displayPath;delete rt._geometrySignature;delete rt.blocked;
  rt._built=false;return true;
 }
+
+function shiftCornerConstraints(rt,at,delta){
+ rt.lockedCorners=(rt.lockedCorners||[]).filter(i=>delta>0||i!==at)
+  .map(i=>i>=at+(delta<0?1:0)?i+delta:i);
+ if(rt.cornerAngles){
+  const out={};
+  for(const [key,v] of Object.entries(rt.cornerAngles)){
+   const n=Number(key),pivot=at+2;
+   if(delta<0&&n===pivot)continue;
+   out[n>=pivot+(delta<0?1:0)?n+delta:n]=v;
+  }
+  rt.cornerAngles=out;
+ }
+}
+// A 90-degree lock belongs to a waypoint, not the rendered tube mesh.
+// Port exit necks stay fixed; impossible adjacent locks reject the edit.
+function enforceLocked90(rt,priority=-1){
+ if(!rt.lockedCorners?.length)return true;
+ if(!Array.isArray(rt.waypoints))return false;
+ const backup=rt.waypoints.map(p=>p.slice());
+ const order=[...new Set(rt.lockedCorners)].sort((a,b)=>
+  a===priority?-1:b===priority?1:a-b);
+ for(let pass=0;pass<32;pass++){
+  for(const i of order){
+   const pts=routeCenterline(rt),k=i+2;
+   if(k<2||k>=pts.length-2){rt.waypoints=backup;return false}
+   const actual=routeTools.cornerAngle(pts[k-1],pts[k],pts[k+1]);
+   if(Math.abs(actual-90)<.02)continue;
+   const p=routeTools.snapCorner(pts[k-1],pts[k],pts[k+1],90);
+   if(!p||dist(p,pts[k-1])<8||dist(p,pts[k+1])<8){
+    rt.waypoints=backup;return false;
+   }
+   rt.waypoints[i]=p;
+  }
+  if(order.every(i=>{
+   const pts=routeCenterline(rt),k=i+2;
+   return k>=2&&k<pts.length-2&&
+    Math.abs(routeTools.cornerAngle(pts[k-1],pts[k],pts[k+1])-90)<.15;
+  }))return true;
+ }
+ rt.waypoints=backup;return false;
+}
+function lockCorner90(rt,index,lock=true){
+ const wp=editableRoute(rt),pts=routeCenterline(rt),i=index-2;
+ if(index<2||index>pts.length-3||i>=wp.length)return false;
+ const saved=wp.map(p=>p.slice()),prior=(rt.lockedCorners||[]).slice(),
+  oldAngles={...(rt.cornerAngles||{})};
+ rt.lockedCorners=(rt.lockedCorners||[]).filter(k=>k!==i);
+ if(lock)rt.lockedCorners.push(i);
+ rt.lockedCorners.sort((a,b)=>a-b);
+ rt.cornerAngles=rt.cornerAngles||{};
+ if(lock)rt.cornerAngles[index]=90;else delete rt.cornerAngles[index];
+ if(lock&&!enforceLocked90(rt,i)){
+  rt.waypoints=saved;rt.lockedCorners=prior;rt.cornerAngles=oldAngles;
+  return false;
+ }
+ delete rt._displayPath;delete rt._geometrySignature;delete rt.blocked;
+ rt._built=false;return true;
+}
 function orthogonalRoute(rt,obstacles){
  const pts=routeCenterline(rt);
  if(pts.length<4)return false;
@@ -735,6 +794,7 @@ function insertRoutePoint(rt,segmentIndex,t=.5){
  const wp=editableRoute(rt);
  const pts=routePoints(rt),i=clamp(segmentIndex,0,pts.length-2);
  const point=mix(pts[i],pts[i+1],t);
+ shiftCornerConstraints(rt,i,1);
  wp.splice(i,0,point);delete rt.blocked;selectedRoute=rt.id;selectedWaypoint=i;
  return point;
 }
@@ -746,15 +806,56 @@ function addSelectedRoutePoint(){
  for(let i=0;i<pts.length-1;i++){const d=dist(pts[i],pts[i+1]);if(d>longest){longest=d;index=i}}
  insertRoutePoint(rt,index,.5);changeModel();
 }
+
+function addLocked90Corner(){
+ const rt=project.routes.find(r=>r.id===selectedRoute);if(!rt)return;
+ const oldStyle=rt.style;
+ if(rt.style==='soft')rt.style='elbow';
+ const prior=Array.isArray(rt.waypoints)?rt.waypoints.map(p=>p.slice()):null,
+  locks=(rt.lockedCorners||[]).slice(),angles={...(rt.cornerAngles||{})};
+ let i=selectedWaypoint,inserted=false;
+ if(i<0||i>=editableRoute(rt).length){
+  const wp=editableRoute(rt),leads=fittingLeads(rt);
+  if(!leads)return;
+  const line=[leads.depart,...wp,leads.approach];
+  let at=-1,longest=0;
+  for(let j=0;j<line.length-1;j++){
+   const d=dist(line[j],line[j+1]);
+   if(d>longest){longest=d;at=j}
+  }
+  if(at<0||longest<20){rt.style=oldStyle;toast('No room for a 90° corner.');return}
+  shiftCornerConstraints(rt,at,1);
+  wp.splice(at,0,mix(line[at],line[at+1],.5));
+  i=at;inserted=true;
+ }
+ if(!lockCorner90(rt,i+2,true)){
+  if(prior)rt.waypoints=prior;else delete rt.waypoints;
+  rt.lockedCorners=locks;rt.cornerAngles=angles;rt.style=oldStyle;
+  toast('Cannot constrain that bend to 90°.');changeModel();return;
+ }
+ selectedWaypoint=i;changeModel();
+ toast(routeGeom(rt).blocked?'90° locked; route needs clearance adjustments.':
+  (inserted?'Added':'Locked')+' a true 90° bend. Its angle stays fixed when dragged.');
+}
 function removeSelectedRoutePoint(){
  const rt=project.routes.find(r=>r.id===selectedRoute);
  if(!rt||selectedWaypoint<0)return;
  const wp=editableRoute(rt);if(selectedWaypoint>=wp.length)return;
- wp.splice(selectedWaypoint,1);selectedWaypoint=-1;changeModel();
+ const previous=wp.map(p=>p.slice()),locks=(rt.lockedCorners||[]).slice(),
+  angles={...(rt.cornerAngles||{})};
+ shiftCornerConstraints(rt,selectedWaypoint,-1);
+ wp.splice(selectedWaypoint,1);
+ if(!enforceLocked90(rt)){
+  rt.waypoints=previous;rt.lockedCorners=locks;rt.cornerAngles=angles;
+  toast('Cannot remove that point without breaking a locked 90° corner.');
+  return;
+ }
+ selectedWaypoint=-1;changeModel();
 }
 function clearSelectedRoutePoints(){
  const rt=project.routes.find(r=>r.id===selectedRoute);if(!rt)return;
- delete rt.waypoints;delete rt.blocked;selectedWaypoint=-1;generateRoutePath(rt);changeModel();
+ delete rt.waypoints;delete rt.blocked;delete rt.lockedCorners;
+ delete rt.cornerAngles;selectedWaypoint=-1;generateRoutePath(rt);changeModel();
 }
 function drawRouteHandles(){
  const rt=project.routes.find(r=>r.id===selectedRoute);
@@ -764,7 +865,8 @@ function drawRouteHandles(){
  pts.forEach((point,i)=>{
   const v=screen(point),end=i===0||i===pts.length-1;
   ctx.beginPath();ctx.arc(v.x,v.y,end?5:8,0,Math.PI*2);
-  ctx.fillStyle=end?'#15232b':i-1===selectedWaypoint?'#ffefb0':'#f3b86c';
+  ctx.fillStyle=end?'#15232b':i-1===selectedWaypoint?'#ffefb0':
+    rt.lockedCorners?.includes(i-1)?'#f5d36e':'#f3b86c';
   ctx.strokeStyle=end?'#b6d9df':'#171f28';ctx.lineWidth=2.5;
   ctx.fill();ctx.stroke();
  });
@@ -1111,7 +1213,8 @@ function sanitizeFittings(){
    if(Number(angle)===45)route.cornerAngles[index]=90;
  }
 }
-function changeModel(){sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
+function changeModel(){for(const rt of project.routes)if(rt.lockedCorners?.length)enforceLocked90(rt);
+ sceneRevision++;persist();refreshLoopSummary();refreshPortSelect();refreshRouteList();refreshEstimate();refreshFreeBayControls();draw()}
 function refreshCornerControls(rt){
  const panel=$('routeCornerControls'),list=$('cornerList');
  panel.style.display=rt&&rt.style!=='soft'?'block':'none';
@@ -1120,18 +1223,34 @@ function refreshCornerControls(rt){
   (project.allow45?[90,45]:[90]):routeTools.BEND_ANGLES;
  const pts=routeCenterline(rt);
  list.innerHTML=c.length?c.map(spec=>{
-  const locked=spec.index===1||spec.index===pts.length-2;
+  const atPort=spec.index===1||spec.index===pts.length-2;
+  const isLocked=rt.lockedCorners?.includes(spec.index-2);
   const options=angles.map(a=>`<option value="${a}" ${spec.angle===a?'selected':''}>${a}°</option>`).join('');
-  return `<div class="field" style="margin:8px 0"><label>Corner ${spec.index} · actual ${spec.actual.toFixed(1)}°</label>
-    <div class="buttonrow"><select data-corner-index="${spec.index}" style="flex:1">${options}</select>
-    ${locked?'':`<button type="button" class="small" data-snap-corner="${spec.index}">Align corner</button>`}</div>
-    <p class="help" style="margin:3px 0">${spec.valid?'Angle matches geometry':
-      spec.error+(locked?' · Adjust neighboring waypoint':' · Align or drag waypoint')}</p></div>`;
+  return `<div class="field" style="margin:8px 0">
+   <label>Corner ${spec.index} · actual ${spec.actual.toFixed(1)}°${isLocked?' · 🔒 90° locked':''}</label>
+   <div class="buttonrow"><select data-corner-index="${spec.index}" style="flex:1">${options}</select>
+   ${atPort?'':`<button type="button" class="small" data-lock-corner="${spec.index}">${isLocked?'Unlock 90°':'Lock 90°'}</button>`}
+   ${atPort||isLocked?'':`<button type="button" class="small" data-snap-corner="${spec.index}">Align</button>`}</div>
+   <p class="help" style="margin:3px 0">${isLocked?'Enforced during dragging and nearby edits':
+    spec.valid?'Angle matches geometry':spec.error+
+    (atPort?' · Adjust neighboring waypoint':' · Align or lock at 90°')}</p></div>`;
  }).join(''):'<p class="help">No directional changes in this route.</p>';
  list.querySelectorAll('[data-corner-index]').forEach(input=>input.onchange=e=>{
   const index=Number(e.target.dataset.cornerIndex),angle=Number(e.target.value);
-  rt.cornerAngles=rt.cornerAngles||{};rt.cornerAngles[index]=angle;
-  delete rt._displayPath;delete rt._geometrySignature;changeModel();
+  const atPort=index===1||index===pts.length-2;
+  if(!atPort&&angle===90){
+   if(!lockCorner90(rt,index,true))toast('Cannot constrain that corner to 90°.');
+  }else{
+   if(rt.lockedCorners?.includes(index-2))lockCorner90(rt,index,false);
+   rt.cornerAngles=rt.cornerAngles||{};rt.cornerAngles[index]=angle;
+  }
+  changeModel();
+ });
+ list.querySelectorAll('[data-lock-corner]').forEach(button=>button.onclick=e=>{
+  const index=Number(e.target.dataset.lockCorner);
+  if(!lockCorner90(rt,index,!rt.lockedCorners?.includes(index-2)))
+   toast('Cannot constrain that corner to 90°.');
+  changeModel();
  });
  list.querySelectorAll('[data-snap-corner]').forEach(button=>button.onclick=e=>{
   const index=Number(e.target.dataset.snapCorner),
@@ -1140,7 +1259,7 @@ function refreshCornerControls(rt){
  });
 }
 function refreshRouteList(){let root=$('routeList');if(!project.routes.length){root.innerHTML='<div class="muted">No tubing routes yet. Select two ports and press Add route, or load the sample loop.</div>'}else{root.innerHTML=project.routes.map((rt,i)=>{let g=routeGeom(rt);return `<div class="route ${rt.id===selectedRoute?'selected':''}" data-route="${rt.id}"><div class="rtname">${i+1}. ${portLabel(rt.from)} → ${portLabel(rt.to)}<span class="rtdetail">${(rt.loop||portLoop(rt.from)).toUpperCase()} · ${rt.style==='soft'?'Soft':rt.style==='bend'?'Hard, bends':'Hard, elbows'} · ${g.blocked?(g.angleIssues.length?'Angle mismatch':'Clearance needed'):Math.round(g.length)+' mm'} · ${g.corners.length} corners</span></div><button class="small" data-select="${rt.id}">Edit</button></div>`}).join('');root.querySelectorAll('[data-select]').forEach(el=>el.addEventListener('click',()=>{selectedRoute=el.dataset.select;selectedWaypoint=-1;refreshRouteList();draw()}))}
- let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=(rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points';$('deletePoint').disabled=selectedWaypoint<0}refreshCornerControls(rt)}
+ let rt=project.routes.find(r=>r.id===selectedRoute);$('routeEditor').style.display=rt?'block':'none';if(rt){$('editRouteStyle').value=rt.style;$('editRouteAxis').value=rt.axis;$('pointCount').textContent=(rt.waypoints?.length??Math.max(0,routePoints(rt).length-2))+' control points'+(rt.lockedCorners?.length?' · '+rt.lockedCorners.length+' locked at 90°':'');$('deletePoint').disabled=selectedWaypoint<0}refreshCornerControls(rt)}
 function estimate(){
  let straight=0,elbow=0,adapter=0,softLen=0,hardLen=0;
  const ports=new Set(project.routes.filter(r=>!r.blocked).flatMap(r=>[r.from,r.to]));
@@ -1195,7 +1314,14 @@ function validateImport(p){
    // Imported sketches follow the same rule as interactive routing.
    p.routes.every(route=>{
     if(typeof route?.from!=='string'||typeof route?.to!=='string')return false;
-    if(route.cornerAngles!==undefined){
+    if(route.lockedCorners!==undefined){
+      if(route.style==='soft'||!Array.isArray(route.lockedCorners)||
+         !Array.isArray(route.waypoints)||
+         new Set(route.lockedCorners).size!==route.lockedCorners.length||
+         route.lockedCorners.some(i=>!Number.isInteger(i)||i<0||i>=route.waypoints.length||
+           Number(route.cornerAngles?.[i+2])!==90))return false;
+     }
+     if(route.cornerAngles!==undefined){
      if(!route.cornerAngles||typeof route.cornerAngles!=='object'||Array.isArray(route.cornerAngles))return false;
      const permitted=route.style==='elbow'
       ?(p.allow45===true?[45,90]:[90]):route.style==='bend'?routeTools.BEND_ANGLES:[];
@@ -1364,8 +1490,9 @@ function init(){ $('allowAuto45').checked=project.allow45===true;
  $('showCoolingBtn').onclick=()=>{showCoolingModel();changeModel();toast('Cooling assemblies visible. Select a radiator to edit fans.');};$('componentVisible').onchange=e=>{let part=cpart(selection);if(!part)return;part.visible=e.target.checked;project.routes=project.routes.filter(rt=>portPos(rt.from)&&portPos(rt.to));selectedRoute=null;changeModel()};$('wallThickness').onchange=e=>{project.case.wood=clamp(Number(e.target.value),1,80);changeModel()};$('syncRads').onclick=()=>{syncMeasuredRadiators();showCoolingModel();persist();refreshComponent();changeModel();toast('Aligned installed radiators to front/back panel cutouts.');};$('dividerHeight').onchange=e=>{project.case.divider=clamp(Number(e.target.value),50,project.case.height-50);changeModel()};$('centerComponent').onclick=()=>{let p=cpart(selection);if(p)view.target=p.pos.slice();draw()};
  for(let [id,k] of [['woodBtn','wood'],['steelBtn','steel'],['labelsBtn','labels'],['fansBtn','fans'],['doorsBtn','doors'],['caseOnlyBtn','caseOnly'],['dimensionsBtn','dimensions'],['showPorts','ports'],['internalsBtn','internals']])$(id).onclick=()=>{project.display[k]=!project.display[k];$(id).classList.toggle('active',project.display[k]);changeModel()};
  $('addRoute').onclick=()=>addRoute($('fromPort').value,$('toPort').value,$('styleSelect').value,$('axisOrder').value);$('populateRoutes').onclick=sampleRoutes;
- $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.style=e.target.value;changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;selectedWaypoint=-1;changeModel()};
+ $('editRouteStyle').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.style=e.target.value;if(rt.style==='soft'){delete rt.lockedCorners;delete rt.cornerAngles}changeModel()}};$('editRouteAxis').onchange=e=>{let rt=project.routes.find(r=>r.id===selectedRoute);if(rt){rt.axis=e.target.value;changeModel()}};$('deleteRoute').onclick=()=>{project.routes=project.routes.filter(r=>r.id!==selectedRoute);selectedRoute=null;selectedWaypoint=-1;changeModel()};
  $('addPoint').onclick=addSelectedRoutePoint;
+ $('add90Corner').onclick=addLocked90Corner;
  $('deletePoint').onclick=removeSelectedRoutePoint;
  $('autoRoute').onclick=clearSelectedRoutePoints;
  $('tubeOD').onchange=e=>{project.tubeOD=clamp(Number(e.target.value)||16,8,25);changeModel()};$('bendRadius').onchange=e=>{project.bendRadius=clamp(Number(e.target.value)||35,8,150);changeModel()};
@@ -1416,7 +1543,10 @@ canvas.addEventListener('pointermove',e=>{
  if(routeDrag){
   const wp=routeDrag.route.waypoints?.[routeDrag.index];
   if(wp){const delta=routePointWorldDelta(dx,dy,!!e.shiftKey);
+   const before=routeDrag.route.waypoints.map(p=>p.slice());
    routeDrag.route.waypoints[routeDrag.index]=add(wp,delta);
+   if(!enforceLocked90(routeDrag.route,routeDrag.index))
+    routeDrag.route.waypoints=before;
    sceneRevision++;draw();
   }
  }else if(e.shiftKey||e.buttons===2){
