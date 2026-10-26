@@ -7,8 +7,9 @@ import vm from 'node:vm';
 const html=readFileSync(new URL('../index.html',import.meta.url),'utf8');
 const app=readFileSync(new URL('../assets/app.js',import.meta.url),'utf8');
 const parts=readFileSync(new URL('../assets/part-geometry.js',import.meta.url),'utf8');
-assert.match(html,/<script\s+src="assets\/app\.js\?v=0\.20"><\/script>/);
-assert.match(html,/<link\s+rel="stylesheet"\s+href="assets\/style\.css\?v=0\.20">/);
+const routing=readFileSync(new URL('../assets/route-geometry.js',import.meta.url),'utf8');
+assert.match(html,/<script\s+src="assets\/app\.js\?v=0\.21"><\/script>/);
+assert.match(html,/<link\s+rel="stylesheet"\s+href="assets\/style\.css\?v=0\.21">/);
 for(const m of app.matchAll(/\$\('([A-Za-z0-9_]+)'\)/g)){
  assert.ok(html.includes('id="'+m[1]+'"'),'Missing HTML element: '+m[1]);
 }
@@ -44,6 +45,7 @@ function makeHarness(userAgent){
   setTimeout(){return 1},clearTimeout(){},console,confirm(){return true}
  });
  vm.runInContext(parts,context);
+ vm.runInContext(routing,context);
  vm.runInContext(app+'\n;globalThis.__test={initial,project,cpart,attachedFans,freeBayFans,setRadiatorSlot,normalizeImport,draw}',context);
  return {ui:node,model:context.__test,store};
 }
@@ -115,7 +117,7 @@ for(const ua of ['Desktop Chrome','iPhone Safari']){
  assert.equal(model.project.parts.filter(p=>p.type==='radiator'&&p.visible!==false).length,4);
  assert.equal(model.project.parts.filter(p=>p.type==='radiator').reduce((n,p)=>n+model.attachedFans(p).length,0),24);
  // Only snapshots from the current prototype format are accepted.
- const snapshot={...model.initial(),format:'walnut-loop-v20'};
+ const snapshot={...model.initial(),format:'walnut-loop-v21'};
  snapshot.parts.find(p=>p.id==='tray').pos[0]=44;
  const imported=model.normalizeImport(snapshot);
  assert.equal(imported.parts.find(p=>p.id==='tray').pos[0],44);
