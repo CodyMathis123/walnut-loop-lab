@@ -304,6 +304,18 @@
   const height=(length/2)*Math.tan(desired*Math.PI/360);
   return add(middle,unit(perpendicular).map(n=>n*height));
  }
+ // Straight hard-tube sections must be parallel to X, Y or Z of the case.
+ // Angle-only checks are insufficient: two diagonal vectors can form a
+ // mathematical right angle without either being parallel to a case edge.
+ function axisIssues(points,tolerance=.01){
+  const issues=[];
+  for(let i=1;i<(points?.length||0);i++){
+   const d=sub(points[i],points[i-1]);
+   const axes=[0,1,2].filter(k=>Math.abs(d[k])>tolerance);
+   if(axes.length!==1)issues.push({index:i,axes});
+  }
+  return issues;
+ }
  // Orthogonalize a non-axis-aligned segment into right-angle movements.
  // The candidate is accepted ONLY when every resulting segment clears the
  // caller's collision boxes, so this cannot introduce a path through wood.
@@ -504,5 +516,5 @@
   const blocked=collisions(candidate,obstacles);
   return {points:blocked.length?null:candidate,blocked,reason:blocked.length?'verification':null,visited};
  }
- window.WalnutLoopRouting={radiatorBridge,radiatorBridgeHandles,dragRadiatorBridge,orthogonalDrag,fitting,boxes,fanBoxes,cabinetBoxes,tubeBoxes,tubeCollisions,distanceSegments,cornerAngle,corners,snapCorner,orthogonalize,ELBOW_ANGLES,BEND_ANGLES,collisions,plan,segmentIntersects,simplify};
+ window.WalnutLoopRouting={radiatorBridge,radiatorBridgeHandles,dragRadiatorBridge,orthogonalDrag,axisIssues,fitting,boxes,fanBoxes,cabinetBoxes,tubeBoxes,tubeCollisions,distanceSegments,cornerAngle,corners,snapCorner,orthogonalize,ELBOW_ANGLES,BEND_ANGLES,collisions,plan,segmentIntersects,simplify};
 })();
