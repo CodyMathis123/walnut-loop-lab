@@ -1,6 +1,6 @@
 # Walnut Loop Lab — geometry notes
 
-**Current implementation: v0.23, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.23 format. See the current `README.md` and component builders for active defaults.
+**Current implementation: v0.24, greenfield.** Earlier release sections below are retained for measurement/reference history only. They do **not** represent compatibility guarantees or active project migrations. Browser drafts are discarded on reload and manual JSON imports require current v0.24 format. See the current `README.md` and component builders for active defaults.
 
 Updated October 25, 2026. Approximate measurements are indicated.
 
@@ -191,3 +191,13 @@ Regression test: `tests/gpu-layout-check.mjs`. Current JSON format: `walnut-loop
 ## v0.23 — fan collision bounds
 
 The function `installedFans()` is the common source for drawing and colliding actual fan assemblies. Every panel and inner fan on visible radiators, as well as fan-only units in open bays, gets a distinct padded `120 × 120 × case.fanThickness` mm AABB through `WalnutLoopRouting.fanBoxes`. IDs include radiator/slot, face, row. `routeObstacles` uses these for automatic and manual routes and **does not exempt fans attached to a radiator endpoint**. Fan collision inflation is `tubeOD/2 + 2 mm`, slightly tighter than general-purpose component inflation because measured radiator end-tank ports are close to top-row fan frames. Changing fan counts, removing a radiator, or configuring free-bay fans updates obstacles. This is a simplified envelope, not blade/grill CAD. Test: `tests/fan-clearance-check.mjs`.
+
+## v0.24 — tube occupancy, 45° opt-in and top GPU ports (current)
+
+Route generation reserves the geometry of accepted earlier tubes, including actual rendered fallback geometry when curved tubing fails a clearance check. An AABB approximation of short tube pieces is used only for guiding route search, while actual acceptance and interactive collision warnings test 3D segment-to-segment distance for both tube centerlines, requiring approximately tube diameter + 2 mm. The nearby common tee-port region (within ~55 mm) is a schematic overlap exemption. Routing can fail in crowded areas; flagged routes are intentionally not drawn. This is **not** complete CAD collision or a fabricated tee fitting model.
+
+The `allowAuto45` checkbox is **off by default**; sample generation applies automatically tagged 45° fittings only to unconfigured block outlet ports when enabled. Disabling deletes only automatically generated adapters. Manual straight, 45°, and 90° swivel selections remain available.
+
+**GPU port correction:** Alphacool GPU block terminal G1/4 connections are on the **top surface (+Y)** of the right-hand terminal, not on the right vertical side. Current world-local port offsets are `[49.4,17.675,-17]` and `[49.4,17.675,17]` mm; nominal port Z spacing 34 mm. Fitting normals are +Y; matching G1/4 ring geometry is in the X-Z plane. This corrects the obsolete +X port direction in v0.22 historical notes above.
+
+Test: `tests/tube-separation-check.mjs`. JSON project format: `walnut-loop-v24`.
